@@ -1215,12 +1215,18 @@
 
     // ========== NAVIGATION ==========
     function showPage(page) {
+      // Block config access for non-admin
+      if (page === 'config') {
+        const session = JSON.parse(localStorage.getItem('ecoville_session') || '{}');
+        if (session.user !== 'admin') return;
+      }
       document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
       document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
       document.getElementById('page-' + page).classList.add('active');
       const navBtn = document.getElementById('nav-' + page);
       if (navBtn) navBtn.classList.add('active');
       if (page === 'cart') renderCart();
+      if (page === 'config') renderUsersList();
       window.scrollTo(0, 0);
     }
 
@@ -1588,7 +1594,10 @@
       document.getElementById('configUserName').textContent = userObj.name;
       document.getElementById('configUserLogin').textContent = 'Usuario: ' + userObj.user;
       document.getElementById('productCountConfig').textContent = ALL_PRODUCTS.length;
-      renderUsersList();
+      // Config tab only for admin
+      const isAdmin = userObj.user === 'admin';
+      document.getElementById('nav-config').style.display = isAdmin ? '' : 'none';
+      if (isAdmin) renderUsersList();
     }
 
     function doLogin(e) {
