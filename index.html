@@ -959,6 +959,9 @@
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>
           <span class="cart-count empty" id="cartBadge">0</span>
         </button>
+        <button class="cart-btn" onclick="forceUpdate()" title="Atualizar app" style="width:36px;height:36px">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:18px;height:18px"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+        </button>
         <button class="cart-btn" onclick="doLogout()" title="Sair" style="width:36px;height:36px">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:18px;height:18px"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
         </button>
@@ -1175,13 +1178,6 @@
       <div id="revertSection" style="margin-top:12px;display:none">
         <button class="btn btn-outline" onclick="revertProducts()" style="font-size:13px;padding:10px">Restaurar produtos originais do app</button>
       </div>
-    </div>
-
-    <!-- Atualizar App -->
-    <div class="form-section">
-      <h3 style="margin:0 0 10px">Atualizar App</h3>
-      <p style="font-size:13px;color:var(--gray-400);margin:0 0 10px">Forca o app a baixar a versao mais recente do servidor.</p>
-      <button class="btn btn-outline" onclick="forceUpdate()" style="font-size:13px;padding:10px;width:100%">Atualizar agora</button>
     </div>
 
     <!-- App info -->
@@ -1897,7 +1893,10 @@
 
     function forceUpdate() {
       showToast('Atualizando...');
-      if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+      // Remove produtos de upload local para usar os do servidor
+      localStorage.removeItem('ecoville_products');
+      // Limpa cache do service worker e recarrega
+      if ('serviceWorker' in navigator) {
         caches.keys().then(keys => Promise.all(keys.map(k => caches.delete(k)))).then(() => {
           navigator.serviceWorker.getRegistration().then(reg => {
             if (reg) reg.update().then(() => { window.location.reload(true); });
