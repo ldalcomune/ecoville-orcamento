@@ -1,11 +1,12 @@
-const CACHE_NAME = 'ecoville-v3';
+const CACHE_NAME = 'ecoville-v4';
 const urlsToCache = [
   './',
   './index.html',
   './logo.png',
   './icon-192.png',
   './icon-512.png',
-  './manifest.json'
+  './manifest.json',
+  './users.json'
 ];
 
 // Install - cache all files

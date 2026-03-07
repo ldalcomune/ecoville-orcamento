@@ -1603,18 +1603,48 @@
       { user: 'admin', pass: 'ecoville', name: 'Administrador' }
     ];
 
+    let serverUsers = null;
+
     function getUsers() {
+      // Priority: server users > localStorage > defaults
+      if (serverUsers && serverUsers.length > 0) {
+        return serverUsers;
+      }
       const saved = localStorage.getItem('ecoville_users');
       if (saved) {
         try { return JSON.parse(saved); } catch(e) {}
       }
-      // First time: save defaults
-      localStorage.setItem('ecoville_users', JSON.stringify(DEFAULT_USERS));
       return DEFAULT_USERS;
     }
 
     function saveUsers(users) {
       localStorage.setItem('ecoville_users', JSON.stringify(users));
+      serverUsers = users;
+    }
+
+    // Fetch users from server (users.json in the repo)
+    function fetchServerUsers() {
+      fetch('./users.json?t=' + Date.now())
+        .then(r => { if (r.ok) return r.json(); throw new Error('not found'); })
+        .then(users => {
+          if (Array.isArray(users) && users.length > 0) {
+            serverUsers = users;
+            localStorage.setItem('ecoville_users', JSON.stringify(users));
+            // Re-validate current session with updated users
+            const session = localStorage.getItem('ecoville_session');
+            if (session) {
+              try {
+                const data = JSON.parse(session);
+                const valid = users.find(u => u.user === data.user);
+                if (!valid) {
+                  localStorage.removeItem('ecoville_session');
+                  showLogin();
+                }
+              } catch(e) {}
+            }
+          }
+        })
+        .catch(() => { /* use localStorage/defaults */ });
     }
 
     function checkAuth() {
@@ -1860,6 +1890,7 @@
 
     // ========== INIT ==========
     checkAuth();
+    fetchServerUsers();
     saveCart();
     filterProducts();
     updateConfigInfo();
