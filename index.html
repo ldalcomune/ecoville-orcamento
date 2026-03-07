@@ -1177,6 +1177,13 @@
       </div>
     </div>
 
+    <!-- Atualizar App -->
+    <div class="form-section">
+      <h3 style="margin:0 0 10px">Atualizar App</h3>
+      <p style="font-size:13px;color:var(--gray-400);margin:0 0 10px">Forca o app a baixar a versao mais recente do servidor.</p>
+      <button class="btn btn-outline" onclick="forceUpdate()" style="font-size:13px;padding:10px;width:100%">Atualizar agora</button>
+    </div>
+
     <!-- App info -->
     <div class="form-section" style="text-align:center;color:var(--gray-400);font-size:12px">
       <img src="logo.png" alt="Ecoville" style="height:50px;margin-bottom:8px;opacity:0.6"><br>
@@ -1885,6 +1892,20 @@
       } else {
         srcEl.innerHTML = '';
         revertEl.style.display = 'none';
+      }
+    }
+
+    function forceUpdate() {
+      showToast('Atualizando...');
+      if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+        caches.keys().then(keys => Promise.all(keys.map(k => caches.delete(k)))).then(() => {
+          navigator.serviceWorker.getRegistration().then(reg => {
+            if (reg) reg.update().then(() => { window.location.reload(true); });
+            else window.location.reload(true);
+          });
+        });
+      } else {
+        window.location.reload(true);
       }
     }
 
