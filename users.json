@@ -1,4 +1,17 @@
 [
-  { "user": "rodrigo", "pass": "eco2024", "name": "Rodrigo Dalcomune" },
-  { "user": "admin", "pass": "ecoville", "name": "Administrador" }
+  {
+    "user": "rodrigo",
+    "pass": "eco2024",
+    "name": "Rodrigo Dalcomune"
+  },
+  {
+    "user": "admin",
+    "pass": "ecoville",
+    "name": "Administrador"
+  },
+  {
+    "user": "juliana",
+    "pass": "eco1234",
+    "name": "Juliana"
+  }
 ]
