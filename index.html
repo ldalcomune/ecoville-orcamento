@@ -815,9 +815,134 @@
     }
     .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
     .toast svg { width: 18px; height: 18px; color: var(--green); }
+
+    /* ===== LOGIN SCREEN ===== */
+    .login-screen {
+      position: fixed;
+      inset: 0;
+      background: linear-gradient(160deg, var(--primary-dark) 0%, var(--primary) 50%, var(--primary-light) 100%);
+      z-index: 9999;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+    }
+    .login-screen.hidden { display: none; }
+    .login-card {
+      background: var(--white);
+      border-radius: 20px;
+      padding: 36px 28px;
+      width: 100%;
+      max-width: 360px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+      text-align: center;
+    }
+    .login-card img {
+      height: 70px;
+      margin-bottom: 8px;
+    }
+    .login-card .login-subtitle {
+      font-size: 11px;
+      color: var(--gray-400);
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      font-weight: 600;
+      margin-bottom: 28px;
+    }
+    .login-card .login-title {
+      font-size: 18px;
+      font-weight: 800;
+      color: var(--gray-800);
+      margin-bottom: 6px;
+    }
+    .login-field {
+      position: relative;
+      margin-bottom: 16px;
+      text-align: left;
+    }
+    .login-field label {
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--gray-500);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      display: block;
+      margin-bottom: 6px;
+    }
+    .login-field input {
+      width: 100%;
+      padding: 13px 16px;
+      border: 2px solid var(--gray-200);
+      border-radius: 12px;
+      font-size: 15px;
+      font-family: inherit;
+      font-weight: 500;
+      transition: all 0.2s;
+      background: var(--gray-50);
+    }
+    .login-field input:focus {
+      outline: none;
+      border-color: var(--primary);
+      background: var(--white);
+      box-shadow: 0 0 0 3px rgba(13,43,107,0.1);
+    }
+    .login-error {
+      color: var(--red);
+      font-size: 13px;
+      font-weight: 600;
+      margin-bottom: 12px;
+      min-height: 20px;
+    }
+    .login-btn {
+      width: 100%;
+      padding: 14px;
+      background: linear-gradient(135deg, var(--primary) 0%, var(--primary-light) 100%);
+      color: white;
+      border: none;
+      border-radius: 12px;
+      font-size: 16px;
+      font-weight: 700;
+      font-family: inherit;
+      cursor: pointer;
+      box-shadow: 0 4px 12px rgba(13,43,107,0.35);
+      transition: all 0.2s;
+    }
+    .login-btn:active { transform: scale(0.98); }
+    .login-footer {
+      margin-top: 20px;
+      font-size: 11px;
+      color: var(--gray-400);
+    }
+    .app-hidden { display: none !important; }
   </style>
 </head>
 <body>
+
+  <!-- Login Screen -->
+  <div class="login-screen" id="loginScreen">
+    <div class="login-card">
+      <img src="logo.png" alt="Ecoville">
+      <div class="login-subtitle">Especialista em Limpeza</div>
+      <div class="login-title">Acesso ao Sistema</div>
+      <p style="font-size:13px;color:var(--gray-400);margin-bottom:24px">Digite suas credenciais para continuar</p>
+      <form onsubmit="doLogin(event)">
+        <div class="login-field">
+          <label>Usuario</label>
+          <input type="text" id="loginUser" placeholder="Seu usuario" autocomplete="username">
+        </div>
+        <div class="login-field">
+          <label>Senha</label>
+          <input type="password" id="loginPass" placeholder="Sua senha" autocomplete="current-password">
+        </div>
+        <div class="login-error" id="loginError"></div>
+        <button type="submit" class="login-btn">Entrar</button>
+      </form>
+      <div class="login-footer">Ecoville &bull; Domingos Martins/ES</div>
+    </div>
+  </div>
+
+  <!-- App Main -->
+  <div id="appMain">
 
   <!-- Header -->
   <div class="header">
@@ -833,6 +958,9 @@
         <button class="cart-btn" onclick="showPage('cart')" title="Ver orcamento">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>
           <span class="cart-count empty" id="cartBadge">0</span>
+        </button>
+        <button class="cart-btn" onclick="doLogout()" title="Sair" style="width:36px;height:36px">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:18px;height:18px"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
         </button>
       </div>
     </div>
@@ -965,8 +1093,10 @@
     </div>
   </div>
 
+  </div><!-- /appMain -->
+
   <!-- Bottom Navigation -->
-  <div class="bottom-nav">
+  <div class="bottom-nav" id="bottomNav">
     <button class="nav-btn active" id="nav-products" onclick="showPage('products')">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m20.59 13.41-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>
       Produtos
@@ -1348,7 +1478,65 @@
       window.open('https://wa.me/?text=' + encoded, '_blank');
     }
 
+    // ========== LOGIN ==========
+    // Para adicionar/alterar usuarios, edite esta lista:
+    // Formato: { user: 'usuario', pass: 'senha', name: 'Nome exibido' }
+    const USERS = [
+      { user: 'rodrigo', pass: 'eco2024', name: 'Rodrigo Dalcomune' },
+      { user: 'admin', pass: 'ecoville', name: 'Administrador' }
+    ];
+
+    function checkAuth() {
+      const session = localStorage.getItem('ecoville_session');
+      if (session) {
+        try {
+          const data = JSON.parse(session);
+          const valid = USERS.find(u => u.user === data.user);
+          if (valid) {
+            showApp(valid.name);
+            return;
+          }
+        } catch(e) {}
+      }
+      showLogin();
+    }
+
+    function showLogin() {
+      document.getElementById('loginScreen').classList.remove('hidden');
+      document.getElementById('appMain').classList.add('app-hidden');
+      document.getElementById('bottomNav').classList.add('app-hidden');
+    }
+
+    function showApp(name) {
+      document.getElementById('loginScreen').classList.add('hidden');
+      document.getElementById('appMain').classList.remove('app-hidden');
+      document.getElementById('bottomNav').classList.remove('app-hidden');
+    }
+
+    function doLogin(e) {
+      e.preventDefault();
+      const user = document.getElementById('loginUser').value.trim().toLowerCase();
+      const pass = document.getElementById('loginPass').value;
+      const found = USERS.find(u => u.user === user && u.pass === pass);
+      if (found) {
+        localStorage.setItem('ecoville_session', JSON.stringify({ user: found.user, name: found.name }));
+        document.getElementById('loginError').textContent = '';
+        showApp(found.name);
+      } else {
+        document.getElementById('loginError').textContent = 'Usuario ou senha incorretos';
+        document.getElementById('loginPass').value = '';
+      }
+    }
+
+    function doLogout() {
+      if (confirm('Deseja sair do sistema?')) {
+        localStorage.removeItem('ecoville_session');
+        showLogin();
+      }
+    }
+
     // ========== INIT ==========
+    checkAuth();
     saveCart();
     filterProducts();
 
