@@ -1108,12 +1108,7 @@
       </div>
       <h2>Historico de Orcamentos</h2>
     </div>
-    <div style="display:flex;gap:8px;margin-bottom:16px">
-      <button class="chip active" id="hist-tab-enviados" onclick="showHistTab('enviados')">Enviados</button>
-      <button class="chip" id="hist-tab-aceitos" onclick="showHistTab('aceitos')">Aceitos</button>
-    </div>
-    <div id="histEnviados"></div>
-    <div id="histAceitos" style="display:none"></div>
+    <div id="histLista"></div>
     <div id="histEmpty" style="text-align:center;padding:40px 20px;color:var(--gray-400)">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="width:48px;height:48px;margin-bottom:12px;opacity:0.4"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
       <p>Nenhum orcamento enviado ainda</p>
@@ -2020,46 +2015,37 @@
       return orc;
     }
 
-    function showHistTab(tab) {
-      document.getElementById('hist-tab-enviados').classList.toggle('active', tab === 'enviados');
-      document.getElementById('hist-tab-aceitos').classList.toggle('active', tab === 'aceitos');
-      document.getElementById('histEnviados').style.display = tab === 'enviados' ? '' : 'none';
-      document.getElementById('histAceitos').style.display = tab === 'aceitos' ? '' : 'none';
-    }
-
     function renderHistorico() {
       const lista = getOrcamentos();
-      const enviados = lista.filter(o => o.status === 'enviado');
-      const aceitos = lista.filter(o => o.status === 'aceito');
-
+      const container = document.getElementById('histLista');
       const emptyEl = document.getElementById('histEmpty');
 
-      // Render enviados
-      const envContainer = document.getElementById('histEnviados');
-      if (enviados.length === 0) {
-        envContainer.innerHTML = '<p style="text-align:center;color:var(--gray-400);padding:20px">Nenhum orcamento pendente</p>';
+      if (lista.length === 0) {
+        container.innerHTML = '';
+        emptyEl.style.display = '';
       } else {
-        envContainer.innerHTML = enviados.map(o => renderOrcCard(o, true)).join('');
+        container.innerHTML = lista.map(o => renderOrcCard(o)).join('');
+        emptyEl.style.display = 'none';
       }
-
-      // Render aceitos
-      const aceContainer = document.getElementById('histAceitos');
-      if (aceitos.length === 0) {
-        aceContainer.innerHTML = '<p style="text-align:center;color:var(--gray-400);padding:20px">Nenhum orcamento aceito ainda</p>';
-      } else {
-        aceContainer.innerHTML = aceitos.map(o => renderOrcCard(o, false)).join('');
-      }
-
-      emptyEl.style.display = lista.length === 0 ? '' : 'none';
     }
 
-    function renderOrcCard(o, showActions) {
-      const statusColor = o.status === 'aceito' ? 'var(--green)' : 'var(--primary)';
-      const statusBg = o.status === 'aceito' ? 'var(--green-light)' : 'rgba(13,43,107,0.08)';
-      const statusText = o.status === 'aceito' ? 'ACEITO' : 'ENVIADO';
+    function renderOrcCard(o) {
+      const isAceito = o.status === 'aceito';
+      const statusColor = isAceito ? 'var(--green)' : 'var(--primary)';
+      const statusBg = isAceito ? 'var(--green-light)' : 'rgba(13,43,107,0.08)';
+      const statusText = isAceito ? 'ACEITO' : 'ENVIADO';
       const pagamentoInfo = o.formaPagamento ? `<div style="font-size:11px;color:var(--green);font-weight:600;margin-top:4px">Pagamento: ${o.formaPagamento}</div>` : '';
+
+      const aceitoBtnHtml = isAceito
+        ? `<span style="background:var(--green-light);color:var(--green);border:none;border-radius:8px;padding:8px 14px;font-size:12px;font-weight:700;display:flex;align-items:center;gap:4px;opacity:0.8">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="width:14px;height:14px"><path d="M20 6L9 17l-5-5"/></svg> Aceito
+          </span>`
+        : `<button onclick="aceitarOrcamento(${o.id})" style="background:var(--green);color:white;border:none;border-radius:8px;padding:8px 14px;font-size:12px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:4px">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="width:14px;height:14px"><path d="M20 6L9 17l-5-5"/></svg> Aceito
+          </button>`;
+
       return `
-        <div style="background:var(--white);border-radius:var(--radius);box-shadow:var(--shadow);margin-bottom:12px;overflow:hidden;border:1px solid var(--gray-100)">
+        <div style="background:var(--white);border-radius:var(--radius);box-shadow:var(--shadow);margin-bottom:12px;overflow:hidden;border:1px solid ${isAceito ? 'var(--green-light)' : 'var(--gray-100)'}">
           <div style="padding:14px 16px;border-bottom:1px solid var(--gray-100)">
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
               <span style="font-weight:800;font-size:14px;color:var(--primary)">${o.numero}</span>
@@ -2074,10 +2060,8 @@
               ${o.desconto > 0 ? `<span style="font-size:11px;color:var(--gray-400);text-decoration:line-through">${formatPrice(o.subtotal)}</span> <span style="font-size:11px;color:var(--red)">-${o.desconto}%</span><br>` : ''}
               <span style="font-size:18px;font-weight:800;color:var(--green)">${formatPrice(o.total)}</span>
             </div>
-            <div style="display:flex;gap:6px">
-              ${showActions ? `<button onclick="aceitarOrcamento(${o.id})" style="background:var(--green);color:white;border:none;border-radius:8px;padding:8px 14px;font-size:12px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:4px">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="width:14px;height:14px"><path d="M20 6L9 17l-5-5"/></svg> Aceito
-              </button>` : ''}
+            <div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end">
+              ${aceitoBtnHtml}
               <button onclick="editarOrcamento(${o.id})" style="background:rgba(13,43,107,0.08);color:var(--primary);border:none;border-radius:8px;padding:8px 14px;font-size:12px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:4px">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg> Editar
               </button>
