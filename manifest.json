@@ -1,22 +1,33 @@
 {
   "name": "Ecoville - Gerador de Orcamento",
-  "short_name": "Ecoville",
+  "short_name": "Ecoville DM",
   "description": "Aplicativo para gerar orcamentos - Ecoville Domingos Martins",
   "start_url": "./index.html",
+  "scope": "./",
+  "id": "/ecoville-orcamento/",
   "display": "standalone",
-  "background_color": "#1a3a7a",
-  "theme_color": "#1a3a7a",
+  "background_color": "#0d2b6b",
+  "theme_color": "#0d2b6b",
   "orientation": "portrait",
+  "categories": ["business", "productivity"],
   "icons": [
     {
       "src": "icon-192.png",
       "sizes": "192x192",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any"
     },
     {
       "src": "icon-512.png",
       "sizes": "512x512",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
     }
   ]
 }
