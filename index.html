@@ -1561,6 +1561,7 @@
     function novoOrcamento() {
       cart = [];
       saveCart();
+      editingOrcId = null;
       document.getElementById('clientName').value = '';
       document.getElementById('clientDoc').value = '';
       document.getElementById('clientPhone').value = '';
@@ -1976,6 +1977,14 @@
       };
 
       const lista = getOrcamentos();
+      if (editingOrcId) {
+        // Replace the old quote
+        const idx = lista.findIndex(o => o.id === editingOrcId);
+        if (idx !== -1) {
+          lista.splice(idx, 1);
+        }
+        editingOrcId = null;
+      }
       lista.unshift(orc);
       saveOrcamentos(lista);
       return orc;
@@ -2037,6 +2046,9 @@
               ${showActions ? `<button onclick="aceitarOrcamento(${o.id})" style="background:var(--green);color:white;border:none;border-radius:8px;padding:8px 14px;font-size:12px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:4px">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="width:14px;height:14px"><path d="M20 6L9 17l-5-5"/></svg> Aceito
               </button>` : ''}
+              <button onclick="editarOrcamento(${o.id})" style="background:rgba(13,43,107,0.08);color:var(--primary);border:none;border-radius:8px;padding:8px 14px;font-size:12px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:4px">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg> Editar
+              </button>
               <button onclick="verOrcamento(${o.id})" style="background:var(--gray-100);color:var(--gray-700);border:none;border-radius:8px;padding:8px 14px;font-size:12px;font-weight:700;cursor:pointer">Ver</button>
               <button onclick="excluirOrcamento(${o.id})" style="background:var(--red-light);color:var(--red);border:none;border-radius:8px;padding:8px 10px;font-size:12px;font-weight:700;cursor:pointer">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
@@ -2057,6 +2069,43 @@
         renderHistorico();
         showToast('Orcamento marcado como aceito!');
       }
+    }
+
+    let editingOrcId = null;
+
+    function editarOrcamento(id) {
+      const lista = getOrcamentos();
+      const o = lista.find(orc => orc.id === id);
+      if (!o) return;
+
+      // Load items into cart
+      cart = o.items.map((item, i) => ({
+        id: item.id || i + 1,
+        code: item.code,
+        description: item.description,
+        price: item.price,
+        qty: item.qty
+      }));
+      saveCart();
+
+      // Fill client data
+      document.getElementById('clientName').value = o.cliente || '';
+      document.getElementById('clientDoc').value = o.clienteDoc || '';
+      document.getElementById('clientPhone').value = o.clientePhone || '';
+      document.getElementById('clientAddress').value = o.clienteAddress || '';
+      document.getElementById('clientObs').value = o.obs || '';
+      document.getElementById('orcValidity').value = o.validade || '7 dias';
+      document.getElementById('discountInput').value = o.desconto || 0;
+
+      // Track which quote is being edited
+      editingOrcId = id;
+
+      // Change status back to enviado (editable)
+      o.status = 'enviado';
+      saveOrcamentos(lista);
+
+      showToast('Orcamento carregado para edicao');
+      showPage('cart');
     }
 
     function excluirOrcamento(id) {
