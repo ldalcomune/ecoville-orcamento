@@ -1304,7 +1304,7 @@
     // ========== NAVIGATION ==========
     function showPage(page) {
       // Block config access for non-admin
-      if (page === 'config' || page === 'historico') {
+      if (page === 'config') {
         const session = JSON.parse(localStorage.getItem('ecoville_session') || '{}');
         if (session.user !== 'admin') return;
       }
@@ -1761,7 +1761,6 @@
       document.getElementById('productCountConfig').textContent = ALL_PRODUCTS.length;
       // Config tab only for admin
       const isAdmin = userObj.user === 'admin';
-      document.getElementById('nav-historico').style.display = isAdmin ? '' : 'none';
       document.getElementById('nav-config').style.display = isAdmin ? '' : 'none';
       if (isAdmin) renderUsersList();
     }
@@ -2006,6 +2005,7 @@
         data: now.toLocaleDateString('pt-BR'),
         dataISO: now.toISOString(),
         vendedor: session.name || 'Vendedor',
+        vendedorUser: session.user || '',
         cliente: clientName,
         clienteDoc: clientDoc,
         clientePhone: clientPhone,
@@ -2036,7 +2036,11 @@
     }
 
     function renderHistorico() {
-      const lista = getOrcamentos();
+      const todas = getOrcamentos();
+      const session = JSON.parse(localStorage.getItem('ecoville_session') || '{}');
+      const isAdmin = session.user === 'admin';
+      // Admin ve todos, outros usuarios veem apenas os seus
+      const lista = isAdmin ? todas : todas.filter(o => o.vendedorUser === session.user || o.vendedor === session.name);
       const container = document.getElementById('histLista');
       const emptyEl = document.getElementById('histEmpty');
 
