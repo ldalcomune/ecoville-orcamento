@@ -1,4 +1,4 @@
-const CACHE_NAME = 'ecoville-v15';
+const CACHE_NAME = 'ecoville-v16';
 const urlsToCache = [
   './',
   './index.html',
