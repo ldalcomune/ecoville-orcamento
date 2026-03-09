@@ -915,6 +915,7 @@
     }
     .app-hidden { display: none !important; }
   </style>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 </head>
 <body>
 
@@ -1618,35 +1619,50 @@
       finalizarOrcamento('PDF');
     }
 
-    function sendWhatsApp() {
-      const clientName = document.getElementById('clientName').value || 'Cliente';
-      const discountPct = parseFloat(document.getElementById('discountInput').value) || 0;
-      const subtotal = cart.reduce((s, i) => s + i.price * i.qty, 0);
-      const discountVal = Math.round(subtotal * discountPct / 100);
-      const total = subtotal - discountVal;
+    async function sendWhatsApp() {
+      const el = document.getElementById('orcPrint');
+      if (!el) { showToast('Erro: orcamento nao encontrado'); return; }
 
-      let msg = `*ORCAMENTO ECOVILLE*\n`;
-      msg += `*Especialista em Limpeza*\n`;
-      msg += `----------------------------\n`;
-      msg += `Cliente: ${clientName}\n`;
-      msg += `Data: ${new Date().toLocaleDateString('pt-BR')}\n\n`;
-      msg += `*ITENS:*\n`;
-      cart.forEach((item, i) => {
-        msg += `${i+1}. ${item.description}\n   ${item.qty}x ${formatPrice(item.price)} = *${formatPrice(item.price * item.qty)}*\n`;
-      });
-      msg += `\n----------------------------\n`;
-      if (discountPct > 0) {
-        msg += `Subtotal: ${formatPrice(subtotal)}\n`;
-        msg += `Desconto (${discountPct}%): -${formatPrice(discountVal)}\n`;
+      showToast('Gerando imagem do orcamento...');
+
+      try {
+        const canvas = await html2canvas(el, {
+          scale: 2,
+          useCORS: true,
+          backgroundColor: '#ffffff'
+        });
+
+        const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
+        const file = new File([blob], 'orcamento-ecoville.png', { type: 'image/png' });
+
+        if (navigator.canShare && navigator.canShare({ files: [file] })) {
+          await navigator.share({
+            files: [file],
+            title: 'Orcamento Ecoville',
+            text: 'Segue o orcamento Ecoville'
+          });
+        } else {
+          // Fallback: baixa a imagem e abre WhatsApp com texto
+          const link = document.createElement('a');
+          link.href = canvas.toDataURL('image/png');
+          link.download = 'orcamento-ecoville.png';
+          link.click();
+          showToast('Imagem salva! Envie manualmente pelo WhatsApp.');
+
+          const clientName = document.getElementById('clientName').value || 'Cliente';
+          const total = cart.reduce((s, i) => s + i.price * i.qty, 0);
+          const discountPct = parseFloat(document.getElementById('discountInput').value) || 0;
+          const discountVal = Math.round(total * discountPct / 100);
+          const msg = `*ORCAMENTO ECOVILLE*\nCliente: ${clientName}\n*TOTAL: ${formatPrice(total - discountVal)}*\n_Veja a imagem do orcamento em anexo_`;
+          window.open('https://wa.me/?text=' + encodeURIComponent(msg), '_blank');
+        }
+
+        finalizarOrcamento('WhatsApp');
+      } catch(e) {
+        if (e.name !== 'AbortError') {
+          showToast('Erro ao compartilhar. Tente novamente.');
+        }
       }
-      msg += `*TOTAL: ${formatPrice(total)}*\n\n`;
-      msg += `_Vendedor: Rodrigo M. Dalcomune_\n`;
-      msg += `_WhatsApp: (27) 99202-5905_\n`;
-      msg += `_Ecoville - Domingos Martins/ES_`;
-
-      const encoded = encodeURIComponent(msg);
-      window.open('https://wa.me/?text=' + encoded, '_blank');
-      finalizarOrcamento('WhatsApp');
     }
 
     function finalizarOrcamento(enviadoPor) {
