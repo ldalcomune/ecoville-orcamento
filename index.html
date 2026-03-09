@@ -1270,6 +1270,101 @@
       }
     })();
 
+    // ========== API ==========
+    const API_URL = 'https://ecoville-api.vercel.app/api';
+
+    function getApiToken() {
+      return localStorage.getItem('ecoville_api_token') || '';
+    }
+
+    function apiHeaders() {
+      return {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ' + getApiToken()
+      };
+    }
+
+    async function apiLogin(user, pass) {
+      try {
+        const r = await fetch(API_URL + '/auth/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ user, pass })
+        });
+        if (r.ok) {
+          const data = await r.json();
+          localStorage.setItem('ecoville_api_token', data.token);
+          return data;
+        }
+      } catch(e) {}
+      return null;
+    }
+
+    async function apiGetOrcamentos() {
+      try {
+        const r = await fetch(API_URL + '/orcamentos', { headers: apiHeaders() });
+        if (r.ok) return await r.json();
+      } catch(e) {}
+      return null;
+    }
+
+    async function apiSaveOrcamento(orc) {
+      try {
+        const r = await fetch(API_URL + '/orcamentos', {
+          method: 'POST',
+          headers: apiHeaders(),
+          body: JSON.stringify(orc)
+        });
+        if (r.ok) return await r.json();
+      } catch(e) {}
+      return null;
+    }
+
+    async function apiUpdateOrcamento(id, updates) {
+      try {
+        const r = await fetch(API_URL + '/orcamentos/' + id, {
+          method: 'PUT',
+          headers: apiHeaders(),
+          body: JSON.stringify(updates)
+        });
+        if (r.ok) return await r.json();
+      } catch(e) {}
+      return null;
+    }
+
+    async function apiDeleteOrcamento(id) {
+      try {
+        const r = await fetch(API_URL + '/orcamentos/' + id, {
+          method: 'DELETE',
+          headers: apiHeaders()
+        });
+        if (r.ok) return true;
+      } catch(e) {}
+      return false;
+    }
+
+    async function syncOrcamentos() {
+      const remote = await apiGetOrcamentos();
+      if (remote) {
+        // Merge: remote is source of truth, but keep local-only items
+        const local = getOrcamentos();
+        const remoteIds = new Set(remote.map(o => o.id));
+        const localOnly = local.filter(o => !remoteIds.has(o.id));
+
+        // Upload local-only to server
+        for (const orc of localOnly) {
+          await apiSaveOrcamento(orc);
+        }
+
+        // Save merged list locally
+        const merged = [...remote, ...localOnly];
+        merged.sort((a, b) => b.id - a.id);
+        saveOrcamentosLocal(merged);
+        return merged;
+      }
+      return null;
+    }
+
     // ========== STATE ==========
     let cart = JSON.parse(localStorage.getItem('ecoville_cart') || '[]');
     let currentSector = 'all';
@@ -1765,16 +1860,25 @@
       if (isAdmin) renderUsersList();
     }
 
-    function doLogin(e) {
+    async function doLogin(e) {
       e.preventDefault();
       const user = document.getElementById('loginUser').value.trim().toLowerCase();
       const pass = document.getElementById('loginPass').value;
+
+      // Try API login first (gets token for sync)
+      const apiResult = await apiLogin(user, pass);
+
+      // Also check local users
       const users = getUsers();
       const found = users.find(u => u.user === user && u.pass === pass);
-      if (found) {
-        localStorage.setItem('ecoville_session', JSON.stringify({ user: found.user, name: found.name }));
+
+      if (found || apiResult) {
+        const userData = found || { user: apiResult.user, name: apiResult.name };
+        localStorage.setItem('ecoville_session', JSON.stringify({ user: userData.user, name: userData.name }));
         document.getElementById('loginError').textContent = '';
-        showApp(found);
+        showApp(userData);
+        // Sync orcamentos after login
+        syncOrcamentos().catch(() => {});
       } else {
         document.getElementById('loginError').textContent = 'Usuario ou senha incorretos';
         document.getElementById('loginPass').value = '';
@@ -1784,6 +1888,7 @@
     function doLogout() {
       if (confirm('Deseja sair do sistema?')) {
         localStorage.removeItem('ecoville_session');
+        localStorage.removeItem('ecoville_api_token');
         showLogin();
       }
     }
@@ -1976,8 +2081,12 @@
       try { return JSON.parse(localStorage.getItem('ecoville_orcamentos') || '[]'); } catch(e) { return []; }
     }
 
-    function saveOrcamentos(list) {
+    function saveOrcamentosLocal(list) {
       localStorage.setItem('ecoville_orcamentos', JSON.stringify(list));
+    }
+
+    function saveOrcamentos(list) {
+      saveOrcamentosLocal(list);
     }
 
     let orcamentoJaSalvo = false;
@@ -2028,21 +2137,36 @@
         if (idx !== -1) {
           lista.splice(idx, 1);
         }
+        // Delete old from server
+        apiDeleteOrcamento(editingOrcId).catch(() => {});
         editingOrcId = null;
       }
       lista.unshift(orc);
-      saveOrcamentos(lista);
+      saveOrcamentosLocal(lista);
+      // Sync to server (fire and forget)
+      apiSaveOrcamento(orc).catch(() => {});
       return orc;
     }
 
-    function renderHistorico() {
-      const todas = getOrcamentos();
-      const session = JSON.parse(localStorage.getItem('ecoville_session') || '{}');
-      const isAdmin = session.user === 'admin';
-      // Admin ve todos, outros usuarios veem apenas os seus
-      const lista = isAdmin ? todas : todas.filter(o => o.vendedorUser === session.user || o.vendedor === session.name);
+    async function renderHistorico() {
       const container = document.getElementById('histLista');
       const emptyEl = document.getElementById('histEmpty');
+
+      // Try to sync from server first
+      const remote = await apiGetOrcamentos();
+      let lista;
+      if (remote) {
+        // Server already filters by user (admin sees all)
+        lista = remote;
+        // Update local cache
+        saveOrcamentosLocal(lista);
+      } else {
+        // Offline fallback
+        const todas = getOrcamentos();
+        const session = JSON.parse(localStorage.getItem('ecoville_session') || '{}');
+        const isAdmin = session.user === 'admin';
+        lista = isAdmin ? todas : todas.filter(o => o.vendedorUser === session.user || o.vendedor === session.name);
+      }
 
       if (lista.length === 0) {
         container.innerHTML = '';
@@ -2155,7 +2279,8 @@
         orc.status = 'aceito';
         orc.dataAceite = new Date().toLocaleDateString('pt-BR');
         orc.formaPagamento = formaPagamento;
-        saveOrcamentos(lista);
+        saveOrcamentosLocal(lista);
+        apiUpdateOrcamento(orc.id, { status: 'aceito', dataAceite: orc.dataAceite, formaPagamento }).catch(() => {});
         renderHistorico();
         showToast('Orcamento aceito - ' + formaPagamento);
       }
@@ -2207,7 +2332,8 @@
     function excluirOrcamento(id) {
       if (!confirm('Excluir este orcamento do historico?')) return;
       const lista = getOrcamentos().filter(o => o.id !== id);
-      saveOrcamentos(lista);
+      saveOrcamentosLocal(lista);
+      apiDeleteOrcamento(id).catch(() => {});
       renderHistorico();
       showToast('Orcamento excluido');
     }
