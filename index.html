@@ -2151,7 +2151,7 @@
         subtotal: subtotal,
         descontoVal: discountVal,
         total: total,
-        status: 'enviado',
+        status: (!enviadoPor || enviadoPor === 'Salvo') ? 'salvo' : 'enviado',
         enviadoPor: enviadoPor || 'Salvo'
       };
 
@@ -2426,9 +2426,11 @@
 
     function renderOrcCard(o) {
       const isAceito = o.status === 'aceito';
-      const statusColor = isAceito ? 'var(--green)' : 'var(--primary)';
-      const statusBg = isAceito ? 'var(--green-light)' : 'rgba(13,43,107,0.08)';
-      const statusText = isAceito ? 'ACEITO' : 'ENVIADO';
+      const isSalvo = o.status === 'salvo';
+      let statusColor, statusBg, statusText;
+      if (isAceito) { statusColor = 'var(--green)'; statusBg = 'var(--green-light)'; statusText = 'ACEITO'; }
+      else if (isSalvo) { statusColor = '#d97706'; statusBg = '#fef3c7'; statusText = 'SALVO'; }
+      else { statusColor = 'var(--primary)'; statusBg = 'rgba(13,43,107,0.08)'; statusText = 'ENVIADO'; }
       const pagamentoInfo = o.formaPagamento ? `<div style="font-size:11px;color:var(--green);font-weight:600;margin-top:4px">Pagamento: ${o.formaPagamento}</div>` : '';
 
       const aceitoBtnHtml = isAceito
