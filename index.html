@@ -2347,6 +2347,14 @@
             <label style="font-size:12px;font-weight:600;color:var(--gray-600);display:block;margin-bottom:4px">Email (opcional)</label>
             <input id="cobrEmail" type="email" value="" style="width:100%;padding:10px 12px;border:2px solid var(--gray-200);border-radius:var(--radius);font-size:14px;font-family:inherit" placeholder="email@exemplo.com">
           </div>
+          <div style="margin-bottom:12px">
+            <label style="font-size:12px;font-weight:600;color:var(--gray-600);display:block;margin-bottom:4px">Vencimento</label>
+            <select id="cobrVencimento" style="width:100%;padding:10px 12px;border:2px solid var(--gray-200);border-radius:var(--radius);font-size:14px;font-family:inherit;background:var(--white)">
+              <option value="7">7 dias</option>
+              <option value="14">14 dias</option>
+              <option value="21">21 dias</option>
+            </select>
+          </div>
           <div style="margin-bottom:16px">
             <label style="font-size:12px;font-weight:600;color:var(--gray-600);display:block;margin-bottom:8px">Formas de pagamento</label>
             <div style="display:flex;gap:8px">
@@ -2370,6 +2378,7 @@
       const nome = document.getElementById('cobrNome').value.trim();
       const doc = document.getElementById('cobrDoc').value.trim();
       const email = document.getElementById('cobrEmail').value.trim();
+      const vencimentoDias = parseInt(document.getElementById('cobrVencimento').value);
       const boleto = document.getElementById('cobrBoleto').checked;
       const pix = document.getElementById('cobrPix').checked;
 
@@ -2397,6 +2406,7 @@
           body: JSON.stringify({
             orcamentoId: id,
             paymentForms: forms,
+            dueDays: vencimentoDias,
             customer: {
               name: nome,
               document: doc,
