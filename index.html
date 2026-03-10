@@ -2218,7 +2218,7 @@
 
         // Historico shows salvo/enviado/aceito (not entrega/pronto)
         const totalAll = lista.length;
-        lista = lista.filter(o => o.status !== 'entrega' && o.status !== 'pronto');
+        lista = lista.filter(o => !['entrega', 'pronto', 'agendado', 'entregue'].includes(o.status));
 
         if (lista.length === 0) {
           container.innerHTML = '';
@@ -2240,7 +2240,7 @@
         const session = JSON.parse(localStorage.getItem('ecoville_session') || '{}');
         const isAdmin = session.user === 'admin';
         let lista = isAdmin ? todas : todas.filter(o => o.vendedorUser === session.user || o.vendedor === session.name);
-        lista = lista.filter(o => o.status !== 'entrega' && o.status !== 'pronto');
+        lista = lista.filter(o => !['entrega', 'pronto', 'agendado', 'entregue'].includes(o.status));
         if (lista.length === 0) {
           container.innerHTML = '';
           emptyEl.style.display = '';
@@ -2269,8 +2269,8 @@
       const session = JSON.parse(localStorage.getItem('ecoville_session') || '{}');
       const isAdmin = session.user === 'admin';
 
-      // Entrega shows only items with status entrega or pronto
-      let lista = todas.filter(o => o.status === 'entrega' || o.status === 'pronto');
+      // Entrega shows items in delivery pipeline
+      let lista = todas.filter(o => ['entrega', 'pronto', 'agendado', 'entregue'].includes(o.status));
       if (!isAdmin) {
         lista = lista.filter(o => o.vendedorUser === session.user || o.vendedor === session.name);
       }
@@ -2326,7 +2326,7 @@
         saveOrcamentosLocal(todasLocal);
         // Sync updated statuses to server
         for (const o of todasLocal) {
-          if (o.coraPayment && (o.status === 'entrega' || o.status === 'pronto')) {
+          if (o.coraPayment && ['entrega', 'pronto', 'agendado', 'entregue'].includes(o.status)) {
             apiUpdateOrcamento(o.id, { coraPayment: o.coraPayment }).catch(() => {});
           }
         }
@@ -2334,7 +2334,7 @@
         const container = document.getElementById('entregaLista');
         const session = JSON.parse(localStorage.getItem('ecoville_session') || '{}');
         const isAdmin = session.user === 'admin';
-        let filtered = todasLocal.filter(o => o.status === 'entrega' || o.status === 'pronto');
+        let filtered = todasLocal.filter(o => ['entrega', 'pronto', 'agendado', 'entregue'].includes(o.status));
         if (!isAdmin) {
           filtered = filtered.filter(o => o.vendedorUser === session.user || o.vendedor === session.name);
         }
@@ -2345,7 +2345,8 @@
     function getPaymentType(o) {
       if (!o.coraPayment) return 'unknown';
       const parc = o.coraPayment.parcelas || [o.coraPayment];
-      return parc.some(p => p.pixEmv) ? 'PIX' : 'BOLETO';
+      // Boleto has boletoUrl; PIX-only has pixEmv but no boletoUrl
+      return parc.some(p => p.boletoUrl) ? 'BOLETO' : 'PIX';
     }
 
     function getParcelaStatusLabel(st, dueDate) {
@@ -2388,14 +2389,18 @@
     function renderEntregaCard(o) {
       const session = JSON.parse(localStorage.getItem('ecoville_session') || '{}');
       const isAdmin = session.user === 'admin';
-      const isPronto = o.status === 'pronto';
       const tipo = getPaymentType(o);
-
-      // Status based on payment + delivery
+      const isBoleto = tipo === 'BOLETO';
       const pago = isCobrancaPaga(o);
       const atrasado = isCobrancaAtrasada(o);
+
+      // Status badge
       let statusColor, statusBg, statusText;
-      if (isPronto) {
+      if (o.status === 'entregue') {
+        statusColor = '#059669'; statusBg = '#d1fae5'; statusText = 'ENTREGUE';
+      } else if (o.status === 'agendado') {
+        statusColor = '#2563eb'; statusBg = '#dbeafe'; statusText = 'ENTREGA AGENDADA';
+      } else if (o.status === 'pronto') {
         statusColor = '#059669'; statusBg = '#d1fae5'; statusText = 'PRONTO P/ ENTREGA';
       } else if (pago) {
         statusColor = '#059669'; statusBg = '#d1fae5'; statusText = 'PAGO';
@@ -2422,20 +2427,25 @@
         parcelasHtml += '</div>';
       }
 
-      // Botao pronto para entrega - so habilitado quando pagamento confirmado
-      let prontoBtn = '';
-      if (isPronto) {
-        prontoBtn = `<span style="background:#d1fae5;color:#059669;border-radius:8px;padding:8px 14px;font-size:12px;font-weight:700;display:flex;align-items:center;gap:4px">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="width:14px;height:14px"><path d="M20 6L9 17l-5-5"/></svg> Pronto para entrega
-          ${o.prontoEm ? ' - ' + o.prontoEm : ''}
-        </span>`;
-      } else if (pago) {
-        prontoBtn = `<button onclick="marcarProntoEntrega(${o.id})" style="background:#059669;color:white;border:none;border-radius:8px;padding:8px 14px;font-size:12px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:4px">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="width:14px;height:14px"><path d="M20 6L9 17l-5-5"/></svg> Entrega pronta
-        </button>`;
-      } else {
-        // Pagamento nao confirmado
-        prontoBtn = '';
+      // Entrega agendada info
+      if (o.status === 'agendado' && o.entregaData) {
+        parcelasHtml += `<div style="margin-top:6px;font-size:12px;font-weight:700;color:#2563eb">Entrega: ${o.entregaData} ${o.entregaHora || ''}</div>`;
+      }
+      if (o.status === 'entregue' && o.entregueEm) {
+        parcelasHtml += `<div style="margin-top:6px;font-size:12px;font-weight:700;color:#059669">Entregue em: ${o.entregueEm}</div>`;
+      }
+
+      // Action button based on status
+      let actionBtn = '';
+      if (o.status === 'entregue') {
+        actionBtn = `<span style="background:#d1fae5;color:#059669;border-radius:8px;padding:8px 14px;font-size:12px;font-weight:700">Entregue</span>`;
+      } else if (o.status === 'agendado') {
+        actionBtn = `<button onclick="marcarEntregaFeita(${o.id})" style="background:#059669;color:white;border:none;border-radius:8px;padding:8px 14px;font-size:12px;font-weight:700;cursor:pointer">Entrega feita</button>`;
+      } else if (o.status === 'pronto') {
+        actionBtn = `<span style="background:#d1fae5;color:#059669;border-radius:8px;padding:6px 12px;font-size:11px;font-weight:700">Pronto</span>`;
+      } else if (isBoleto || pago) {
+        // Boleto: nao aguarda pagamento. PIX: so se pago.
+        actionBtn = `<button onclick="agendarEntrega(${o.id})" style="background:#059669;color:white;border:none;border-radius:8px;padding:8px 14px;font-size:12px;font-weight:700;cursor:pointer">Entrega pronta</button>`;
       }
 
       // Delete button only for admin
@@ -2443,8 +2453,10 @@
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
       </button>` : '';
 
+      const borderColor = o.status === 'entregue' ? '#d1fae5' : o.status === 'agendado' ? '#dbeafe' : '#e9e5ff';
+
       return `
-        <div style="background:var(--white);border-radius:var(--radius);box-shadow:var(--shadow);margin-bottom:12px;overflow:hidden;border:1px solid ${isPronto ? '#d1fae5' : '#e9e5ff'}">
+        <div style="background:var(--white);border-radius:var(--radius);box-shadow:var(--shadow);margin-bottom:12px;overflow:hidden;border:1px solid ${borderColor}">
           <div style="padding:14px 16px;border-bottom:1px solid var(--gray-100)">
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
               <span style="font-weight:800;font-size:14px;color:var(--primary)">${o.numero}</span>
@@ -2457,8 +2469,8 @@
           <div style="padding:10px 16px;display:flex;justify-content:space-between;align-items:center">
             <span style="font-size:18px;font-weight:800;color:var(--green)">${formatPrice(o.total)}</span>
             <div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end">
-              ${prontoBtn}
-              <button onclick="verOrcamento(${o.id})" style="background:var(--gray-100);color:var(--gray-700);border:none;border-radius:8px;padding:8px 14px;font-size:12px;font-weight:700;cursor:pointer">Pedido</button>
+              ${actionBtn}
+              <button onclick="verOrcamentoEntrega(${o.id})" style="background:var(--gray-100);color:var(--gray-700);border:none;border-radius:8px;padding:8px 14px;font-size:12px;font-weight:700;cursor:pointer">Pedido</button>
               <button onclick="verCobranca(${o.id},'entrega')" style="background:#f5f3ff;color:#7c3aed;border:none;border-radius:8px;padding:8px 14px;font-size:12px;font-weight:700;cursor:pointer">Cobranca</button>
               ${deleteBtn}
             </div>
@@ -2466,20 +2478,125 @@
         </div>`;
     }
 
-    function marcarProntoEntrega(id) {
-      if (!confirm('Confirmar que o pedido esta pronto para entrega?')) return;
+    // View-only pedido from entrega (no edit, back goes to entrega)
+    function verOrcamentoEntrega(id) {
+      const lista = getOrcamentos();
+      const o = lista.find(orc => orc.id === id);
+      if (!o) return;
+
+      let html = `
+        <div class="orc-preview" id="orcPrint">
+          <div class="orc-top-bar"></div>
+          <div class="orc-header">
+            <img src="logo.png" alt="Ecoville">
+            <div class="company-name">Especialista em Limpeza</div>
+            <div class="orc-number">${o.numero}</div>
+            <div class="orc-date">Emitido em ${o.data} &bull; Validade: ${o.validade}</div>
+          </div>
+          <div class="orc-info-grid">
+            <div class="orc-info-item"><div class="label">Cliente</div><div class="value">${o.cliente}</div></div>
+            <div class="orc-info-item"><div class="label">CNPJ/CPF</div><div class="value">${o.clienteDoc || '-'}</div></div>
+            ${o.clientePhone ? '<div class="orc-info-item"><div class="label">Telefone</div><div class="value">' + o.clientePhone + '</div></div>' : ''}
+            ${o.clienteAddress ? '<div class="orc-info-item full"><div class="label">Endereco</div><div class="value">' + o.clienteAddress + '</div></div>' : ''}
+            ${o.formaPagamento ? '<div class="orc-info-item"><div class="label">Pagamento</div><div class="value" style="color:#059669">' + o.formaPagamento + '</div></div>' : ''}
+          </div>
+          <div class="orc-table-wrapper">
+            <table class="orc-table">
+              <thead><tr><th>#</th><th>Produto</th><th>Cod.</th><th>Qtd</th><th>Unitario</th><th>Total</th></tr></thead>
+              <tbody>
+                ${o.items.map((item, i) => '<tr><td>' + (i+1) + '</td><td style="font-weight:600">' + item.description + '</td><td>' + item.code + '</td><td style="text-align:right">' + item.qty + '</td><td style="text-align:right">' + formatPrice(item.price) + '</td><td style="text-align:right;font-weight:700">' + formatPrice(item.price * item.qty) + '</td></tr>').join('')}
+              </tbody>
+            </table>
+          </div>
+          <div class="orc-totals">
+            <div class="orc-total-row"><span>Subtotal (${o.items.length} ${o.items.length === 1 ? 'item' : 'itens'})</span><span style="font-weight:700">${formatPrice(o.subtotal)}</span></div>
+            ${o.desconto > 0 ? '<div class="orc-total-row"><span>Desconto (' + o.desconto + '%)</span><span style="color:var(--red);font-weight:700">- ' + formatPrice(o.descontoVal) + '</span></div>' : ''}
+            <div class="orc-total-row grand"><span>TOTAL</span><span class="value">${formatPrice(o.total)}</span></div>
+          </div>
+          ${o.obs ? '<div class="orc-obs"><strong>Observacoes:</strong> ' + o.obs + '</div>' : ''}
+        </div>`;
+
+      document.getElementById('orcamentoContent').innerHTML = html;
+      // Show preview page with only Voltar button
+      document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+      document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+      document.getElementById('page-preview').classList.add('active');
+      // Hide all preview buttons, show only Voltar
+      const previewBtns = document.getElementById('page-preview').querySelector('div[style*="margin-top"]');
+      if (previewBtns) {
+        previewBtns.dataset.originalHtml = previewBtns.innerHTML;
+        previewBtns.innerHTML = '<button class="btn btn-outline" onclick="voltarDePreview()">Voltar</button>';
+      }
+      window.scrollTo(0, 0);
+    }
+
+    function voltarDePreview() {
+      // Restore original preview buttons
+      const previewBtns = document.getElementById('page-preview').querySelector('div[style*="margin-top"]');
+      if (previewBtns && previewBtns.dataset.originalHtml) {
+        previewBtns.innerHTML = previewBtns.dataset.originalHtml;
+        delete previewBtns.dataset.originalHtml;
+      }
+      showPage('entrega');
+    }
+
+    function agendarEntrega(id) {
+      // Show date/time picker modal
+      const now = new Date();
+      const dateStr = now.toISOString().split('T')[0];
+      const html = `<div style="padding:24px">
+        <h3 style="font-size:18px;font-weight:800;color:var(--primary);margin-bottom:16px">Agendar Entrega</h3>
+        <div style="margin-bottom:12px">
+          <label style="font-size:12px;font-weight:600;color:var(--gray-600);display:block;margin-bottom:4px">Data da entrega *</label>
+          <input id="entregaDataInput" type="date" value="${dateStr}" style="width:100%;padding:10px 12px;border:2px solid var(--gray-200);border-radius:var(--radius);font-size:14px;font-family:inherit">
+        </div>
+        <div style="margin-bottom:16px">
+          <label style="font-size:12px;font-weight:600;color:var(--gray-600);display:block;margin-bottom:4px">Hora (opcional)</label>
+          <input id="entregaHoraInput" type="time" value="09:00" style="width:100%;padding:10px 12px;border:2px solid var(--gray-200);border-radius:var(--radius);font-size:14px;font-family:inherit">
+        </div>
+        <button onclick="confirmarAgendamento(${id})" style="width:100%;background:#059669;color:white;border:none;border-radius:var(--radius);padding:14px;font-size:15px;font-weight:700;cursor:pointer">Confirmar Agendamento</button>
+        <button onclick="fecharModalCobranca()" style="margin-top:8px;width:100%;background:var(--gray-100);color:var(--gray-600);border:none;border-radius:var(--radius);padding:12px;font-size:13px;font-weight:600;cursor:pointer">Cancelar</button>
+      </div>`;
+      document.getElementById('modalCobranca').innerHTML = html;
+      document.getElementById('modalCobrancaOverlay').style.display = 'flex';
+    }
+
+    function confirmarAgendamento(id) {
+      const data = document.getElementById('entregaDataInput').value;
+      const hora = document.getElementById('entregaHoraInput').value;
+      if (!data) { alert('Informe a data da entrega'); return; }
+
       const lista = getOrcamentos();
       const orc = lista.find(o => o.id === id);
       if (!orc) return;
 
-      const session = JSON.parse(localStorage.getItem('ecoville_session') || '{}');
-      orc.status = 'pronto';
-      orc.prontoEm = new Date().toLocaleDateString('pt-BR') + ' ' + new Date().toLocaleTimeString('pt-BR', {hour:'2-digit',minute:'2-digit'});
-      orc.prontoPor = session.name || session.user;
+      // Format date for display
+      const parts = data.split('-');
+      const dataFormatada = parts[2] + '/' + parts[1] + '/' + parts[0];
+
+      orc.status = 'agendado';
+      orc.entregaData = dataFormatada;
+      orc.entregaHora = hora || '';
       saveOrcamentosLocal(lista);
-      apiUpdateOrcamento(id, { status: 'pronto', prontoEm: orc.prontoEm, prontoPor: orc.prontoPor }).catch(() => {});
+      apiUpdateOrcamento(id, { status: 'agendado', entregaData: orc.entregaData, entregaHora: orc.entregaHora }).catch(() => {});
+
+      fecharModalCobranca();
       renderEntrega();
-      showToast('Pedido pronto para entrega!');
+      showToast('Entrega agendada para ' + dataFormatada + (hora ? ' as ' + hora : ''));
+    }
+
+    function marcarEntregaFeita(id) {
+      if (!confirm('Confirmar que a entrega foi realizada?')) return;
+      const lista = getOrcamentos();
+      const orc = lista.find(o => o.id === id);
+      if (!orc) return;
+
+      orc.status = 'entregue';
+      orc.entregueEm = new Date().toLocaleDateString('pt-BR') + ' ' + new Date().toLocaleTimeString('pt-BR', {hour:'2-digit',minute:'2-digit'});
+      saveOrcamentosLocal(lista);
+      apiUpdateOrcamento(id, { status: 'entregue', entregueEm: orc.entregueEm }).catch(() => {});
+      renderEntrega();
+      showToast('Entrega realizada!');
     }
 
     function renderOrcCard(o) {
