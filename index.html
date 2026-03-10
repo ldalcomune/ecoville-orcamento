@@ -2832,17 +2832,17 @@
     // Fetch PDF via backend proxy (avoids CORS)
     async function fetchPdfBlob(url) {
       const proxyUrl = API_URL + '/cora/boleto-pdf?url=' + encodeURIComponent(url);
-      const resp = await fetch(proxyUrl, { headers: apiHeaders() });
-      const data = await resp.json();
+      const resp = await fetch(proxyUrl, {
+        headers: { 'Authorization': 'Bearer ' + getApiToken() }
+      });
       if (!resp.ok) {
-        console.error('Proxy PDF error:', data);
-        throw new Error(data.error || 'Erro ao baixar PDF');
+        let errMsg = 'Erro ao baixar PDF';
+        try { const d = await resp.json(); errMsg = d.error || errMsg; } catch(e) {}
+        throw new Error(errMsg);
       }
-      if (!data.pdf) throw new Error('PDF vazio retornado pelo servidor');
-      const binary = atob(data.pdf);
-      const bytes = new Uint8Array(binary.length);
-      for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-      return new Blob([bytes], { type: 'application/pdf' });
+      const blob = await resp.blob();
+      if (blob.size < 100) throw new Error('PDF vazio');
+      return blob;
     }
 
     function getParcelaInfo(parcelaIdx) {
