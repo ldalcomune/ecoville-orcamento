@@ -2829,10 +2829,16 @@
       }
     }
 
-    // Fetch PDF as blob for sharing
+    // Fetch PDF via backend proxy (Cora requires mTLS)
     async function fetchPdfBlob(url) {
-      const resp = await fetch(url);
-      return await resp.blob();
+      const proxyUrl = API_URL + '/cora/boleto-pdf?url=' + encodeURIComponent(url);
+      const resp = await fetch(proxyUrl, { headers: apiHeaders() });
+      if (!resp.ok) throw new Error('Erro ao baixar PDF');
+      const data = await resp.json();
+      const binary = atob(data.pdf);
+      const bytes = new Uint8Array(binary.length);
+      for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+      return new Blob([bytes], { type: 'application/pdf' });
     }
 
     function getParcelaInfo(parcelaIdx) {
