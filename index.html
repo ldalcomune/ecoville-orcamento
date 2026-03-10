@@ -2836,11 +2836,11 @@
         headers: { 'Authorization': 'Bearer ' + getApiToken() }
       });
       const ct = resp.headers.get('content-type') || '';
-      // If response is JSON, it's an error
+      // If response is JSON, it's an error with debug info
       if (ct.includes('json')) {
         const d = await resp.json();
         console.error('PDF proxy debug:', d);
-        throw new Error(d.error || 'Proxy retornou erro');
+        throw new Error((d.error || 'Proxy erro') + (d.preview ? '\n' + d.preview.substring(0, 150) : '') + (d.contentType ? '\nTipo: ' + d.contentType : ''));
       }
       if (!resp.ok) throw new Error('Erro HTTP ' + resp.status);
       const blob = await resp.blob();
