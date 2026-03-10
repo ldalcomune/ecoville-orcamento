@@ -916,6 +916,8 @@
     .app-hidden { display: none !important; }
   </style>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+  <script>pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';</script>
 </head>
 <body>
 
@@ -2735,115 +2737,21 @@
     function renderCobrancaPage(parcelas, idx) {
       const p = parcelas[idx];
       const orc = _cobrancaOrc;
-      const numero = orc ? orc.numero : '';
-      const cliente = orc ? orc.cliente : '';
-      const totalGeral = orc && orc.coraPayment ? (orc.coraPayment.totalAmount || 0) : 0;
-      const st = getParcelaStatusLabel(p.coraStatus, p.dueDate);
-      const valor = p.totalAmount ? formatPrice(p.totalAmount) : formatPrice(totalGeral);
-      const vencFormatado = p.dueDate ? p.dueDate.split('-').reverse().join('/') : '';
 
       let contentHtml = '';
 
-      // Render boleto as styled HTML document (like the orcamento preview)
       if (p.boletoUrl) {
-        contentHtml += `<div style="background:white;border:2px solid var(--gray-200);border-radius:var(--radius);overflow:hidden">
-          <!-- Bank header -->
-          <div style="background:var(--primary);color:white;padding:16px;text-align:center">
-            <div style="font-size:11px;font-weight:600;letter-spacing:1px;opacity:0.8;margin-bottom:4px">BOLETO BANCARIO</div>
-            <div style="font-size:18px;font-weight:800">Banco Cora</div>
-          </div>
-
-          <div style="padding:16px">
-            <!-- Info rows -->
-            <div style="display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--gray-100)">
-              <span style="font-size:11px;color:var(--gray-400);font-weight:600">BENEFICIARIO</span>
-              <span style="font-size:13px;font-weight:700;color:var(--gray-700)">Ecoville - Domingos Martins</span>
-            </div>
-            <div style="display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--gray-100)">
-              <span style="font-size:11px;color:var(--gray-400);font-weight:600">PAGADOR</span>
-              <span style="font-size:13px;font-weight:700;color:var(--gray-700)">${cliente}</span>
-            </div>
-            <div style="display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--gray-100)">
-              <span style="font-size:11px;color:var(--gray-400);font-weight:600">PEDIDO</span>
-              <span style="font-size:13px;font-weight:700;color:var(--primary)">${numero}</span>
-            </div>
-            ${parcelas.length > 1 ? `
-            <div style="display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--gray-100)">
-              <span style="font-size:11px;color:var(--gray-400);font-weight:600">PARCELA</span>
-              <span style="font-size:13px;font-weight:700;color:var(--gray-700)">${idx+1} de ${parcelas.length}</span>
-            </div>` : ''}
-            <div style="display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--gray-100)">
-              <span style="font-size:11px;color:var(--gray-400);font-weight:600">VENCIMENTO</span>
-              <span style="font-size:13px;font-weight:700;color:var(--gray-700)">${vencFormatado}</span>
-            </div>
-            <div style="display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--gray-100)">
-              <span style="font-size:11px;color:var(--gray-400);font-weight:600">STATUS</span>
-              <span style="font-size:12px;font-weight:700;color:${st.color};background:${st.color}15;padding:3px 12px;border-radius:20px">${st.text}</span>
-            </div>
-
-            <!-- Valor destaque -->
-            <div style="text-align:center;padding:16px 0;margin:12px 0;background:var(--gray-50);border-radius:var(--radius)">
-              <div style="font-size:11px;color:var(--gray-400);font-weight:600;margin-bottom:4px">VALOR</div>
-              <div style="font-size:24px;font-weight:800;color:var(--green)">${valor}</div>
-            </div>
-
-            <!-- Linha digitavel -->
-            ${p.boletoDigitableLine ? `
-            <div style="margin-top:8px">
-              <div style="font-size:11px;color:var(--gray-400);font-weight:600;margin-bottom:6px">LINHA DIGITAVEL</div>
-              <div style="background:var(--gray-50);border:1px dashed var(--gray-200);border-radius:var(--radius);padding:12px;font-size:13px;font-weight:600;color:var(--gray-700);word-break:break-all;text-align:center;letter-spacing:0.5px">${p.boletoDigitableLine}</div>
-              <button onclick="navigator.clipboard.writeText('${p.boletoDigitableLine}');showToast('Linha digitavel copiada!')" style="margin-top:8px;width:100%;background:var(--gray-100);color:var(--gray-600);border:none;border-radius:var(--radius);padding:10px;font-size:12px;font-weight:700;cursor:pointer">Copiar Linha Digitavel</button>
-            </div>` : ''}
-
-            <!-- Barcode visual -->
-            ${p.boletoBarcode ? `
-            <div style="margin-top:12px;text-align:center">
-              <div style="font-size:11px;color:var(--gray-400);font-weight:600;margin-bottom:6px">CODIGO DE BARRAS</div>
-              <div style="font-size:11px;color:var(--gray-500);word-break:break-all">${p.boletoBarcode}</div>
-            </div>` : ''}
-          </div>
-        </div>`;
-
+        // Show loading while PDF renders
+        contentHtml += `<div id="pdfLoading" style="text-align:center;padding:40px 0">
+          <div style="font-size:14px;color:var(--gray-400);font-weight:600">Carregando boleto...</div>
+        </div>
+        <div id="pdfContainer" style="width:100%;overflow-x:auto"></div>`;
       } else if (p.pixEmv) {
         _currentPixEmv = p.pixEmv;
-        contentHtml += `<div style="background:white;border:2px solid #bbf7d0;border-radius:var(--radius);overflow:hidden">
-          <!-- PIX header -->
-          <div style="background:#059669;color:white;padding:16px;text-align:center">
-            <div style="font-size:11px;font-weight:600;letter-spacing:1px;opacity:0.8;margin-bottom:4px">PAGAMENTO PIX</div>
-            <div style="font-size:18px;font-weight:800">A Vista</div>
-          </div>
-
-          <div style="padding:16px">
-            <div style="display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--gray-100)">
-              <span style="font-size:11px;color:var(--gray-400);font-weight:600">BENEFICIARIO</span>
-              <span style="font-size:13px;font-weight:700;color:var(--gray-700)">Ecoville - Domingos Martins</span>
-            </div>
-            <div style="display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--gray-100)">
-              <span style="font-size:11px;color:var(--gray-400);font-weight:600">PAGADOR</span>
-              <span style="font-size:13px;font-weight:700;color:var(--gray-700)">${cliente}</span>
-            </div>
-            <div style="display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--gray-100)">
-              <span style="font-size:11px;color:var(--gray-400);font-weight:600">PEDIDO</span>
-              <span style="font-size:13px;font-weight:700;color:var(--primary)">${numero}</span>
-            </div>
-            <div style="display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--gray-100)">
-              <span style="font-size:11px;color:var(--gray-400);font-weight:600">STATUS</span>
-              <span style="font-size:12px;font-weight:700;color:${st.color};background:${st.color}15;padding:3px 12px;border-radius:20px">${st.text}</span>
-            </div>
-
-            <!-- Valor destaque -->
-            <div style="text-align:center;padding:16px 0;margin:12px 0;background:#f0fdf4;border-radius:var(--radius)">
-              <div style="font-size:11px;color:#059669;font-weight:600;margin-bottom:4px">VALOR</div>
-              <div style="font-size:24px;font-weight:800;color:#059669">${valor}</div>
-            </div>
-
-            <!-- Codigo PIX -->
-            <div style="margin-top:8px">
-              <div style="font-size:11px;color:var(--gray-400);font-weight:600;margin-bottom:6px">CODIGO PIX - COPIA E COLA</div>
-              <div style="background:var(--gray-50);border:1px dashed #bbf7d0;border-radius:var(--radius);padding:12px;font-size:11px;color:var(--gray-700);word-break:break-all;text-align:center">${p.pixEmv}</div>
-              <button onclick="_currentPixEmv='${p.pixEmv.replace(/'/g, "\\'")}';copiarPixEmv()" style="margin-top:8px;width:100%;background:#059669;color:white;border:none;border-radius:var(--radius);padding:10px;font-size:12px;font-weight:700;cursor:pointer">Copiar Codigo PIX</button>
-            </div>
-          </div>
+        contentHtml += `<div style="background:#f0fdf4;border:2px solid #bbf7d0;border-radius:var(--radius);padding:20px;text-align:center">
+          <div style="font-size:13px;font-weight:700;color:#059669;margin-bottom:10px">CODIGO PIX - COPIA E COLA</div>
+          <div style="font-size:12px;color:var(--gray-700);word-break:break-all;margin-bottom:12px">${p.pixEmv}</div>
+          <button onclick="_currentPixEmv='${p.pixEmv.replace(/'/g, "\\'")}';copiarPixEmv()" style="background:#059669;color:white;border:none;border-radius:8px;padding:10px 24px;font-size:13px;font-weight:700;cursor:pointer">Copiar Codigo PIX</button>
         </div>`;
       }
 
@@ -2852,13 +2760,17 @@
         contentHtml += `<div style="display:flex;gap:6px;margin-top:12px;justify-content:center">`;
         parcelas.forEach((_, i) => {
           const active = i === idx;
-          const pSt = getParcelaStatusLabel(parcelas[i].coraStatus, parcelas[i].dueDate);
           contentHtml += `<button onclick="_cobrancaParcelaIdx=${i};renderCobrancaPage(_cobrancaOrc.coraPayment.parcelas,${i})" style="padding:8px 16px;border-radius:20px;border:1px solid ${active ? 'var(--primary)' : 'var(--gray-200)'};background:${active ? 'var(--primary)' : 'white'};color:${active ? 'white' : 'var(--gray-600)'};font-size:12px;font-weight:700;cursor:pointer">Parcela ${i+1}</button>`;
         });
         contentHtml += `</div>`;
       }
 
       document.getElementById('cobrancaContent').innerHTML = contentHtml;
+
+      // Render PDF with pdf.js
+      if (p.boletoUrl) {
+        renderPdfToCanvas(p.boletoUrl);
+      }
 
       // Wire up buttons
       const btnWa = document.getElementById('btnCobrancaWhatsApp');
@@ -2876,6 +2788,45 @@
         btnSalvar.onclick = () => { _currentPixEmv = p.pixEmv; copiarPixEmv(); };
       }
       btnVoltar.onclick = () => showPage(_cobrancaFromPage);
+    }
+
+    // Render PDF pages as images using pdf.js
+    async function renderPdfToCanvas(url) {
+      try {
+        const blob = await fetchPdfBlob(url);
+        const arrayBuffer = await blob.arrayBuffer();
+        const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+        const container = document.getElementById('pdfContainer');
+        const loading = document.getElementById('pdfLoading');
+        if (!container) return;
+
+        const containerWidth = container.clientWidth || 360;
+
+        for (let i = 1; i <= pdf.numPages; i++) {
+          const page = await pdf.getPage(i);
+          const viewport = page.getViewport({ scale: 1 });
+          const scale = containerWidth / viewport.width;
+          const scaledViewport = page.getViewport({ scale: scale * 2 }); // 2x for retina
+
+          const canvas = document.createElement('canvas');
+          canvas.width = scaledViewport.width;
+          canvas.height = scaledViewport.height;
+          canvas.style.width = '100%';
+          canvas.style.height = 'auto';
+          canvas.style.display = 'block';
+          if (i > 1) canvas.style.marginTop = '4px';
+
+          const ctx = canvas.getContext('2d');
+          await page.render({ canvasContext: ctx, viewport: scaledViewport }).promise;
+          container.appendChild(canvas);
+        }
+
+        if (loading) loading.style.display = 'none';
+      } catch (e) {
+        const loading = document.getElementById('pdfLoading');
+        if (loading) loading.innerHTML = '<div style="color:#dc2626;font-size:13px">Erro ao carregar PDF. Use o botao Salvar para baixar.</div>';
+        console.error('PDF render error:', e);
+      }
     }
 
     // Fetch PDF as blob for sharing
