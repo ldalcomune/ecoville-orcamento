@@ -2769,7 +2769,7 @@
 
       // Render PDF with pdf.js
       if (p.boletoUrl) {
-        renderPdfToCanvas(p.boletoUrl);
+        renderPdfToCanvas(p.coraInvoiceId);
       }
 
       // Wire up buttons
@@ -2779,9 +2779,9 @@
       const btnVoltar = document.getElementById('btnCobrancaVoltar');
 
       if (p.boletoUrl) {
-        btnWa.onclick = () => enviarBoletoWhatsApp(p.boletoUrl, idx);
-        btnEmail.onclick = () => enviarBoletoEmail(p.boletoUrl, idx);
-        btnSalvar.onclick = () => baixarBoletoPdf(p.boletoUrl, idx);
+        btnWa.onclick = () => enviarBoletoWhatsApp(p.coraInvoiceId, idx);
+        btnEmail.onclick = () => enviarBoletoEmail(p.coraInvoiceId, idx);
+        btnSalvar.onclick = () => baixarBoletoPdf(p.coraInvoiceId, idx);
       } else if (p.pixEmv) {
         btnWa.onclick = () => enviarPixWhatsApp(p.pixEmv);
         btnEmail.onclick = () => enviarPixEmail(p.pixEmv);
@@ -2791,9 +2791,9 @@
     }
 
     // Render PDF pages as images using pdf.js
-    async function renderPdfToCanvas(url) {
+    async function renderPdfToCanvas(invoiceId) {
       try {
-        const blob = await fetchPdfBlob(url);
+        const blob = await fetchPdfBlob(invoiceId);
         const arrayBuffer = await blob.arrayBuffer();
         const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
         const container = document.getElementById('pdfContainer');
@@ -2830,8 +2830,8 @@
     }
 
     // Fetch PDF via backend proxy (Cora requires mTLS)
-    async function fetchPdfBlob(url) {
-      const proxyUrl = API_URL + '/cora/boleto-pdf?url=' + encodeURIComponent(url);
+    async function fetchPdfBlob(invoiceId) {
+      const proxyUrl = API_URL + '/cora/boleto-pdf?invoiceId=' + encodeURIComponent(invoiceId);
       const resp = await fetch(proxyUrl, { headers: apiHeaders() });
       const data = await resp.json();
       if (!resp.ok) {
@@ -2857,13 +2857,13 @@
       return { o, p, parcelaLabel, valor, venc, nome, numero };
     }
 
-    async function enviarBoletoWhatsApp(boletoUrl, parcelaIdx) {
+    async function enviarBoletoWhatsApp(invoiceId, parcelaIdx) {
       const { p, parcelaLabel, valor, venc, nome, numero } = getParcelaInfo(parcelaIdx);
       const fileName = `Boleto-${numero}${parcelaLabel.replace(/[^a-zA-Z0-9]/g, '')}.pdf`;
 
       try {
         showToast('Preparando boleto...');
-        const blob = await fetchPdfBlob(boletoUrl);
+        const blob = await fetchPdfBlob(invoiceId);
         const file = new File([blob], fileName, { type: 'application/pdf' });
 
         if (navigator.canShare && navigator.canShare({ files: [file] })) {
@@ -2877,20 +2877,20 @@
       } catch (e) {
         if (e.name === 'AbortError') return;
       }
-      // Fallback: send link via WhatsApp
+      // Fallback: send info via WhatsApp
       const phone = _cobrancaOrc && _cobrancaOrc.clientePhone ? _cobrancaOrc.clientePhone.replace(/\D/g, '') : '';
-      const msg = `*Ecoville*\n\nOla ${nome}!\nBoleto${parcelaLabel}:\nValor: ${valor}\nVencimento: ${venc}\n${p.boletoDigitableLine ? 'Linha digitavel:\n' + p.boletoDigitableLine + '\n' : ''}\n${boletoUrl}`;
+      const msg = `*Ecoville*\n\nOla ${nome}!\nBoleto${parcelaLabel}:\nValor: ${valor}\nVencimento: ${venc}\n${p.boletoDigitableLine ? 'Linha digitavel:\n' + p.boletoDigitableLine + '\n' : ''}${p.boletoUrl || ''}`;
       const waUrl = phone ? 'https://wa.me/55' + phone + '?text=' + encodeURIComponent(msg) : 'https://wa.me/?text=' + encodeURIComponent(msg);
       window.open(waUrl, '_blank');
     }
 
-    async function enviarBoletoEmail(boletoUrl, parcelaIdx) {
+    async function enviarBoletoEmail(invoiceId, parcelaIdx) {
       const { p, parcelaLabel, valor, venc, nome, numero } = getParcelaInfo(parcelaIdx);
       const fileName = `Boleto-${numero}${parcelaLabel.replace(/[^a-zA-Z0-9]/g, '')}.pdf`;
 
       try {
         showToast('Preparando boleto...');
-        const blob = await fetchPdfBlob(boletoUrl);
+        const blob = await fetchPdfBlob(invoiceId);
         const file = new File([blob], fileName, { type: 'application/pdf' });
 
         if (navigator.canShare && navigator.canShare({ files: [file] })) {
@@ -2906,16 +2906,16 @@
       }
       // Fallback: mailto
       const subject = `Boleto${parcelaLabel} - ${numero} - Ecoville`;
-      const body = `Ola ${nome},\n\nSegue boleto${parcelaLabel}:\nValor: ${valor}\nVencimento: ${venc}\n${p.boletoDigitableLine ? 'Linha digitavel: ' + p.boletoDigitableLine + '\n' : ''}\nLink: ${boletoUrl}\n\nEcoville - Domingos Martins`;
+      const body = `Ola ${nome},\n\nSegue boleto${parcelaLabel}:\nValor: ${valor}\nVencimento: ${venc}\n${p.boletoDigitableLine ? 'Linha digitavel: ' + p.boletoDigitableLine + '\n' : ''}\nEcoville - Domingos Martins`;
       window.open('mailto:?subject=' + encodeURIComponent(subject) + '&body=' + encodeURIComponent(body));
     }
 
-    async function baixarBoletoPdf(boletoUrl, parcelaIdx) {
+    async function baixarBoletoPdf(invoiceId, parcelaIdx) {
       const { parcelaLabel, numero } = getParcelaInfo(parcelaIdx);
       const fileName = `Boleto-${numero}${parcelaLabel.replace(/[^a-zA-Z0-9]/g, '')}.pdf`;
       try {
         showToast('Baixando...');
-        const blob = await fetchPdfBlob(boletoUrl);
+        const blob = await fetchPdfBlob(invoiceId);
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
@@ -2923,7 +2923,7 @@
         a.click();
         URL.revokeObjectURL(url);
       } catch (e) {
-        window.open(boletoUrl, '_blank');
+        showToast('Erro ao baixar PDF');
       }
     }
 
