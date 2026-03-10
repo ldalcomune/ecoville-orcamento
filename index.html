@@ -2236,40 +2236,148 @@
         container.innerHTML = lista.map(o => renderEntregaCard(o)).join('');
         emptyEl.style.display = 'none';
       }
+
+      // Auto-check payment status for all orders with cobranca
+      verificarTodosStatus(lista);
+    }
+
+    async function verificarTodosStatus(lista) {
+      const todasLocal = getOrcamentos();
+      let changed = false;
+
+      for (const o of lista) {
+        if (!o.coraPayment) continue;
+        const parcelas = o.coraPayment.parcelas || [o.coraPayment];
+
+        for (const p of parcelas) {
+          if (!p.coraInvoiceId) continue;
+          // Skip already final statuses
+          if (p.coraStatus === 'PAID' || p.coraStatus === 'RECEIVED' || p.coraStatus === 'CANCELLED') continue;
+
+          try {
+            const resp = await fetch(API_URL + '/cora/cobranca?invoiceId=' + p.coraInvoiceId, {
+              headers: apiHeaders()
+            });
+            if (!resp.ok) continue;
+            const data = await resp.json();
+
+            if (data.status && data.status !== p.coraStatus) {
+              p.coraStatus = data.status;
+              changed = true;
+              // Update in local list too
+              const localOrc = todasLocal.find(lo => lo.id === o.id);
+              if (localOrc && localOrc.coraPayment) {
+                const localParc = localOrc.coraPayment.parcelas || [localOrc.coraPayment];
+                const lp = localParc.find(x => x.coraInvoiceId === p.coraInvoiceId);
+                if (lp) lp.coraStatus = data.status;
+              }
+            }
+          } catch (e) { /* offline, skip */ }
+        }
+      }
+
+      if (changed) {
+        saveOrcamentosLocal(todasLocal);
+        // Sync updated statuses to server
+        for (const o of todasLocal) {
+          if (o.coraPayment && (o.status === 'entrega' || o.status === 'pronto')) {
+            apiUpdateOrcamento(o.id, { coraPayment: o.coraPayment }).catch(() => {});
+          }
+        }
+        // Re-render cards with updated statuses
+        const container = document.getElementById('entregaLista');
+        const session = JSON.parse(localStorage.getItem('ecoville_session') || '{}');
+        const isAdmin = session.user === 'admin';
+        let filtered = todasLocal.filter(o => o.status === 'entrega' || o.status === 'pronto');
+        if (!isAdmin) {
+          filtered = filtered.filter(o => o.vendedorUser === session.user || o.vendedor === session.name);
+        }
+        container.innerHTML = filtered.map(o => renderEntregaCard(o)).join('');
+      }
+    }
+
+    function getPaymentType(o) {
+      if (!o.coraPayment) return 'unknown';
+      const parc = o.coraPayment.parcelas || [o.coraPayment];
+      // If any parcela has pixEmv it's PIX, otherwise boleto
+      return parc.some(p => p.pixEmv) ? 'PIX' : 'BOLETO';
+    }
+
+    function getParcelaStatusLabel(st, dueDate) {
+      const s = (st || '').toUpperCase();
+      if (s === 'PAID' || s === 'RECEIVED') return { text: 'Pago', color: '#059669' };
+      if (s === 'OVERDUE' || s === 'LATE') return { text: 'Atrasado', color: '#dc2626' };
+      if (s === 'CANCELLED') return { text: 'Cancelado', color: '#6b7280' };
+      // Check if overdue by date
+      if (dueDate) {
+        const due = new Date(dueDate + 'T23:59:59');
+        if (due < new Date()) return { text: 'Atrasado', color: '#dc2626' };
+      }
+      return { text: 'Aguardando', color: '#d97706' };
+    }
+
+    function isPixPago(o) {
+      if (!o.coraPayment) return false;
+      const parc = o.coraPayment.parcelas || [o.coraPayment];
+      return parc.every(p => {
+        const s = (p.coraStatus || '').toUpperCase();
+        return s === 'PAID' || s === 'RECEIVED';
+      });
     }
 
     function renderEntregaCard(o) {
       const session = JSON.parse(localStorage.getItem('ecoville_session') || '{}');
       const isAdmin = session.user === 'admin';
       const isPronto = o.status === 'pronto';
+      const tipo = getPaymentType(o);
+      const isPix = tipo === 'PIX';
 
       const statusColor = isPronto ? '#059669' : '#7c3aed';
       const statusBg = isPronto ? '#d1fae5' : '#f5f3ff';
       const statusText = isPronto ? 'PRONTO' : 'AGUARDANDO';
 
-      // Cobranca info
-      let cobrancaInfo = '';
+      // Build parcelas status display
+      let parcelasHtml = '';
       if (o.coraPayment) {
-        const parc = o.coraPayment.parcelas;
-        if (parc && parc.length > 1) {
-          cobrancaInfo = `${parc.length}x parcelas`;
+        const parc = o.coraPayment.parcelas || [o.coraPayment];
+        if (isPix) {
+          // PIX: single status badge
+          const st = getParcelaStatusLabel(parc[0].coraStatus, parc[0].dueDate);
+          parcelasHtml = `<div style="margin-top:6px;display:flex;align-items:center;gap:6px">
+            <span style="font-size:11px;font-weight:700;color:#7c3aed">PIX</span>
+            <span style="font-size:10px;font-weight:700;color:${st.color};background:${st.color}15;padding:2px 10px;border-radius:12px">${st.text}</span>
+          </div>`;
         } else {
-          const p = parc ? parc[0] : o.coraPayment;
-          cobrancaInfo = `Vence: ${p.dueDate || ''}`;
+          // Boleto: show each parcela with date and status
+          parcelasHtml = '<div style="margin-top:6px;display:flex;flex-direction:column;gap:3px">';
+          parc.forEach((p, i) => {
+            const st = getParcelaStatusLabel(p.coraStatus, p.dueDate);
+            const label = parc.length > 1 ? `Parcela ${i+1}` : 'Boleto';
+            parcelasHtml += `<div style="display:flex;align-items:center;gap:6px;font-size:11px">
+              <span style="font-weight:700;color:#7c3aed;min-width:60px">${label}</span>
+              <span style="color:var(--gray-500)">Venc: ${p.dueDate || '-'}</span>
+              <span style="font-weight:700;color:${st.color};background:${st.color}15;padding:1px 8px;border-radius:12px;font-size:10px">${st.text}</span>
+            </div>`;
+          });
+          parcelasHtml += '</div>';
         }
       }
 
-      // Botao pronto para entrega (qualquer usuario pode marcar)
+      // Botao pronto para entrega
+      // PIX: so aparece se pago. Boleto: sempre disponivel.
       let prontoBtn = '';
-      if (!isPronto) {
-        prontoBtn = `<button onclick="marcarProntoEntrega(${o.id})" style="background:#059669;color:white;border:none;border-radius:8px;padding:8px 14px;font-size:12px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:4px">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="width:14px;height:14px"><path d="M20 6L9 17l-5-5"/></svg> Pronto p/ Entrega
-        </button>`;
-      } else {
+      if (isPronto) {
         prontoBtn = `<span style="background:#d1fae5;color:#059669;border-radius:8px;padding:8px 14px;font-size:12px;font-weight:700;display:flex;align-items:center;gap:4px">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="width:14px;height:14px"><path d="M20 6L9 17l-5-5"/></svg> Pronto
           ${o.prontoEm ? ' - ' + o.prontoEm : ''}
         </span>`;
+      } else if (isPix && !isPixPago(o)) {
+        // PIX nao pago: sem botao, mostra aviso
+        prontoBtn = `<span style="font-size:11px;color:#d97706;font-weight:600">Aguardando PIX</span>`;
+      } else {
+        prontoBtn = `<button onclick="marcarProntoEntrega(${o.id})" style="background:#059669;color:white;border:none;border-radius:8px;padding:8px 14px;font-size:12px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:4px">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="width:14px;height:14px"><path d="M20 6L9 17l-5-5"/></svg> Pronto p/ Entrega
+        </button>`;
       }
 
       // Delete button only for admin
@@ -2286,8 +2394,7 @@
             </div>
             <div style="font-size:13px;font-weight:600;color:var(--gray-800)">${o.cliente}</div>
             <div style="font-size:11px;color:var(--gray-400);margin-top:2px">${o.data} &bull; ${o.items.length} ${o.items.length === 1 ? 'item' : 'itens'} &bull; Vendedor: ${o.vendedor || ''}</div>
-            ${cobrancaInfo ? `<div style="font-size:11px;color:#7c3aed;font-weight:600;margin-top:4px">${cobrancaInfo}</div>` : ''}
-            ${o.formaPagamento ? `<div style="font-size:11px;color:var(--green);font-weight:600;margin-top:2px">Pagamento: ${o.formaPagamento}</div>` : ''}
+            ${parcelasHtml}
           </div>
           <div style="padding:10px 16px;display:flex;justify-content:space-between;align-items:center">
             <span style="font-size:18px;font-weight:800;color:var(--green)">${formatPrice(o.total)}</span>
@@ -2729,17 +2836,20 @@
 
         showToast('Status: ' + (data.status || 'Desconhecido'));
 
-        // Update local if status changed
+        // Update local - search in parcelas
         const lista = getOrcamentos();
         for (const orc of lista) {
-          if (orc.coraPayment && orc.coraPayment.coraInvoiceId === invoiceId) {
-            orc.coraPayment.coraStatus = data.status;
-            if (data.pix && data.pix.emv) orc.coraPayment.pixEmv = data.pix.emv;
+          if (!orc.coraPayment) continue;
+          const parc = orc.coraPayment.parcelas || [orc.coraPayment];
+          const p = parc.find(x => x.coraInvoiceId === invoiceId);
+          if (p) {
+            p.coraStatus = data.status;
+            if (data.pix && data.pix.emv) p.pixEmv = data.pix.emv;
             break;
           }
         }
         saveOrcamentosLocal(lista);
-        renderHistorico();
+        renderEntrega();
       } catch (e) {
         alert('Erro ao verificar status: ' + e.message);
       }
