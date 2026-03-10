@@ -1105,6 +1105,26 @@
     </div>
   </div>
 
+  <!-- Page: Cobranca Preview -->
+  <div class="page" id="page-cobranca">
+    <div id="cobrancaContent"></div>
+    <div style="margin-top:16px">
+      <button class="btn btn-whatsapp" id="btnCobrancaWhatsApp">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
+        WhatsApp
+      </button>
+      <button class="btn btn-outline" id="btnCobrancaEmail" style="color:var(--primary);border-color:var(--primary)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+        Email
+      </button>
+      <button class="btn btn-primary" id="btnCobrancaSalvar">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        Salvar
+      </button>
+      <button class="btn btn-outline" id="btnCobrancaVoltar" onclick="showPage('entrega')">Voltar</button>
+    </div>
+  </div>
+
   <!-- Page: Historico -->
   <div class="page" id="page-historico">
     <div class="section-header">
@@ -2401,7 +2421,7 @@
             <div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end">
               ${prontoBtn}
               <button onclick="verOrcamento(${o.id})" style="background:var(--gray-100);color:var(--gray-700);border:none;border-radius:8px;padding:8px 14px;font-size:12px;font-weight:700;cursor:pointer">Pedido</button>
-              <button onclick="verCobranca(${o.id})" style="background:#f5f3ff;color:#7c3aed;border:none;border-radius:8px;padding:8px 14px;font-size:12px;font-weight:700;cursor:pointer">Cobranca</button>
+              <button onclick="verCobranca(${o.id},'entrega')" style="background:#f5f3ff;color:#7c3aed;border:none;border-radius:8px;padding:8px 14px;font-size:12px;font-weight:700;cursor:pointer">Cobranca</button>
               ${deleteBtn}
             </div>
           </div>
@@ -2445,7 +2465,7 @@
       let cobrarBtnHtml = '';
       if (isAceito) {
         if (o.coraPayment) {
-          cobrarBtnHtml = `<button onclick="verCobranca(${o.id})" style="background:#7c3aed;color:white;border:none;border-radius:8px;padding:8px 14px;font-size:12px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:4px">
+          cobrarBtnHtml = `<button onclick="verCobranca(${o.id},'historico')" style="background:#7c3aed;color:white;border:none;border-radius:8px;padding:8px 14px;font-size:12px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:4px">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg> Ver Cobranca
           </button>`;
         } else {
@@ -2554,7 +2574,7 @@
                 <input type="radio" name="cobrTipo" value="BANK_SLIP" checked> Boleto
               </label>
               <label style="flex:1;display:flex;align-items:center;gap:8px;padding:12px;border:2px solid var(--gray-200);border-radius:var(--radius);cursor:pointer;font-size:13px;font-weight:600">
-                <input type="radio" name="cobrTipo" value="PIX"> PIX
+                <input type="radio" name="cobrTipo" value="PIX"> PIX (a vista)
               </label>
             </div>
           </div>
@@ -2570,8 +2590,9 @@
             <div id="cobrParcelasDatas" style="margin-bottom:12px"></div>
           </div>
           <div id="cobrPixVencWrapper" style="display:none;margin-bottom:12px">
-            <label style="font-size:12px;font-weight:600;color:var(--gray-600);display:block;margin-bottom:4px">Vencimento PIX</label>
-            <input type="date" id="cobrPixVenc" style="width:100%;padding:10px 12px;border:2px solid var(--gray-200);border-radius:var(--radius);font-size:14px;font-family:inherit">
+            <div style="background:#f0fdf4;border:2px solid #bbf7d0;border-radius:var(--radius);padding:12px;text-align:center">
+              <span style="font-size:13px;font-weight:700;color:#059669">PIX a vista - pagamento imediato</span>
+            </div>
           </div>
           <button id="cobrEnviarBtn" onclick="enviarCobranca(${id})" style="width:100%;background:#7c3aed;color:white;border:none;border-radius:var(--radius);padding:14px;font-size:15px;font-weight:700;cursor:pointer">Gerar Cobranca</button>
           <button onclick="fecharModalCobranca()" style="margin-top:8px;width:100%;background:var(--gray-100);color:var(--gray-600);border:none;border-radius:var(--radius);padding:12px;font-size:13px;font-weight:600;cursor:pointer">Cancelar</button>
@@ -2580,10 +2601,6 @@
       document.getElementById('modalCobranca').innerHTML = html;
       document.getElementById('modalCobrancaOverlay').style.display = 'flex';
       atualizarParcelasDatas();
-
-      // Set default PIX date
-      const pixD = new Date(); pixD.setDate(pixD.getDate() + 7);
-      document.getElementById('cobrPixVenc').value = pixD.toISOString().split('T')[0];
 
       // Toggle boleto parcelas vs PIX vencimento
       document.querySelectorAll('input[name="cobrTipo"]').forEach(r => {
@@ -2635,9 +2652,8 @@
           dueDates.push(dt);
         }
       } else {
-        const pixDt = document.getElementById('cobrPixVenc').value;
-        if (!pixDt) { alert('Preencha a data de vencimento do PIX'); return; }
-        dueDates.push(pixDt);
+        // PIX a vista - data de hoje
+        dueDates.push(new Date().toISOString().split('T')[0]);
       }
 
       const btn = document.getElementById('cobrEnviarBtn');
@@ -2678,9 +2694,7 @@
 
         fecharModalCobranca();
         showToast('Cobranca gerada! Pedido movido para Entrega');
-        mostrarCobrancaDetalhes(data, orc || null);
-        renderHistorico();
-        renderEntrega();
+        mostrarCobrancaDetalhes(data, orc || null, 'historico');
       } catch (e) {
         alert('Erro: ' + e.message);
         btn.disabled = false;
@@ -2688,88 +2702,180 @@
       }
     }
 
-    function verCobranca(id) {
+    function verCobranca(id, fromPage) {
       const lista = getOrcamentos();
       const orc = lista.find(o => o.id === id);
       if (!orc || !orc.coraPayment) return;
-      mostrarCobrancaDetalhes(orc.coraPayment, orc);
+      mostrarCobrancaDetalhes(orc.coraPayment, orc, fromPage || 'entrega');
     }
 
     // Store current orc for share functions
     let _cobrancaOrc = null;
 
-    function mostrarCobrancaDetalhes(payment, orc) {
+    // Track which parcela is being viewed and where we came from
+    let _cobrancaParcelaIdx = 0;
+    let _cobrancaFromPage = 'entrega';
+
+    function mostrarCobrancaDetalhes(payment, orc, fromPage) {
       _cobrancaOrc = orc;
-      const numero = orc ? orc.numero : '';
+      _cobrancaFromPage = fromPage || 'entrega';
       const parcelas = payment.parcelas || [payment];
+      _cobrancaParcelaIdx = 0;
       _currentPixEmv = '';
 
-      // For each parcela, show the document inline + 2 send buttons
-      let parcelasHtml = '';
-      parcelas.forEach((p, i) => {
-        const label = parcelas.length > 1 ? `Parcela ${i+1}/${parcelas.length}` : '';
-        const valor = p.totalAmount ? formatPrice(p.totalAmount) : '';
-        const st = getParcelaStatusLabel(p.coraStatus, p.dueDate);
+      renderCobrancaPage(parcelas, 0);
 
-        // Header info
-        parcelasHtml += `<div style="margin-bottom:16px">`;
-        if (label) {
-          parcelasHtml += `<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
-            <span style="font-size:14px;font-weight:700;color:var(--primary)">${label} ${valor ? '- ' + valor : ''}</span>
-            <span style="font-size:10px;font-weight:700;color:${st.color};background:${st.color}15;padding:3px 10px;border-radius:20px">${st.text}</span>
-          </div>`;
-        }
+      // Navigate to cobranca page
+      document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+      document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+      document.getElementById('page-cobranca').classList.add('active');
+      window.scrollTo(0, 0);
+    }
 
-        // Show document inline
-        if (p.boletoUrl) {
-          parcelasHtml += `
-            <iframe src="${p.boletoUrl}" style="width:100%;height:400px;border:1px solid var(--gray-200);border-radius:var(--radius);margin-bottom:10px" allow="fullscreen"></iframe>
-            <div style="display:flex;gap:8px">
-              <button onclick="enviarBoletoWhatsApp('${p.boletoUrl}', ${i})" style="flex:1;background:#25d366;color:white;border:none;border-radius:10px;padding:12px;font-size:14px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px">
-                <svg viewBox="0 0 24 24" fill="currentColor" style="width:18px;height:18px"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/><path d="M12 2C6.477 2 2 6.477 2 12c0 1.89.525 3.66 1.438 5.168L2 22l4.832-1.438A9.955 9.955 0 0012 22c5.523 0 10-4.477 10-10S17.523 2 12 2z"/></svg>
-                WhatsApp
-              </button>
-              <button onclick="enviarBoletoEmail('${p.boletoUrl}', ${i})" style="flex:1;background:var(--primary);color:white;border:none;border-radius:10px;padding:12px;font-size:14px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:18px;height:18px"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
-                Email
-              </button>
-            </div>`;
-        } else if (p.pixEmv) {
-          _currentPixEmv = p.pixEmv;
-          parcelasHtml += `
-            <div style="background:#f0fdf4;border:2px solid #bbf7d0;border-radius:var(--radius);padding:16px;margin-bottom:10px;text-align:center">
-              <div style="font-size:12px;font-weight:700;color:#059669;margin-bottom:8px">CODIGO PIX - COPIA E COLA</div>
-              <div style="font-size:12px;color:var(--gray-700);word-break:break-all;margin-bottom:10px">${p.pixEmv}</div>
-              <button onclick="_currentPixEmv='${p.pixEmv.replace(/'/g, "\\'")}';copiarPixEmv()" style="background:#059669;color:white;border:none;border-radius:8px;padding:10px 24px;font-size:13px;font-weight:700;cursor:pointer">Copiar Codigo PIX</button>
-            </div>
-            <div style="display:flex;gap:8px">
-              <button onclick="enviarPixWhatsApp('${p.pixEmv.replace(/'/g, "\\'")}')" style="flex:1;background:#25d366;color:white;border:none;border-radius:10px;padding:12px;font-size:14px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px">
-                <svg viewBox="0 0 24 24" fill="currentColor" style="width:18px;height:18px"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/><path d="M12 2C6.477 2 2 6.477 2 12c0 1.89.525 3.66 1.438 5.168L2 22l4.832-1.438A9.955 9.955 0 0012 22c5.523 0 10-4.477 10-10S17.523 2 12 2z"/></svg>
-                WhatsApp
-              </button>
-              <button onclick="enviarPixEmail('${p.pixEmv.replace(/'/g, "\\'")}')" style="flex:1;background:var(--primary);color:white;border:none;border-radius:10px;padding:12px;font-size:14px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:18px;height:18px"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
-                Email
-              </button>
-            </div>`;
-        }
-        parcelasHtml += `</div>`;
-      });
+    function renderCobrancaPage(parcelas, idx) {
+      const p = parcelas[idx];
+      const orc = _cobrancaOrc;
+      const numero = orc ? orc.numero : '';
+      const cliente = orc ? orc.cliente : '';
+      const totalGeral = orc && orc.coraPayment ? (orc.coraPayment.totalAmount || 0) : 0;
+      const st = getParcelaStatusLabel(p.coraStatus, p.dueDate);
+      const valor = p.totalAmount ? formatPrice(p.totalAmount) : formatPrice(totalGeral);
+      const vencFormatado = p.dueDate ? p.dueDate.split('-').reverse().join('/') : '';
 
-      const totalGeral = payment.totalAmount || parcelas.reduce((s, p) => s + (p.totalAmount || 0), 0);
+      let contentHtml = '';
 
-      const html = `
-        <div style="padding:20px">
-          <div style="text-align:center;margin-bottom:12px">
-            <h3 style="font-size:16px;font-weight:800;color:var(--primary);margin-bottom:2px">${numero || 'Cobranca'}</h3>
-            <p style="font-size:14px;color:var(--green);font-weight:700">${formatPrice(totalGeral)}</p>
+      // Render boleto as styled HTML document (like the orcamento preview)
+      if (p.boletoUrl) {
+        contentHtml += `<div style="background:white;border:2px solid var(--gray-200);border-radius:var(--radius);overflow:hidden">
+          <!-- Bank header -->
+          <div style="background:var(--primary);color:white;padding:16px;text-align:center">
+            <div style="font-size:11px;font-weight:600;letter-spacing:1px;opacity:0.8;margin-bottom:4px">BOLETO BANCARIO</div>
+            <div style="font-size:18px;font-weight:800">Banco Cora</div>
           </div>
-          ${parcelasHtml}
-          <button onclick="fecharModalCobranca()" style="margin-top:8px;width:100%;background:var(--gray-100);color:var(--gray-600);border:none;border-radius:var(--radius);padding:12px;font-size:13px;font-weight:600;cursor:pointer">Fechar</button>
+
+          <div style="padding:16px">
+            <!-- Info rows -->
+            <div style="display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--gray-100)">
+              <span style="font-size:11px;color:var(--gray-400);font-weight:600">BENEFICIARIO</span>
+              <span style="font-size:13px;font-weight:700;color:var(--gray-700)">Ecoville - Domingos Martins</span>
+            </div>
+            <div style="display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--gray-100)">
+              <span style="font-size:11px;color:var(--gray-400);font-weight:600">PAGADOR</span>
+              <span style="font-size:13px;font-weight:700;color:var(--gray-700)">${cliente}</span>
+            </div>
+            <div style="display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--gray-100)">
+              <span style="font-size:11px;color:var(--gray-400);font-weight:600">PEDIDO</span>
+              <span style="font-size:13px;font-weight:700;color:var(--primary)">${numero}</span>
+            </div>
+            ${parcelas.length > 1 ? `
+            <div style="display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--gray-100)">
+              <span style="font-size:11px;color:var(--gray-400);font-weight:600">PARCELA</span>
+              <span style="font-size:13px;font-weight:700;color:var(--gray-700)">${idx+1} de ${parcelas.length}</span>
+            </div>` : ''}
+            <div style="display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--gray-100)">
+              <span style="font-size:11px;color:var(--gray-400);font-weight:600">VENCIMENTO</span>
+              <span style="font-size:13px;font-weight:700;color:var(--gray-700)">${vencFormatado}</span>
+            </div>
+            <div style="display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--gray-100)">
+              <span style="font-size:11px;color:var(--gray-400);font-weight:600">STATUS</span>
+              <span style="font-size:12px;font-weight:700;color:${st.color};background:${st.color}15;padding:3px 12px;border-radius:20px">${st.text}</span>
+            </div>
+
+            <!-- Valor destaque -->
+            <div style="text-align:center;padding:16px 0;margin:12px 0;background:var(--gray-50);border-radius:var(--radius)">
+              <div style="font-size:11px;color:var(--gray-400);font-weight:600;margin-bottom:4px">VALOR</div>
+              <div style="font-size:24px;font-weight:800;color:var(--green)">${valor}</div>
+            </div>
+
+            <!-- Linha digitavel -->
+            ${p.boletoDigitableLine ? `
+            <div style="margin-top:8px">
+              <div style="font-size:11px;color:var(--gray-400);font-weight:600;margin-bottom:6px">LINHA DIGITAVEL</div>
+              <div style="background:var(--gray-50);border:1px dashed var(--gray-200);border-radius:var(--radius);padding:12px;font-size:13px;font-weight:600;color:var(--gray-700);word-break:break-all;text-align:center;letter-spacing:0.5px">${p.boletoDigitableLine}</div>
+              <button onclick="navigator.clipboard.writeText('${p.boletoDigitableLine}');showToast('Linha digitavel copiada!')" style="margin-top:8px;width:100%;background:var(--gray-100);color:var(--gray-600);border:none;border-radius:var(--radius);padding:10px;font-size:12px;font-weight:700;cursor:pointer">Copiar Linha Digitavel</button>
+            </div>` : ''}
+
+            <!-- Barcode visual -->
+            ${p.boletoBarcode ? `
+            <div style="margin-top:12px;text-align:center">
+              <div style="font-size:11px;color:var(--gray-400);font-weight:600;margin-bottom:6px">CODIGO DE BARRAS</div>
+              <div style="font-size:11px;color:var(--gray-500);word-break:break-all">${p.boletoBarcode}</div>
+            </div>` : ''}
+          </div>
         </div>`;
 
-      document.getElementById('modalCobranca').innerHTML = html;
-      document.getElementById('modalCobrancaOverlay').style.display = 'flex';
+      } else if (p.pixEmv) {
+        _currentPixEmv = p.pixEmv;
+        contentHtml += `<div style="background:white;border:2px solid #bbf7d0;border-radius:var(--radius);overflow:hidden">
+          <!-- PIX header -->
+          <div style="background:#059669;color:white;padding:16px;text-align:center">
+            <div style="font-size:11px;font-weight:600;letter-spacing:1px;opacity:0.8;margin-bottom:4px">PAGAMENTO PIX</div>
+            <div style="font-size:18px;font-weight:800">A Vista</div>
+          </div>
+
+          <div style="padding:16px">
+            <div style="display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--gray-100)">
+              <span style="font-size:11px;color:var(--gray-400);font-weight:600">BENEFICIARIO</span>
+              <span style="font-size:13px;font-weight:700;color:var(--gray-700)">Ecoville - Domingos Martins</span>
+            </div>
+            <div style="display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--gray-100)">
+              <span style="font-size:11px;color:var(--gray-400);font-weight:600">PAGADOR</span>
+              <span style="font-size:13px;font-weight:700;color:var(--gray-700)">${cliente}</span>
+            </div>
+            <div style="display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--gray-100)">
+              <span style="font-size:11px;color:var(--gray-400);font-weight:600">PEDIDO</span>
+              <span style="font-size:13px;font-weight:700;color:var(--primary)">${numero}</span>
+            </div>
+            <div style="display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--gray-100)">
+              <span style="font-size:11px;color:var(--gray-400);font-weight:600">STATUS</span>
+              <span style="font-size:12px;font-weight:700;color:${st.color};background:${st.color}15;padding:3px 12px;border-radius:20px">${st.text}</span>
+            </div>
+
+            <!-- Valor destaque -->
+            <div style="text-align:center;padding:16px 0;margin:12px 0;background:#f0fdf4;border-radius:var(--radius)">
+              <div style="font-size:11px;color:#059669;font-weight:600;margin-bottom:4px">VALOR</div>
+              <div style="font-size:24px;font-weight:800;color:#059669">${valor}</div>
+            </div>
+
+            <!-- Codigo PIX -->
+            <div style="margin-top:8px">
+              <div style="font-size:11px;color:var(--gray-400);font-weight:600;margin-bottom:6px">CODIGO PIX - COPIA E COLA</div>
+              <div style="background:var(--gray-50);border:1px dashed #bbf7d0;border-radius:var(--radius);padding:12px;font-size:11px;color:var(--gray-700);word-break:break-all;text-align:center">${p.pixEmv}</div>
+              <button onclick="_currentPixEmv='${p.pixEmv.replace(/'/g, "\\'")}';copiarPixEmv()" style="margin-top:8px;width:100%;background:#059669;color:white;border:none;border-radius:var(--radius);padding:10px;font-size:12px;font-weight:700;cursor:pointer">Copiar Codigo PIX</button>
+            </div>
+          </div>
+        </div>`;
+      }
+
+      // Parcela navigation tabs
+      if (parcelas.length > 1) {
+        contentHtml += `<div style="display:flex;gap:6px;margin-top:12px;justify-content:center">`;
+        parcelas.forEach((_, i) => {
+          const active = i === idx;
+          const pSt = getParcelaStatusLabel(parcelas[i].coraStatus, parcelas[i].dueDate);
+          contentHtml += `<button onclick="_cobrancaParcelaIdx=${i};renderCobrancaPage(_cobrancaOrc.coraPayment.parcelas,${i})" style="padding:8px 16px;border-radius:20px;border:1px solid ${active ? 'var(--primary)' : 'var(--gray-200)'};background:${active ? 'var(--primary)' : 'white'};color:${active ? 'white' : 'var(--gray-600)'};font-size:12px;font-weight:700;cursor:pointer">Parcela ${i+1}</button>`;
+        });
+        contentHtml += `</div>`;
+      }
+
+      document.getElementById('cobrancaContent').innerHTML = contentHtml;
+
+      // Wire up buttons
+      const btnWa = document.getElementById('btnCobrancaWhatsApp');
+      const btnEmail = document.getElementById('btnCobrancaEmail');
+      const btnSalvar = document.getElementById('btnCobrancaSalvar');
+      const btnVoltar = document.getElementById('btnCobrancaVoltar');
+
+      if (p.boletoUrl) {
+        btnWa.onclick = () => enviarBoletoWhatsApp(p.boletoUrl, idx);
+        btnEmail.onclick = () => enviarBoletoEmail(p.boletoUrl, idx);
+        btnSalvar.onclick = () => baixarBoletoPdf(p.boletoUrl, idx);
+      } else if (p.pixEmv) {
+        btnWa.onclick = () => enviarPixWhatsApp(p.pixEmv);
+        btnEmail.onclick = () => enviarPixEmail(p.pixEmv);
+        btnSalvar.onclick = () => { _currentPixEmv = p.pixEmv; copiarPixEmv(); };
+      }
+      btnVoltar.onclick = () => showPage(_cobrancaFromPage);
     }
 
     // Fetch PDF as blob for sharing
