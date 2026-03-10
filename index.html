@@ -2504,73 +2504,21 @@
         </div>`;
     }
 
-    let aceitarOrcId = null;
-
     function aceitarOrcamento(id) {
-      aceitarOrcId = id;
+      // Mark as aceito and go straight to cobranca
       const lista = getOrcamentos();
       const orc = lista.find(o => o.id === id);
       if (!orc) return;
 
-      const permiteParcelado = orc.total >= 30000; // R$ 300,00 em centavos
+      orc.status = 'aceito';
+      orc.dataAceite = new Date().toLocaleDateString('pt-BR');
+      saveOrcamentosLocal(lista);
+      apiUpdateOrcamento(orc.id, { status: 'aceito', dataAceite: orc.dataAceite }).catch(() => {});
+      renderHistorico();
+      showToast('Orcamento aceito!');
 
-      let opcoesHtml = `
-        <div style="padding:20px">
-          <h3 style="margin:0 0 16px;color:var(--primary);font-size:16px;text-align:center">Forma de Pagamento</h3>
-          <p style="font-size:13px;color:var(--gray-500);margin-bottom:16px;text-align:center">${orc.cliente} &bull; ${formatPrice(orc.total)}</p>
-          <div style="display:flex;flex-direction:column;gap:10px">
-            <button onclick="confirmarAceite('Boleto')" style="background:var(--white);border:2px solid var(--gray-200);border-radius:var(--radius);padding:14px 16px;font-size:14px;font-weight:600;cursor:pointer;text-align:left;display:flex;align-items:center;gap:12px">
-              <span style="background:rgba(13,43,107,0.08);border-radius:8px;padding:8px;display:flex">
-                <svg viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2" style="width:20px;height:20px"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>
-              </span>
-              Boleto
-            </button>
-            <button onclick="confirmarAceite('Cartao a vista')" style="background:var(--white);border:2px solid var(--gray-200);border-radius:var(--radius);padding:14px 16px;font-size:14px;font-weight:600;cursor:pointer;text-align:left;display:flex;align-items:center;gap:12px">
-              <span style="background:rgba(5,150,105,0.08);border-radius:8px;padding:8px;display:flex">
-                <svg viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="2" style="width:20px;height:20px"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
-              </span>
-              Cartao a vista
-            </button>
-            ${permiteParcelado ? `
-              <button onclick="confirmarAceite('Cartao 2x')" style="background:var(--white);border:2px solid var(--gray-200);border-radius:var(--radius);padding:14px 16px;font-size:14px;font-weight:600;cursor:pointer;text-align:left;display:flex;align-items:center;gap:12px">
-                <span style="background:rgba(5,150,105,0.08);border-radius:8px;padding:8px;display:flex">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="2" style="width:20px;height:20px"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
-                </span>
-                Cartao 2x de ${formatPrice(Math.ceil(orc.total / 2))}
-              </button>
-              <button onclick="confirmarAceite('Cartao 3x')" style="background:var(--white);border:2px solid var(--gray-200);border-radius:var(--radius);padding:14px 16px;font-size:14px;font-weight:600;cursor:pointer;text-align:left;display:flex;align-items:center;gap:12px">
-                <span style="background:rgba(5,150,105,0.08);border-radius:8px;padding:8px;display:flex">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="2" style="width:20px;height:20px"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
-                </span>
-                Cartao 3x de ${formatPrice(Math.ceil(orc.total / 3))}
-              </button>
-            ` : ''}
-          </div>
-          <button onclick="fecharModalPagamento()" style="margin-top:16px;width:100%;background:var(--gray-100);color:var(--gray-600);border:none;border-radius:var(--radius);padding:12px;font-size:13px;font-weight:600;cursor:pointer">Cancelar</button>
-        </div>`;
-
-      document.getElementById('modalPagamento').innerHTML = opcoesHtml;
-      document.getElementById('modalPagamentoOverlay').style.display = 'flex';
-    }
-
-    function confirmarAceite(formaPagamento) {
-      const lista = getOrcamentos();
-      const orc = lista.find(o => o.id === aceitarOrcId);
-      if (orc) {
-        orc.status = 'aceito';
-        orc.dataAceite = new Date().toLocaleDateString('pt-BR');
-        orc.formaPagamento = formaPagamento;
-        saveOrcamentosLocal(lista);
-        apiUpdateOrcamento(orc.id, { status: 'aceito', dataAceite: orc.dataAceite, formaPagamento }).catch(() => {});
-        renderHistorico();
-        showToast('Orcamento aceito - ' + formaPagamento);
-      }
-      fecharModalPagamento();
-    }
-
-    function fecharModalPagamento() {
-      document.getElementById('modalPagamentoOverlay').style.display = 'none';
-      aceitarOrcId = null;
+      // Open cobranca modal directly
+      gerarCobranca(id);
     }
 
     // ========== COBRANCA (BOLETO/PIX via CORA) ==========
@@ -2781,14 +2729,18 @@
             ` : ''}
             ${p.boletoUrl ? `
               <button onclick="abrirBoletoInline('${p.boletoUrl}')" style="width:100%;background:#7c3aed;color:white;border:none;border-radius:8px;padding:10px;font-size:13px;font-weight:700;cursor:pointer;margin-bottom:6px">Visualizar Boleto</button>
-              <div style="display:flex;gap:6px;margin-bottom:6px">
-                <button onclick="enviarBoletoWhatsApp('${p.boletoUrl}', ${i})" style="flex:1;background:#25d366;color:white;border:none;border-radius:8px;padding:8px;font-size:12px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:4px">
-                  <svg viewBox="0 0 24 24" fill="currentColor" style="width:14px;height:14px"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/><path d="M12 2C6.477 2 2 6.477 2 12c0 1.89.525 3.66 1.438 5.168L2 22l4.832-1.438A9.955 9.955 0 0012 22c5.523 0 10-4.477 10-10S17.523 2 12 2z"/></svg>
+              <div style="display:flex;gap:5px;margin-bottom:6px">
+                <button onclick="enviarBoletoWhatsApp('${p.boletoUrl}', ${i})" style="flex:1;background:#25d366;color:white;border:none;border-radius:8px;padding:8px 4px;font-size:11px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:3px">
+                  <svg viewBox="0 0 24 24" fill="currentColor" style="width:13px;height:13px"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/><path d="M12 2C6.477 2 2 6.477 2 12c0 1.89.525 3.66 1.438 5.168L2 22l4.832-1.438A9.955 9.955 0 0012 22c5.523 0 10-4.477 10-10S17.523 2 12 2z"/></svg>
                   WhatsApp
                 </button>
-                <button onclick="enviarBoletoEmail('${p.boletoUrl}', ${i})" style="flex:1;background:var(--primary);color:white;border:none;border-radius:8px;padding:8px;font-size:12px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:4px">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+                <button onclick="enviarBoletoEmail('${p.boletoUrl}', ${i})" style="flex:1;background:var(--primary);color:white;border:none;border-radius:8px;padding:8px 4px;font-size:11px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:3px">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:13px;height:13px"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
                   Email
+                </button>
+                <button onclick="baixarBoletoPdf('${p.boletoUrl}', ${i})" style="flex:1;background:var(--gray-600);color:white;border:none;border-radius:8px;padding:8px 4px;font-size:11px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:3px">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:13px;height:13px"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                  Baixar
                 </button>
               </div>
             ` : ''}
@@ -2843,60 +2795,112 @@
       document.body.appendChild(overlay);
     }
 
-    function enviarBoletoWhatsApp(boletoUrl, parcelaIdx) {
+    // Fetch PDF as blob for sharing
+    async function fetchPdfBlob(url) {
+      const resp = await fetch(url);
+      return await resp.blob();
+    }
+
+    function getParcelaInfo(parcelaIdx) {
       const o = _cobrancaOrc;
-      const phone = o && o.clientePhone ? o.clientePhone.replace(/\D/g, '') : '';
       const parcelas = o && o.coraPayment ? (o.coraPayment.parcelas || [o.coraPayment]) : [];
       const p = parcelas[parcelaIdx] || {};
       const parcelaLabel = parcelas.length > 1 ? ` (Parcela ${parcelaIdx + 1}/${parcelas.length})` : '';
       const valor = p.totalAmount ? formatPrice(p.totalAmount) : '';
       const venc = p.dueDate || '';
+      const nome = o ? o.cliente : '';
+      const numero = o ? o.numero : '';
+      return { o, p, parcelaLabel, valor, venc, nome, numero };
+    }
 
-      const msg = `*Ecoville - Domingos Martins*\n\nOla ${o ? o.cliente : ''}!\n\nSegue seu boleto${parcelaLabel}:\n${valor ? 'Valor: ' + valor + '\n' : ''}${venc ? 'Vencimento: ' + venc + '\n' : ''}${p.boletoDigitableLine ? '\nLinha digitavel:\n' + p.boletoDigitableLine + '\n' : ''}\nLink do boleto:\n${boletoUrl}\n\nObrigado!`;
+    async function enviarBoletoWhatsApp(boletoUrl, parcelaIdx) {
+      const { p, parcelaLabel, valor, venc, nome, numero } = getParcelaInfo(parcelaIdx);
+      const fileName = `Boleto-${numero}${parcelaLabel.replace(/[^a-zA-Z0-9]/g, '')}.pdf`;
 
-      const waUrl = phone
-        ? 'https://wa.me/55' + phone + '?text=' + encodeURIComponent(msg)
-        : 'https://wa.me/?text=' + encodeURIComponent(msg);
+      try {
+        showToast('Preparando boleto...');
+        const blob = await fetchPdfBlob(boletoUrl);
+        const file = new File([blob], fileName, { type: 'application/pdf' });
+
+        if (navigator.canShare && navigator.canShare({ files: [file] })) {
+          await navigator.share({
+            files: [file],
+            title: `Boleto${parcelaLabel} - Ecoville`,
+            text: `Boleto${parcelaLabel} - ${nome}\nValor: ${valor}\nVencimento: ${venc}`
+          });
+          return;
+        }
+      } catch (e) {
+        if (e.name === 'AbortError') return;
+      }
+      // Fallback: send link via WhatsApp
+      const phone = _cobrancaOrc && _cobrancaOrc.clientePhone ? _cobrancaOrc.clientePhone.replace(/\D/g, '') : '';
+      const msg = `*Ecoville*\n\nOla ${nome}!\nBoleto${parcelaLabel}:\nValor: ${valor}\nVencimento: ${venc}\n${p.boletoDigitableLine ? 'Linha digitavel:\n' + p.boletoDigitableLine + '\n' : ''}\n${boletoUrl}`;
+      const waUrl = phone ? 'https://wa.me/55' + phone + '?text=' + encodeURIComponent(msg) : 'https://wa.me/?text=' + encodeURIComponent(msg);
       window.open(waUrl, '_blank');
     }
 
-    function enviarBoletoEmail(boletoUrl, parcelaIdx) {
-      const o = _cobrancaOrc;
-      const parcelas = o && o.coraPayment ? (o.coraPayment.parcelas || [o.coraPayment]) : [];
-      const p = parcelas[parcelaIdx] || {};
-      const parcelaLabel = parcelas.length > 1 ? ` (Parcela ${parcelaIdx + 1}/${parcelas.length})` : '';
-      const valor = p.totalAmount ? formatPrice(p.totalAmount) : '';
-      const venc = p.dueDate || '';
+    async function enviarBoletoEmail(boletoUrl, parcelaIdx) {
+      const { p, parcelaLabel, valor, venc, nome, numero } = getParcelaInfo(parcelaIdx);
+      const fileName = `Boleto-${numero}${parcelaLabel.replace(/[^a-zA-Z0-9]/g, '')}.pdf`;
 
-      const subject = `Boleto${parcelaLabel} - ${o ? o.numero : ''} - Ecoville`;
-      const body = `Ola ${o ? o.cliente : ''},\n\nSegue seu boleto${parcelaLabel}:\n${valor ? 'Valor: ' + valor + '\n' : ''}${venc ? 'Vencimento: ' + venc + '\n' : ''}${p.boletoDigitableLine ? '\nLinha digitavel:\n' + p.boletoDigitableLine + '\n' : ''}\nLink do boleto:\n${boletoUrl}\n\nAtenciosamente,\nEcoville - Domingos Martins`;
+      try {
+        showToast('Preparando boleto...');
+        const blob = await fetchPdfBlob(boletoUrl);
+        const file = new File([blob], fileName, { type: 'application/pdf' });
 
-      const mailto = 'mailto:?subject=' + encodeURIComponent(subject) + '&body=' + encodeURIComponent(body);
-      window.open(mailto);
+        if (navigator.canShare && navigator.canShare({ files: [file] })) {
+          await navigator.share({
+            files: [file],
+            title: `Boleto${parcelaLabel} - Ecoville`,
+            text: `Boleto para ${nome} - ${valor} - Venc: ${venc}`
+          });
+          return;
+        }
+      } catch (e) {
+        if (e.name === 'AbortError') return;
+      }
+      // Fallback: mailto
+      const subject = `Boleto${parcelaLabel} - ${numero} - Ecoville`;
+      const body = `Ola ${nome},\n\nSegue boleto${parcelaLabel}:\nValor: ${valor}\nVencimento: ${venc}\n${p.boletoDigitableLine ? 'Linha digitavel: ' + p.boletoDigitableLine + '\n' : ''}\nLink: ${boletoUrl}\n\nEcoville - Domingos Martins`;
+      window.open('mailto:?subject=' + encodeURIComponent(subject) + '&body=' + encodeURIComponent(body));
+    }
+
+    async function baixarBoletoPdf(boletoUrl, parcelaIdx) {
+      const { parcelaLabel, numero } = getParcelaInfo(parcelaIdx);
+      const fileName = `Boleto-${numero}${parcelaLabel.replace(/[^a-zA-Z0-9]/g, '')}.pdf`;
+      try {
+        showToast('Baixando...');
+        const blob = await fetchPdfBlob(boletoUrl);
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = fileName;
+        a.click();
+        URL.revokeObjectURL(url);
+      } catch (e) {
+        window.open(boletoUrl, '_blank');
+      }
     }
 
     function enviarPixWhatsApp(pixEmv) {
       const o = _cobrancaOrc;
       const phone = o && o.clientePhone ? o.clientePhone.replace(/\D/g, '') : '';
+      const nome = o ? o.cliente : '';
       const valor = o ? formatPrice(o.total) : '';
-
-      const msg = `*Ecoville - Domingos Martins*\n\nOla ${o ? o.cliente : ''}!\n\nSegue o codigo PIX para pagamento:\n${valor ? 'Valor: ' + valor + '\n' : ''}\nCodigo PIX (copia e cola):\n${pixEmv}\n\nObrigado!`;
-
-      const waUrl = phone
-        ? 'https://wa.me/55' + phone + '?text=' + encodeURIComponent(msg)
-        : 'https://wa.me/?text=' + encodeURIComponent(msg);
+      const msg = `*Ecoville*\n\nOla ${nome}!\n\nPIX para pagamento:\nValor: ${valor}\n\nCodigo PIX (copia e cola):\n${pixEmv}`;
+      const waUrl = phone ? 'https://wa.me/55' + phone + '?text=' + encodeURIComponent(msg) : 'https://wa.me/?text=' + encodeURIComponent(msg);
       window.open(waUrl, '_blank');
     }
 
     function enviarPixEmail(pixEmv) {
       const o = _cobrancaOrc;
+      const nome = o ? o.cliente : '';
       const valor = o ? formatPrice(o.total) : '';
-
-      const subject = `PIX - ${o ? o.numero : ''} - Ecoville`;
-      const body = `Ola ${o ? o.cliente : ''},\n\nSegue o codigo PIX para pagamento:\n${valor ? 'Valor: ' + valor + '\n' : ''}\nCodigo PIX (copia e cola):\n${pixEmv}\n\nAtenciosamente,\nEcoville - Domingos Martins`;
-
-      const mailto = 'mailto:?subject=' + encodeURIComponent(subject) + '&body=' + encodeURIComponent(body);
-      window.open(mailto);
+      const numero = o ? o.numero : '';
+      const subject = `PIX - ${numero} - Ecoville`;
+      const body = `Ola ${nome},\n\nPIX para pagamento:\nValor: ${valor}\n\nCodigo PIX (copia e cola):\n${pixEmv}\n\nEcoville - Domingos Martins`;
+      window.open('mailto:?subject=' + encodeURIComponent(subject) + '&body=' + encodeURIComponent(body));
     }
 
     let _currentPixEmv = '';
