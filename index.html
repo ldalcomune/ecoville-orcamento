@@ -2537,9 +2537,9 @@
             <div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end">
               ${aceitoBtnHtml}
               ${cobrarBtnHtml}
-              <button onclick="editarOrcamento(${o.id})" style="background:rgba(13,43,107,0.08);color:var(--primary);border:none;border-radius:8px;padding:8px 14px;font-size:12px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:4px">
+              ${o.coraPayment ? '' : `<button onclick="editarOrcamento(${o.id})" style="background:rgba(13,43,107,0.08);color:var(--primary);border:none;border-radius:8px;padding:8px 14px;font-size:12px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:4px">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg> Editar
-              </button>
+              </button>`}
               <button onclick="verOrcamento(${o.id})" style="background:var(--gray-100);color:var(--gray-700);border:none;border-radius:8px;padding:8px 14px;font-size:12px;font-weight:700;cursor:pointer">Ver</button>
               <button onclick="excluirOrcamento(${o.id})" style="background:var(--red-light);color:var(--red);border:none;border-radius:8px;padding:8px 10px;font-size:12px;font-weight:700;cursor:pointer">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
@@ -3065,6 +3065,10 @@
       const lista = getOrcamentos();
       const o = lista.find(orc => orc.id === id);
       if (!o) return;
+      if (o.coraPayment) {
+        alert('Este pedido ja tem cobranca gerada e nao pode ser editado');
+        return;
+      }
 
       // Load items into cart
       cart = o.items.map((item, i) => ({
