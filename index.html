@@ -2824,7 +2824,7 @@
         if (loading) loading.style.display = 'none';
       } catch (e) {
         const loading = document.getElementById('pdfLoading');
-        if (loading) loading.innerHTML = '<div style="color:#dc2626;font-size:13px">Erro ao carregar PDF. Use o botao Salvar para baixar.</div>';
+        if (loading) loading.innerHTML = `<div style="color:#dc2626;font-size:13px;padding:12px">Erro ao carregar PDF:<br><span style="font-size:11px;color:#666">${e.message}</span></div>`;
         console.error('PDF render error:', e);
       }
     }
@@ -2833,8 +2833,12 @@
     async function fetchPdfBlob(url) {
       const proxyUrl = API_URL + '/cora/boleto-pdf?url=' + encodeURIComponent(url);
       const resp = await fetch(proxyUrl, { headers: apiHeaders() });
-      if (!resp.ok) throw new Error('Erro ao baixar PDF');
       const data = await resp.json();
+      if (!resp.ok) {
+        console.error('Proxy PDF error:', data);
+        throw new Error(data.error || 'Erro ao baixar PDF');
+      }
+      if (!data.pdf) throw new Error('PDF vazio retornado pelo servidor');
       const binary = atob(data.pdf);
       const bytes = new Uint8Array(binary.length);
       for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
