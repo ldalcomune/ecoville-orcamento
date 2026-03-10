@@ -2835,13 +2835,16 @@
       const resp = await fetch(proxyUrl, {
         headers: { 'Authorization': 'Bearer ' + getApiToken() }
       });
-      if (!resp.ok) {
-        let errMsg = 'Erro ao baixar PDF';
-        try { const d = await resp.json(); errMsg = d.error || errMsg; } catch(e) {}
-        throw new Error(errMsg);
+      const ct = resp.headers.get('content-type') || '';
+      // If response is JSON, it's an error
+      if (ct.includes('json')) {
+        const d = await resp.json();
+        console.error('PDF proxy debug:', d);
+        throw new Error(d.error || 'Proxy retornou erro');
       }
+      if (!resp.ok) throw new Error('Erro HTTP ' + resp.status);
       const blob = await resp.blob();
-      if (blob.size < 100) throw new Error('PDF vazio');
+      if (blob.size < 100) throw new Error('PDF vazio (' + blob.size + ' bytes)');
       return blob;
     }
 
