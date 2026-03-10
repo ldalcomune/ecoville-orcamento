@@ -2344,8 +2344,10 @@
 
     function getPaymentType(o) {
       if (!o.coraPayment) return 'unknown';
+      // Use stored paymentType (set when cobranca was generated)
+      if (o.coraPayment.paymentType) return o.coraPayment.paymentType;
+      // Fallback: Boleto has boletoUrl; PIX-only has pixEmv but no boletoUrl
       const parc = o.coraPayment.parcelas || [o.coraPayment];
-      // Boleto has boletoUrl; PIX-only has pixEmv but no boletoUrl
       return parc.some(p => p.boletoUrl) ? 'BOLETO' : 'PIX';
     }
 
@@ -2847,6 +2849,7 @@
         const lista = getOrcamentos();
         const orc = lista.find(o => o.id === id);
         if (orc) {
+          data.paymentType = tipo === 'PIX' ? 'PIX' : 'BOLETO';
           orc.coraPayment = data;
           orc.status = 'entrega';
           saveOrcamentosLocal(lista);
