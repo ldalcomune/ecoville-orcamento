@@ -2619,10 +2619,6 @@
               <span style="font-size:13px;font-weight:700;color:#059669">PIX Cora - a vista - pagamento imediato</span>
             </div>
           </div>
-          <div style="margin-bottom:12px">
-            <label style="font-size:12px;font-weight:600;color:var(--gray-600);display:block;margin-bottom:4px">Chave PIX (opcional - enviada junto com o boleto/PIX)</label>
-            <input id="cobrPixKey" type="text" value="${localStorage.getItem('ecoville_pix_key') || ''}" style="width:100%;padding:10px 12px;border:2px solid var(--gray-200);border-radius:var(--radius);font-size:14px;font-family:inherit" placeholder="CNPJ, email, telefone ou chave aleatoria">
-          </div>
           <button id="cobrEnviarBtn" onclick="enviarCobranca(${id})" style="width:100%;background:#7c3aed;color:white;border:none;border-radius:var(--radius);padding:14px;font-size:15px;font-weight:700;cursor:pointer">Gerar Cobranca</button>
           <button onclick="fecharModalCobranca()" style="margin-top:8px;width:100%;background:var(--gray-100);color:var(--gray-600);border:none;border-radius:var(--radius);padding:12px;font-size:13px;font-weight:600;cursor:pointer">Cancelar</button>
         </div>`;
@@ -2664,12 +2660,6 @@
       const email = document.getElementById('cobrEmail').value.trim();
       const tipo = document.querySelector('input[name="cobrTipo"]:checked').value;
       const isBoleto = tipo === 'BANK_SLIP';
-
-      // Save PIX key for future use if provided
-      const pixKeyVal = document.getElementById('cobrPixKey').value.trim();
-      if (pixKeyVal) {
-        localStorage.setItem('ecoville_pix_key', pixKeyVal);
-      }
 
       if (!nome || !doc) {
         alert('Preencha o nome e CPF/CNPJ do cliente');
@@ -2721,12 +2711,6 @@
         const data = await resp.json();
         if (!resp.ok) {
           throw new Error(data.error || 'Erro ao gerar cobranca');
-        }
-
-        // Attach PIX key to payment data if provided
-        if (pixKeyVal && data.parcelas) {
-          data.pixKey = pixKeyVal;
-          data.parcelas.forEach(p => { p.pixKey = pixKeyVal; });
         }
 
         // Update local orcamento - move to 'entrega'
@@ -2791,23 +2775,15 @@
           <div style="font-size:14px;color:var(--gray-400);font-weight:600">Carregando boleto...</div>
         </div>
         <div id="pdfContainer" style="width:100%;overflow-x:auto"></div>`;
-      } else if (p.pixEmv) {
-        _currentPixEmv = p.pixEmv;
-        contentHtml += `<div style="background:#f0fdf4;border:2px solid #bbf7d0;border-radius:var(--radius);padding:20px;text-align:center">
-          <div style="font-size:13px;font-weight:700;color:#059669;margin-bottom:10px">CODIGO PIX - COPIA E COLA</div>
-          <div style="font-size:12px;color:var(--gray-700);word-break:break-all;margin-bottom:12px">${p.pixEmv}</div>
-          <button onclick="_currentPixEmv='${p.pixEmv.replace(/'/g, "\\'")}';copiarPixEmv()" style="background:#059669;color:white;border:none;border-radius:8px;padding:10px 24px;font-size:13px;font-weight:700;cursor:pointer">Copiar Codigo PIX</button>
-        </div>`;
       }
 
-      // Show PIX key alongside boleto/PIX if available
-      if (p.pixKey) {
+      // Show PIX EMV code (from Cora) - appears alongside boleto or alone for PIX payments
+      if (p.pixEmv) {
+        _currentPixEmv = p.pixEmv;
         contentHtml += `<div style="background:#f0fdf4;border:2px solid #bbf7d0;border-radius:var(--radius);padding:16px;margin-top:12px;text-align:center">
-          <div style="font-size:13px;font-weight:700;color:#059669;margin-bottom:8px">CHAVE PIX - COPIA E COLA</div>
-          <div style="background:white;border:2px solid var(--gray-200);border-radius:8px;padding:12px;margin-bottom:10px">
-            <div style="font-size:14px;font-weight:700;color:var(--gray-800);word-break:break-all">${p.pixKey}</div>
-          </div>
-          <button onclick="navigator.clipboard.writeText('${p.pixKey.replace(/'/g, "\\'")}').then(()=>showToast('Chave PIX copiada!'))" style="background:#059669;color:white;border:none;border-radius:8px;padding:10px 24px;font-size:13px;font-weight:700;cursor:pointer">Copiar Chave PIX</button>
+          <div style="font-size:13px;font-weight:700;color:#059669;margin-bottom:8px">PIX - COPIA E COLA</div>
+          <div style="font-size:11px;color:var(--gray-500);word-break:break-all;margin-bottom:10px;max-height:60px;overflow:auto">${p.pixEmv}</div>
+          <button onclick="_currentPixEmv='${p.pixEmv.replace(/'/g, "\\'")}';copiarPixEmv()" style="background:#059669;color:white;border:none;border-radius:8px;padding:10px 24px;font-size:13px;font-weight:700;cursor:pointer">Copiar Codigo PIX</button>
         </div>`;
       }
 
@@ -2834,14 +2810,14 @@
       const btnSalvar = document.getElementById('btnCobrancaSalvar');
       const btnVoltar = document.getElementById('btnCobrancaVoltar');
 
-      const pixKeyForShare = p.pixKey || '';
+      const pixEmvForShare = p.pixEmv || '';
       if (p.boletoUrl) {
-        btnWa.onclick = () => enviarBoletoWhatsApp(p.boletoUrl, idx, pixKeyForShare);
-        btnEmail.onclick = () => enviarBoletoEmail(p.boletoUrl, idx, pixKeyForShare);
+        btnWa.onclick = () => enviarBoletoWhatsApp(p.boletoUrl, idx, pixEmvForShare);
+        btnEmail.onclick = () => enviarBoletoEmail(p.boletoUrl, idx, pixEmvForShare);
         btnSalvar.onclick = () => baixarBoletoPdf(p.boletoUrl, idx);
       } else if (p.pixEmv) {
-        btnWa.onclick = () => enviarPixWhatsApp(p.pixEmv, pixKeyForShare);
-        btnEmail.onclick = () => enviarPixEmail(p.pixEmv, pixKeyForShare);
+        btnWa.onclick = () => enviarPixWhatsApp(p.pixEmv);
+        btnEmail.onclick = () => enviarPixEmail(p.pixEmv);
         btnSalvar.onclick = () => { _currentPixEmv = p.pixEmv; copiarPixEmv(); };
       }
       btnVoltar.onclick = () => showPage(_cobrancaFromPage);
@@ -2929,9 +2905,9 @@
       return { o, p, parcelaLabel, valor, venc, nome, numero };
     }
 
-    async function enviarBoletoWhatsApp(boletoUrl, parcelaIdx, pixKey) {
+    async function enviarBoletoWhatsApp(boletoUrl, parcelaIdx, pixEmv) {
       const { p, parcelaLabel, valor, venc, nome, numero } = getParcelaInfo(parcelaIdx);
-      const pixKeyText = pixKey ? `\n\nChave PIX (copia e cola):\n${pixKey}` : '';
+      const pixText = pixEmv ? `\n\nPIX (copia e cola):\n${pixEmv}` : '';
 
       try {
         showToast('Preparando boleto...');
@@ -2946,7 +2922,7 @@
           await navigator.share({
             files: [file],
             title: `Boleto${parcelaLabel} - Ecoville`,
-            text: `Boleto${parcelaLabel} - ${nome}\nValor: ${valor}\nVencimento: ${venc}${pixKeyText}`
+            text: `Boleto${parcelaLabel} - ${nome}\nValor: ${valor}\nVencimento: ${venc}${pixText}`
           });
           return;
         }
@@ -2955,14 +2931,14 @@
       }
       // Fallback: send info via WhatsApp
       const phone = _cobrancaOrc && _cobrancaOrc.clientePhone ? _cobrancaOrc.clientePhone.replace(/\D/g, '') : '';
-      const msg = `*Ecoville*\n\nOla ${nome}!\nBoleto${parcelaLabel}:\nValor: ${valor}\nVencimento: ${venc}\n${p.boletoDigitableLine ? 'Linha digitavel:\n' + p.boletoDigitableLine + '\n' : ''}${pixKeyText}\n${p.boletoUrl || ''}`;
+      const msg = `*Ecoville*\n\nOla ${nome}!\nBoleto${parcelaLabel}:\nValor: ${valor}\nVencimento: ${venc}\n${p.boletoDigitableLine ? 'Linha digitavel:\n' + p.boletoDigitableLine + '\n' : ''}${pixText}\n${p.boletoUrl || ''}`;
       const waUrl = phone ? 'https://wa.me/55' + phone + '?text=' + encodeURIComponent(msg) : 'https://wa.me/?text=' + encodeURIComponent(msg);
       window.open(waUrl, '_blank');
     }
 
-    async function enviarBoletoEmail(boletoUrl, parcelaIdx, pixKey) {
+    async function enviarBoletoEmail(boletoUrl, parcelaIdx, pixEmv) {
       const { p, parcelaLabel, valor, venc, nome, numero } = getParcelaInfo(parcelaIdx);
-      const pixKeyText = pixKey ? `\nChave PIX (copia e cola): ${pixKey}\n` : '';
+      const pixText = pixEmv ? `\nPIX (copia e cola): ${pixEmv}\n` : '';
 
       try {
         showToast('Preparando boleto...');
@@ -2977,7 +2953,7 @@
           await navigator.share({
             files: [file],
             title: `Boleto${parcelaLabel} - Ecoville`,
-            text: `Boleto para ${nome} - ${valor} - Venc: ${venc}${pixKeyText}`
+            text: `Boleto para ${nome} - ${valor} - Venc: ${venc}${pixText}`
           });
           return;
         }
@@ -2986,7 +2962,7 @@
       }
       // Fallback: mailto
       const subject = `Boleto${parcelaLabel} - ${numero} - Ecoville`;
-      const body = `Ola ${nome},\n\nSegue boleto${parcelaLabel}:\nValor: ${valor}\nVencimento: ${venc}\n${p.boletoDigitableLine ? 'Linha digitavel: ' + p.boletoDigitableLine + '\n' : ''}${pixKeyText}\nEcoville - Domingos Martins`;
+      const body = `Ola ${nome},\n\nSegue boleto${parcelaLabel}:\nValor: ${valor}\nVencimento: ${venc}\n${p.boletoDigitableLine ? 'Linha digitavel: ' + p.boletoDigitableLine + '\n' : ''}${pixText}\nEcoville - Domingos Martins`;
       window.open('mailto:?subject=' + encodeURIComponent(subject) + '&body=' + encodeURIComponent(body));
     }
 
@@ -3009,25 +2985,23 @@
       }
     }
 
-    function enviarPixWhatsApp(pixEmv, pixKey) {
+    function enviarPixWhatsApp(pixEmv) {
       const o = _cobrancaOrc;
       const phone = o && o.clientePhone ? o.clientePhone.replace(/\D/g, '') : '';
       const nome = o ? o.cliente : '';
       const valor = o ? formatPrice(o.total) : '';
-      const pixKeyText = pixKey ? `\n\nChave PIX:\n${pixKey}` : '';
-      const msg = `*Ecoville*\n\nOla ${nome}!\n\nPIX para pagamento:\nValor: ${valor}\n\nCodigo PIX (copia e cola):\n${pixEmv}${pixKeyText}`;
+      const msg = `*Ecoville*\n\nOla ${nome}!\n\nPIX para pagamento:\nValor: ${valor}\n\nCodigo PIX (copia e cola):\n${pixEmv}`;
       const waUrl = phone ? 'https://wa.me/55' + phone + '?text=' + encodeURIComponent(msg) : 'https://wa.me/?text=' + encodeURIComponent(msg);
       window.open(waUrl, '_blank');
     }
 
-    function enviarPixEmail(pixEmv, pixKey) {
+    function enviarPixEmail(pixEmv) {
       const o = _cobrancaOrc;
       const nome = o ? o.cliente : '';
       const valor = o ? formatPrice(o.total) : '';
       const numero = o ? o.numero : '';
-      const pixKeyText = pixKey ? `\nChave PIX: ${pixKey}\n` : '';
       const subject = `PIX - ${numero} - Ecoville`;
-      const body = `Ola ${nome},\n\nPIX para pagamento:\nValor: ${valor}\n\nCodigo PIX (copia e cola):\n${pixEmv}\n${pixKeyText}\nEcoville - Domingos Martins`;
+      const body = `Ola ${nome},\n\nPIX para pagamento:\nValor: ${valor}\n\nCodigo PIX (copia e cola):\n${pixEmv}\n\nEcoville - Domingos Martins`;
       window.open('mailto:?subject=' + encodeURIComponent(subject) + '&body=' + encodeURIComponent(body));
     }
 
