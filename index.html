@@ -1120,6 +1120,21 @@
     </div>
   </div>
 
+  <!-- Page: Entrega -->
+  <div class="page" id="page-entrega">
+    <div class="section-header">
+      <div class="icon-circle" style="background:rgba(124,58,237,0.1)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="#7c3aed" stroke-width="2"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
+      </div>
+      <h2>Entregas</h2>
+    </div>
+    <div id="entregaLista"></div>
+    <div id="entregaEmpty" style="text-align:center;padding:40px 20px;color:var(--gray-400)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="width:48px;height:48px;margin-bottom:12px;opacity:0.4"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
+      <p>Nenhum pedido para entrega</p>
+    </div>
+  </div>
+
   <!-- Page: Config -->
   <div class="page" id="page-config">
     <div class="section-header">
@@ -1232,6 +1247,10 @@
     <button class="nav-btn" id="nav-historico" onclick="showPage('historico')">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 8v4l3 3"/><circle cx="12" cy="12" r="10"/></svg>
       Historico
+    </button>
+    <button class="nav-btn" id="nav-entrega" onclick="showPage('entrega')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
+      Entrega
     </button>
     <button class="nav-btn" id="nav-config" onclick="showPage('config')">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
@@ -1415,6 +1434,7 @@
       if (navBtn) navBtn.classList.add('active');
       if (page === 'cart') renderCart();
       if (page === 'historico') renderHistorico();
+      if (page === 'entrega') renderEntrega();
       if (page === 'config') renderUsersList();
       window.scrollTo(0, 0);
     }
@@ -2173,6 +2193,9 @@
         lista = isAdmin ? todas : todas.filter(o => o.vendedorUser === session.user || o.vendedor === session.name);
       }
 
+      // Historico shows only enviado/aceito (not entrega/pronto)
+      lista = lista.filter(o => o.status !== 'entrega' && o.status !== 'pronto');
+
       if (lista.length === 0) {
         container.innerHTML = '';
         emptyEl.style.display = '';
@@ -2180,6 +2203,118 @@
         container.innerHTML = lista.map(o => renderOrcCard(o)).join('');
         emptyEl.style.display = 'none';
       }
+    }
+
+    // ========== ENTREGA ==========
+
+    async function renderEntrega() {
+      const container = document.getElementById('entregaLista');
+      const emptyEl = document.getElementById('entregaEmpty');
+
+      const remote = await apiGetOrcamentos();
+      let todas;
+      if (remote) {
+        todas = remote;
+        saveOrcamentosLocal(todas);
+      } else {
+        todas = getOrcamentos();
+      }
+
+      const session = JSON.parse(localStorage.getItem('ecoville_session') || '{}');
+      const isAdmin = session.user === 'admin';
+
+      // Entrega shows only items with status entrega or pronto
+      let lista = todas.filter(o => o.status === 'entrega' || o.status === 'pronto');
+      if (!isAdmin) {
+        lista = lista.filter(o => o.vendedorUser === session.user || o.vendedor === session.name);
+      }
+
+      if (lista.length === 0) {
+        container.innerHTML = '';
+        emptyEl.style.display = '';
+      } else {
+        container.innerHTML = lista.map(o => renderEntregaCard(o)).join('');
+        emptyEl.style.display = 'none';
+      }
+    }
+
+    function renderEntregaCard(o) {
+      const session = JSON.parse(localStorage.getItem('ecoville_session') || '{}');
+      const isAdmin = session.user === 'admin';
+      const isPronto = o.status === 'pronto';
+
+      const statusColor = isPronto ? '#059669' : '#7c3aed';
+      const statusBg = isPronto ? '#d1fae5' : '#f5f3ff';
+      const statusText = isPronto ? 'PRONTO' : 'AGUARDANDO';
+
+      // Cobranca info
+      let cobrancaInfo = '';
+      if (o.coraPayment) {
+        const parc = o.coraPayment.parcelas;
+        if (parc && parc.length > 1) {
+          cobrancaInfo = `${parc.length}x parcelas`;
+        } else {
+          const p = parc ? parc[0] : o.coraPayment;
+          cobrancaInfo = `Vence: ${p.dueDate || ''}`;
+        }
+      }
+
+      // Botao pronto para entrega (qualquer usuario pode marcar)
+      let prontoBtn = '';
+      if (!isPronto) {
+        prontoBtn = `<button onclick="marcarProntoEntrega(${o.id})" style="background:#059669;color:white;border:none;border-radius:8px;padding:8px 14px;font-size:12px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:4px">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="width:14px;height:14px"><path d="M20 6L9 17l-5-5"/></svg> Pronto p/ Entrega
+        </button>`;
+      } else {
+        prontoBtn = `<span style="background:#d1fae5;color:#059669;border-radius:8px;padding:8px 14px;font-size:12px;font-weight:700;display:flex;align-items:center;gap:4px">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="width:14px;height:14px"><path d="M20 6L9 17l-5-5"/></svg> Pronto
+          ${o.prontoEm ? ' - ' + o.prontoEm : ''}
+        </span>`;
+      }
+
+      // Delete button only for admin
+      const deleteBtn = isAdmin ? `<button onclick="excluirOrcamento(${o.id})" style="background:var(--red-light);color:var(--red);border:none;border-radius:8px;padding:8px 10px;font-size:12px;font-weight:700;cursor:pointer">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+      </button>` : '';
+
+      return `
+        <div style="background:var(--white);border-radius:var(--radius);box-shadow:var(--shadow);margin-bottom:12px;overflow:hidden;border:1px solid ${isPronto ? '#d1fae5' : '#e9e5ff'}">
+          <div style="padding:14px 16px;border-bottom:1px solid var(--gray-100)">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+              <span style="font-weight:800;font-size:14px;color:var(--primary)">${o.numero}</span>
+              <span style="font-size:10px;font-weight:700;color:${statusColor};background:${statusBg};padding:3px 10px;border-radius:20px;text-transform:uppercase">${statusText}</span>
+            </div>
+            <div style="font-size:13px;font-weight:600;color:var(--gray-800)">${o.cliente}</div>
+            <div style="font-size:11px;color:var(--gray-400);margin-top:2px">${o.data} &bull; ${o.items.length} ${o.items.length === 1 ? 'item' : 'itens'} &bull; Vendedor: ${o.vendedor || ''}</div>
+            ${cobrancaInfo ? `<div style="font-size:11px;color:#7c3aed;font-weight:600;margin-top:4px">${cobrancaInfo}</div>` : ''}
+            ${o.formaPagamento ? `<div style="font-size:11px;color:var(--green);font-weight:600;margin-top:2px">Pagamento: ${o.formaPagamento}</div>` : ''}
+          </div>
+          <div style="padding:10px 16px;display:flex;justify-content:space-between;align-items:center">
+            <span style="font-size:18px;font-weight:800;color:var(--green)">${formatPrice(o.total)}</span>
+            <div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end">
+              ${prontoBtn}
+              <button onclick="verCobranca(${o.id})" style="background:#f5f3ff;color:#7c3aed;border:none;border-radius:8px;padding:8px 14px;font-size:12px;font-weight:700;cursor:pointer">Ver Cobranca</button>
+              <button onclick="verOrcamento(${o.id})" style="background:var(--gray-100);color:var(--gray-700);border:none;border-radius:8px;padding:8px 14px;font-size:12px;font-weight:700;cursor:pointer">Ver</button>
+              ${deleteBtn}
+            </div>
+          </div>
+        </div>`;
+    }
+
+    function marcarProntoEntrega(id) {
+      if (!confirm('Confirmar que o pedido esta pronto para entrega?')) return;
+      const lista = getOrcamentos();
+      const orc = lista.find(o => o.id === id);
+      if (!orc) return;
+
+      const session = JSON.parse(localStorage.getItem('ecoville_session') || '{}');
+      orc.status = 'pronto';
+      orc.prontoEm = new Date().toLocaleDateString('pt-BR') + ' ' + new Date().toLocaleTimeString('pt-BR', {hour:'2-digit',minute:'2-digit'});
+      orc.prontoPor = session.name || session.user;
+      saveOrcamentosLocal(lista);
+      apiUpdateOrcamento(id, { status: 'pronto', prontoEm: orc.prontoEm, prontoPor: orc.prontoPor }).catch(() => {});
+      renderEntrega();
+      showToast('Pedido marcado como pronto! Rodrigo sera notificado.');
     }
 
     function renderOrcCard(o) {
@@ -2356,19 +2491,30 @@
             <input id="cobrEmail" type="email" value="" style="width:100%;padding:10px 12px;border:2px solid var(--gray-200);border-radius:var(--radius);font-size:14px;font-family:inherit" placeholder="email@exemplo.com">
           </div>
           <div style="margin-bottom:12px">
-            <label style="font-size:12px;font-weight:600;color:var(--gray-600);display:block;margin-bottom:4px">Parcelas do Boleto</label>
-            <select id="cobrParcelas" onchange="atualizarParcelasDatas()" style="width:100%;padding:10px 12px;border:2px solid var(--gray-200);border-radius:var(--radius);font-size:14px;font-family:inherit;background:var(--white)">
-              <option value="1">1x (a vista)</option>
-              <option value="2">2x</option>
-              <option value="3" selected>3x (7/14/21 dias)</option>
-            </select>
+            <label style="font-size:12px;font-weight:600;color:var(--gray-600);display:block;margin-bottom:8px">Forma de cobranca *</label>
+            <div style="display:flex;gap:8px">
+              <label style="flex:1;display:flex;align-items:center;gap:8px;padding:12px;border:2px solid var(--gray-200);border-radius:var(--radius);cursor:pointer;font-size:13px;font-weight:600">
+                <input type="radio" name="cobrTipo" value="BANK_SLIP" checked> Boleto
+              </label>
+              <label style="flex:1;display:flex;align-items:center;gap:8px;padding:12px;border:2px solid var(--gray-200);border-radius:var(--radius);cursor:pointer;font-size:13px;font-weight:600">
+                <input type="radio" name="cobrTipo" value="PIX"> PIX
+              </label>
+            </div>
           </div>
-          <div id="cobrParcelasDatas" style="margin-bottom:12px"></div>
-          <div style="margin-bottom:16px">
-            <label style="font-size:12px;font-weight:600;color:var(--gray-600);display:block;margin-bottom:8px">Incluir PIX</label>
-            <label style="display:flex;align-items:center;gap:6px;font-size:13px;font-weight:500;cursor:pointer">
-              <input type="checkbox" id="cobrPix" checked> Gerar PIX na 1a parcela
-            </label>
+          <div id="cobrParcelasWrapper">
+            <div style="margin-bottom:12px">
+              <label style="font-size:12px;font-weight:600;color:var(--gray-600);display:block;margin-bottom:4px">Parcelas</label>
+              <select id="cobrParcelas" onchange="atualizarParcelasDatas()" style="width:100%;padding:10px 12px;border:2px solid var(--gray-200);border-radius:var(--radius);font-size:14px;font-family:inherit;background:var(--white)">
+                <option value="1">1x (a vista)</option>
+                <option value="2">2x</option>
+                <option value="3" selected>3x (7/14/21 dias)</option>
+              </select>
+            </div>
+            <div id="cobrParcelasDatas" style="margin-bottom:12px"></div>
+          </div>
+          <div id="cobrPixVencWrapper" style="display:none;margin-bottom:12px">
+            <label style="font-size:12px;font-weight:600;color:var(--gray-600);display:block;margin-bottom:4px">Vencimento PIX</label>
+            <input type="date" id="cobrPixVenc" style="width:100%;padding:10px 12px;border:2px solid var(--gray-200);border-radius:var(--radius);font-size:14px;font-family:inherit">
           </div>
           <button id="cobrEnviarBtn" onclick="enviarCobranca(${id})" style="width:100%;background:#7c3aed;color:white;border:none;border-radius:var(--radius);padding:14px;font-size:15px;font-weight:700;cursor:pointer">Gerar Cobranca</button>
           <button onclick="fecharModalCobranca()" style="margin-top:8px;width:100%;background:var(--gray-100);color:var(--gray-600);border:none;border-radius:var(--radius);padding:12px;font-size:13px;font-weight:600;cursor:pointer">Cancelar</button>
@@ -2377,6 +2523,19 @@
       document.getElementById('modalCobranca').innerHTML = html;
       document.getElementById('modalCobrancaOverlay').style.display = 'flex';
       atualizarParcelasDatas();
+
+      // Set default PIX date
+      const pixD = new Date(); pixD.setDate(pixD.getDate() + 7);
+      document.getElementById('cobrPixVenc').value = pixD.toISOString().split('T')[0];
+
+      // Toggle boleto parcelas vs PIX vencimento
+      document.querySelectorAll('input[name="cobrTipo"]').forEach(r => {
+        r.addEventListener('change', () => {
+          const isBoleto = document.querySelector('input[name="cobrTipo"]:checked').value === 'BANK_SLIP';
+          document.getElementById('cobrParcelasWrapper').style.display = isBoleto ? '' : 'none';
+          document.getElementById('cobrPixVencWrapper').style.display = isBoleto ? 'none' : '';
+        });
+      });
     }
 
     function atualizarParcelasDatas() {
@@ -2400,20 +2559,28 @@
       const nome = document.getElementById('cobrNome').value.trim();
       const doc = document.getElementById('cobrDoc').value.trim();
       const email = document.getElementById('cobrEmail').value.trim();
-      const parcelas = parseInt(document.getElementById('cobrParcelas').value);
-      const pix = document.getElementById('cobrPix').checked;
+      const tipo = document.querySelector('input[name="cobrTipo"]:checked').value;
+      const isBoleto = tipo === 'BANK_SLIP';
 
       if (!nome || !doc) {
         alert('Preencha o nome e CPF/CNPJ do cliente');
         return;
       }
 
-      // Collect due dates
+      let parcelas = 1;
       const dueDates = [];
-      for (let i = 0; i < parcelas; i++) {
-        const dt = document.getElementById('cobrData' + i).value;
-        if (!dt) { alert('Preencha a data da parcela ' + (i+1)); return; }
-        dueDates.push(dt);
+
+      if (isBoleto) {
+        parcelas = parseInt(document.getElementById('cobrParcelas').value);
+        for (let i = 0; i < parcelas; i++) {
+          const dt = document.getElementById('cobrData' + i).value;
+          if (!dt) { alert('Preencha a data da parcela ' + (i+1)); return; }
+          dueDates.push(dt);
+        }
+      } else {
+        const pixDt = document.getElementById('cobrPixVenc').value;
+        if (!pixDt) { alert('Preencha a data de vencimento do PIX'); return; }
+        dueDates.push(pixDt);
       }
 
       const btn = document.getElementById('cobrEnviarBtn');
@@ -2426,9 +2593,9 @@
           headers: apiHeaders(),
           body: JSON.stringify({
             orcamentoId: id,
+            paymentType: tipo,
             parcelas: parcelas,
             dueDates: dueDates,
-            includePix: pix,
             customer: {
               name: nome,
               document: doc,
@@ -2442,18 +2609,21 @@
           throw new Error(data.error || 'Erro ao gerar cobranca');
         }
 
-        // Update local orcamento
+        // Update local orcamento - move to 'entrega'
         const lista = getOrcamentos();
         const orc = lista.find(o => o.id === id);
         if (orc) {
           orc.coraPayment = data;
+          orc.status = 'entrega';
           saveOrcamentosLocal(lista);
+          apiUpdateOrcamento(id, { coraPayment: data, status: 'entrega' }).catch(() => {});
         }
 
         fecharModalCobranca();
-        showToast('Cobranca gerada com sucesso!');
+        showToast('Cobranca gerada! Pedido movido para Entrega');
         mostrarCobrancaDetalhes(data, orc ? orc.numero : '');
         renderHistorico();
+        renderEntrega();
       } catch (e) {
         alert('Erro: ' + e.message);
         btn.disabled = false;
@@ -2617,11 +2787,20 @@
     }
 
     function excluirOrcamento(id) {
-      if (!confirm('Excluir este orcamento do historico?')) return;
-      const lista = getOrcamentos().filter(o => o.id !== id);
+      const session = JSON.parse(localStorage.getItem('ecoville_session') || '{}');
+      const todas = getOrcamentos();
+      const orc = todas.find(o => o.id === id);
+      // Only admin can delete once cobranca generated
+      if (orc && orc.coraPayment && session.user !== 'admin') {
+        alert('Somente o administrador pode excluir pedidos com cobranca gerada');
+        return;
+      }
+      if (!confirm('Excluir este orcamento?')) return;
+      const lista = todas.filter(o => o.id !== id);
       saveOrcamentosLocal(lista);
       apiDeleteOrcamento(id).catch(() => {});
       renderHistorico();
+      renderEntrega();
       showToast('Orcamento excluido');
     }
 
