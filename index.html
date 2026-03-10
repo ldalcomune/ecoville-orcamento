@@ -2214,9 +2214,17 @@
       // Info da cobranca se ja gerada
       let cobrancaInfo = '';
       if (o.coraPayment) {
-        cobrancaInfo = `<div style="padding:8px 16px;background:#f5f3ff;border-top:1px solid #e9e5ff;font-size:11px;color:#7c3aed;font-weight:600">
-          Cobranca gerada &bull; Vence: ${o.coraPayment.dueDate} &bull; ${o.coraPayment.coraStatus}
-        </div>`;
+        const parc = o.coraPayment.parcelas;
+        if (parc && parc.length > 1) {
+          cobrancaInfo = `<div style="padding:8px 16px;background:#f5f3ff;border-top:1px solid #e9e5ff;font-size:11px;color:#7c3aed;font-weight:600">
+            ${parc.length}x parcelas &bull; ${parc.map((p,i) => (i+1) + 'a: ' + p.dueDate).join(' &bull; ')}
+          </div>`;
+        } else {
+          const p = parc ? parc[0] : o.coraPayment;
+          cobrancaInfo = `<div style="padding:8px 16px;background:#f5f3ff;border-top:1px solid #e9e5ff;font-size:11px;color:#7c3aed;font-weight:600">
+            Cobranca gerada &bull; Vence: ${p.dueDate || ''} &bull; ${p.coraStatus || ''}
+          </div>`;
+        }
       }
 
       return `
@@ -2348,52 +2356,65 @@
             <input id="cobrEmail" type="email" value="" style="width:100%;padding:10px 12px;border:2px solid var(--gray-200);border-radius:var(--radius);font-size:14px;font-family:inherit" placeholder="email@exemplo.com">
           </div>
           <div style="margin-bottom:12px">
-            <label style="font-size:12px;font-weight:600;color:var(--gray-600);display:block;margin-bottom:4px">Vencimento</label>
-            <select id="cobrVencimento" style="width:100%;padding:10px 12px;border:2px solid var(--gray-200);border-radius:var(--radius);font-size:14px;font-family:inherit;background:var(--white)">
-              <option value="7">7 dias</option>
-              <option value="14">14 dias</option>
-              <option value="21">21 dias</option>
+            <label style="font-size:12px;font-weight:600;color:var(--gray-600);display:block;margin-bottom:4px">Parcelas do Boleto</label>
+            <select id="cobrParcelas" onchange="atualizarParcelasDatas()" style="width:100%;padding:10px 12px;border:2px solid var(--gray-200);border-radius:var(--radius);font-size:14px;font-family:inherit;background:var(--white)">
+              <option value="1">1x (a vista)</option>
+              <option value="2">2x</option>
+              <option value="3" selected>3x (7/14/21 dias)</option>
             </select>
           </div>
+          <div id="cobrParcelasDatas" style="margin-bottom:12px"></div>
           <div style="margin-bottom:16px">
-            <label style="font-size:12px;font-weight:600;color:var(--gray-600);display:block;margin-bottom:8px">Formas de pagamento</label>
-            <div style="display:flex;gap:8px">
-              <label style="display:flex;align-items:center;gap:6px;font-size:13px;font-weight:500;cursor:pointer">
-                <input type="checkbox" id="cobrBoleto" checked> Boleto
-              </label>
-              <label style="display:flex;align-items:center;gap:6px;font-size:13px;font-weight:500;cursor:pointer">
-                <input type="checkbox" id="cobrPix" checked> PIX
-              </label>
-            </div>
+            <label style="font-size:12px;font-weight:600;color:var(--gray-600);display:block;margin-bottom:8px">Incluir PIX</label>
+            <label style="display:flex;align-items:center;gap:6px;font-size:13px;font-weight:500;cursor:pointer">
+              <input type="checkbox" id="cobrPix" checked> Gerar PIX na 1a parcela
+            </label>
           </div>
-          <button id="cobrEnviarBtn" onclick="enviarCobranca(${id})" style="width:100%;background:#7c3aed;color:white;border:none;border-radius:var(--radius);padding:14px;font-size:15px;font-weight:700;cursor:pointer">Gerar Boleto/PIX</button>
+          <button id="cobrEnviarBtn" onclick="enviarCobranca(${id})" style="width:100%;background:#7c3aed;color:white;border:none;border-radius:var(--radius);padding:14px;font-size:15px;font-weight:700;cursor:pointer">Gerar Cobranca</button>
           <button onclick="fecharModalCobranca()" style="margin-top:8px;width:100%;background:var(--gray-100);color:var(--gray-600);border:none;border-radius:var(--radius);padding:12px;font-size:13px;font-weight:600;cursor:pointer">Cancelar</button>
         </div>`;
 
       document.getElementById('modalCobranca').innerHTML = html;
       document.getElementById('modalCobrancaOverlay').style.display = 'flex';
+      atualizarParcelasDatas();
+    }
+
+    function atualizarParcelasDatas() {
+      const n = parseInt(document.getElementById('cobrParcelas').value);
+      const container = document.getElementById('cobrParcelasDatas');
+      const defaults = [7, 14, 21];
+      let html = '';
+      for (let i = 0; i < n; i++) {
+        const d = new Date();
+        d.setDate(d.getDate() + defaults[i]);
+        const dateStr = d.toISOString().split('T')[0];
+        html += `<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+          <span style="font-size:13px;font-weight:600;color:var(--gray-600);min-width:65px">Parcela ${i+1}:</span>
+          <input type="date" id="cobrData${i}" value="${dateStr}" style="flex:1;padding:8px 10px;border:2px solid var(--gray-200);border-radius:8px;font-size:13px;font-family:inherit">
+        </div>`;
+      }
+      container.innerHTML = html;
     }
 
     async function enviarCobranca(id) {
       const nome = document.getElementById('cobrNome').value.trim();
       const doc = document.getElementById('cobrDoc').value.trim();
       const email = document.getElementById('cobrEmail').value.trim();
-      const vencimentoDias = parseInt(document.getElementById('cobrVencimento').value);
-      const boleto = document.getElementById('cobrBoleto').checked;
+      const parcelas = parseInt(document.getElementById('cobrParcelas').value);
       const pix = document.getElementById('cobrPix').checked;
 
       if (!nome || !doc) {
         alert('Preencha o nome e CPF/CNPJ do cliente');
         return;
       }
-      if (!boleto && !pix) {
-        alert('Selecione pelo menos uma forma de pagamento');
-        return;
-      }
 
-      const forms = [];
-      if (boleto) forms.push('BANK_SLIP');
-      if (pix) forms.push('PIX');
+      // Collect due dates
+      const dueDates = [];
+      for (let i = 0; i < parcelas; i++) {
+        const dt = document.getElementById('cobrData' + i).value;
+        if (!dt) { alert('Preencha a data da parcela ' + (i+1)); return; }
+        dueDates.push(dt);
+      }
 
       const btn = document.getElementById('cobrEnviarBtn');
       btn.disabled = true;
@@ -2405,8 +2426,9 @@
           headers: apiHeaders(),
           body: JSON.stringify({
             orcamentoId: id,
-            paymentForms: forms,
-            dueDays: vencimentoDias,
+            parcelas: parcelas,
+            dueDates: dueDates,
+            includePix: pix,
             customer: {
               name: nome,
               document: doc,
@@ -2430,7 +2452,7 @@
 
         fecharModalCobranca();
         showToast('Cobranca gerada com sucesso!');
-        mostrarCobrancaDetalhes(data);
+        mostrarCobrancaDetalhes(data, orc ? orc.numero : '');
         renderHistorico();
       } catch (e) {
         alert('Erro: ' + e.message);
@@ -2447,62 +2469,58 @@
     }
 
     function mostrarCobrancaDetalhes(payment, numero) {
-      _currentPixEmv = payment.pixEmv || '';
-      let boletoSection = '';
-      if (payment.boletoUrl || payment.boletoDigitableLine) {
-        boletoSection = `
-          <div style="margin-bottom:16px">
-            <h4 style="font-size:14px;font-weight:700;color:var(--gray-800);margin-bottom:8px;display:flex;align-items:center;gap:6px">
-              <svg viewBox="0 0 24 24" fill="none" stroke="#7c3aed" stroke-width="2" style="width:18px;height:18px"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
-              Boleto Bancario
-            </h4>
-            ${payment.boletoDigitableLine ? `
-              <div style="background:var(--gray-50);border:1px solid var(--gray-200);border-radius:8px;padding:12px;margin-bottom:8px">
-                <div style="font-size:10px;font-weight:600;color:var(--gray-500);margin-bottom:4px">LINHA DIGITAVEL</div>
-                <div id="boletoLinhaDigitavel" style="font-size:13px;font-weight:600;color:var(--gray-800);word-break:break-all">${payment.boletoDigitableLine}</div>
-              </div>
-              <button onclick="copiarTexto('${payment.boletoDigitableLine}', 'Linha digitavel copiada!')" style="width:100%;background:var(--gray-100);color:var(--gray-700);border:none;border-radius:8px;padding:10px;font-size:13px;font-weight:600;cursor:pointer;margin-bottom:8px">Copiar Linha Digitavel</button>
-            ` : ''}
-            ${payment.boletoUrl ? `
-              <a href="${payment.boletoUrl}" target="_blank" style="display:block;width:100%;background:#7c3aed;color:white;border:none;border-radius:8px;padding:12px;font-size:14px;font-weight:700;cursor:pointer;text-align:center;text-decoration:none">Abrir Boleto PDF</a>
-            ` : ''}
-          </div>`;
-      }
+      // Support both single invoice (legacy) and parcelas array
+      const parcelas = payment.parcelas || [payment];
+      _currentPixEmv = '';
 
-      let pixSection = '';
-      if (payment.pixEmv) {
-        pixSection = `
-          <div style="margin-bottom:16px">
-            <h4 style="font-size:14px;font-weight:700;color:var(--gray-800);margin-bottom:8px;display:flex;align-items:center;gap:6px">
-              <svg viewBox="0 0 24 24" fill="none" stroke="#059669" stroke-width="2" style="width:18px;height:18px"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
-              PIX
-            </h4>
-            <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:12px;margin-bottom:8px">
-              <div style="font-size:10px;font-weight:600;color:#059669;margin-bottom:4px">CODIGO PIX (COPIA E COLA)</div>
-              <div style="font-size:11px;color:var(--gray-700);word-break:break-all;max-height:80px;overflow-y:auto">${payment.pixEmv}</div>
+      let parcelasHtml = '';
+      parcelas.forEach((p, i) => {
+        const label = parcelas.length > 1 ? `Parcela ${i+1}/${parcelas.length}` : 'Cobranca';
+        const valor = p.totalAmount ? formatPrice(p.totalAmount) : '';
+
+        let statusColor = '#7c3aed';
+        let statusText = p.coraStatus || 'Gerada';
+        if (p.coraStatus === 'PAID') { statusColor = '#059669'; statusText = 'PAGO'; }
+        if (p.coraStatus === 'OVERDUE') { statusColor = '#dc2626'; statusText = 'VENCIDO'; }
+
+        parcelasHtml += `
+          <div style="background:var(--gray-50);border:1px solid var(--gray-200);border-radius:var(--radius);padding:14px;margin-bottom:12px">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+              <span style="font-size:14px;font-weight:700;color:var(--primary)">${label}</span>
+              <span style="font-size:10px;font-weight:700;color:${statusColor};background:${statusColor}15;padding:3px 10px;border-radius:20px">${statusText}</span>
             </div>
-            <button onclick="copiarPixEmv()" style="width:100%;background:#059669;color:white;border:none;border-radius:8px;padding:12px;font-size:14px;font-weight:700;cursor:pointer">Copiar Codigo PIX</button>
+            ${valor ? `<div style="font-size:13px;color:var(--gray-600);margin-bottom:4px">Valor: <strong>${valor}</strong></div>` : ''}
+            ${p.dueDate ? `<div style="font-size:12px;color:var(--gray-500);margin-bottom:8px">Vencimento: ${p.dueDate}</div>` : ''}
+            ${p.boletoDigitableLine ? `
+              <div style="background:var(--white);border:1px solid var(--gray-200);border-radius:8px;padding:10px;margin-bottom:6px">
+                <div style="font-size:10px;font-weight:600;color:var(--gray-500);margin-bottom:3px">LINHA DIGITAVEL</div>
+                <div style="font-size:12px;font-weight:600;color:var(--gray-800);word-break:break-all">${p.boletoDigitableLine}</div>
+              </div>
+              <button onclick="copiarTexto('${p.boletoDigitableLine}', 'Linha digitavel copiada!')" style="width:100%;background:var(--white);color:var(--gray-700);border:1px solid var(--gray-200);border-radius:8px;padding:8px;font-size:12px;font-weight:600;cursor:pointer;margin-bottom:6px">Copiar Linha Digitavel</button>
+            ` : ''}
+            ${p.boletoUrl ? `
+              <a href="${p.boletoUrl}" target="_blank" style="display:block;width:100%;background:#7c3aed;color:white;border:none;border-radius:8px;padding:10px;font-size:13px;font-weight:700;cursor:pointer;text-align:center;text-decoration:none;margin-bottom:6px">Abrir Boleto PDF</a>
+            ` : ''}
+            ${p.pixEmv ? `
+              <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:10px;margin-bottom:6px">
+                <div style="font-size:10px;font-weight:600;color:#059669;margin-bottom:3px">CODIGO PIX</div>
+                <div style="font-size:11px;color:var(--gray-700);word-break:break-all;max-height:60px;overflow-y:auto">${p.pixEmv}</div>
+              </div>
+              <button onclick="_currentPixEmv='${p.pixEmv.replace(/'/g, "\\'")}';copiarPixEmv()" style="width:100%;background:#059669;color:white;border:none;border-radius:8px;padding:10px;font-size:13px;font-weight:700;cursor:pointer">Copiar PIX</button>
+            ` : ''}
           </div>`;
-      }
+      });
 
-      let statusColor = '#7c3aed';
-      let statusText = payment.coraStatus || 'Gerada';
-      if (payment.coraStatus === 'PAID') { statusColor = '#059669'; statusText = 'PAGO'; }
-      if (payment.coraStatus === 'OVERDUE') { statusColor = '#dc2626'; statusText = 'VENCIDO'; }
+      // Total geral
+      const totalGeral = payment.totalAmount || parcelas.reduce((s, p) => s + (p.totalAmount || 0), 0);
 
       const html = `
         <div style="padding:24px">
-          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
             <h3 style="font-size:18px;font-weight:800;color:var(--primary)">Cobranca ${numero || ''}</h3>
-            <span style="font-size:11px;font-weight:700;color:${statusColor};background:${statusColor}15;padding:4px 12px;border-radius:20px">${statusText}</span>
           </div>
-          ${payment.totalAmount ? `<p style="font-size:14px;color:var(--gray-600);margin-bottom:4px">Valor: <strong style="color:var(--green)">${formatPrice(payment.totalAmount)}</strong></p>` : ''}
-          ${payment.dueDate ? `<p style="font-size:13px;color:var(--gray-500);margin-bottom:16px">Vencimento: ${payment.dueDate}</p>` : ''}
-          ${boletoSection}
-          ${pixSection}
-          ${payment.coraInvoiceId ? `
-            <button onclick="verificarStatusCobranca('${payment.coraInvoiceId}')" style="width:100%;background:var(--gray-100);color:var(--gray-700);border:none;border-radius:8px;padding:10px;font-size:13px;font-weight:600;cursor:pointer;margin-bottom:8px">Atualizar Status</button>
-          ` : ''}
+          ${parcelas.length > 1 ? `<p style="font-size:13px;color:var(--gray-500);margin-bottom:12px">${parcelas.length} parcelas - Total: <strong style="color:var(--green)">${formatPrice(totalGeral)}</strong></p>` : ''}
+          ${parcelasHtml}
           <button onclick="fecharModalCobranca()" style="width:100%;background:var(--gray-100);color:var(--gray-600);border:none;border-radius:var(--radius);padding:12px;font-size:13px;font-weight:600;cursor:pointer">Fechar</button>
         </div>`;
 
