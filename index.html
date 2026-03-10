@@ -1244,6 +1244,11 @@
     <div id="modalPagamento" style="background:var(--white);border-radius:var(--radius-lg);max-width:400px;width:100%;box-shadow:var(--shadow-lg);max-height:90vh;overflow-y:auto"></div>
   </div>
 
+  <!-- Modal Cobranca (Boleto/PIX) -->
+  <div id="modalCobrancaOverlay" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:200;justify-content:center;align-items:center;padding:20px">
+    <div id="modalCobranca" style="background:var(--white);border-radius:var(--radius-lg);max-width:440px;width:100%;box-shadow:var(--shadow-lg);max-height:90vh;overflow-y:auto"></div>
+  </div>
+
   <!-- Toast -->
   <div class="toast" id="toast">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M20 6L9 17l-5-5"/></svg>
@@ -2192,6 +2197,28 @@
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="width:14px;height:14px"><path d="M20 6L9 17l-5-5"/></svg> Aceito
           </button>`;
 
+      // Botao Cobrar (Boleto/PIX) - so aparece quando aceito
+      let cobrarBtnHtml = '';
+      if (isAceito) {
+        if (o.coraPayment) {
+          cobrarBtnHtml = `<button onclick="verCobranca(${o.id})" style="background:#7c3aed;color:white;border:none;border-radius:8px;padding:8px 14px;font-size:12px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:4px">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg> Ver Cobranca
+          </button>`;
+        } else {
+          cobrarBtnHtml = `<button onclick="gerarCobranca(${o.id})" style="background:#7c3aed;color:white;border:none;border-radius:8px;padding:8px 14px;font-size:12px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:4px">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg> Cobrar
+          </button>`;
+        }
+      }
+
+      // Info da cobranca se ja gerada
+      let cobrancaInfo = '';
+      if (o.coraPayment) {
+        cobrancaInfo = `<div style="padding:8px 16px;background:#f5f3ff;border-top:1px solid #e9e5ff;font-size:11px;color:#7c3aed;font-weight:600">
+          Cobranca gerada &bull; Vence: ${o.coraPayment.dueDate} &bull; ${o.coraPayment.coraStatus}
+        </div>`;
+      }
+
       return `
         <div style="background:var(--white);border-radius:var(--radius);box-shadow:var(--shadow);margin-bottom:12px;overflow:hidden;border:1px solid ${isAceito ? 'var(--green-light)' : 'var(--gray-100)'}">
           <div style="padding:14px 16px;border-bottom:1px solid var(--gray-100)">
@@ -2204,6 +2231,7 @@
             ${o.enviadoPor ? `<div style="font-size:11px;color:var(--gray-500);margin-top:2px">Enviado: ${o.enviadoPor}</div>` : ''}
             ${pagamentoInfo}
           </div>
+          ${cobrancaInfo}
           <div style="padding:10px 16px;display:flex;justify-content:space-between;align-items:center">
             <div>
               ${o.desconto > 0 ? `<span style="font-size:11px;color:var(--gray-400);text-decoration:line-through">${formatPrice(o.subtotal)}</span> <span style="font-size:11px;color:var(--red)">-${o.desconto}%</span><br>` : ''}
@@ -2211,6 +2239,7 @@
             </div>
             <div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end">
               ${aceitoBtnHtml}
+              ${cobrarBtnHtml}
               <button onclick="editarOrcamento(${o.id})" style="background:rgba(13,43,107,0.08);color:var(--primary);border:none;border-radius:8px;padding:8px 14px;font-size:12px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:4px">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg> Editar
               </button>
@@ -2290,6 +2319,236 @@
     function fecharModalPagamento() {
       document.getElementById('modalPagamentoOverlay').style.display = 'none';
       aceitarOrcId = null;
+    }
+
+    // ========== COBRANCA (BOLETO/PIX via CORA) ==========
+
+    function gerarCobranca(id) {
+      const lista = getOrcamentos();
+      const orc = lista.find(o => o.id === id);
+      if (!orc) return;
+
+      const nomeCliente = orc.cliente || '';
+      const docCliente = orc.clienteDoc || '';
+
+      const html = `
+        <div style="padding:24px">
+          <h3 style="font-size:18px;font-weight:800;color:var(--primary);margin-bottom:4px">Gerar Cobranca</h3>
+          <p style="font-size:13px;color:var(--gray-500);margin-bottom:16px">${orc.numero} - ${nomeCliente} - ${formatPrice(orc.total)}</p>
+          <div style="margin-bottom:12px">
+            <label style="font-size:12px;font-weight:600;color:var(--gray-600);display:block;margin-bottom:4px">Nome do Cliente *</label>
+            <input id="cobrNome" type="text" value="${nomeCliente}" style="width:100%;padding:10px 12px;border:2px solid var(--gray-200);border-radius:var(--radius);font-size:14px;font-family:inherit" placeholder="Nome completo">
+          </div>
+          <div style="margin-bottom:12px">
+            <label style="font-size:12px;font-weight:600;color:var(--gray-600);display:block;margin-bottom:4px">CPF ou CNPJ *</label>
+            <input id="cobrDoc" type="text" value="${docCliente}" style="width:100%;padding:10px 12px;border:2px solid var(--gray-200);border-radius:var(--radius);font-size:14px;font-family:inherit" placeholder="000.000.000-00">
+          </div>
+          <div style="margin-bottom:12px">
+            <label style="font-size:12px;font-weight:600;color:var(--gray-600);display:block;margin-bottom:4px">Email (opcional)</label>
+            <input id="cobrEmail" type="email" value="" style="width:100%;padding:10px 12px;border:2px solid var(--gray-200);border-radius:var(--radius);font-size:14px;font-family:inherit" placeholder="email@exemplo.com">
+          </div>
+          <div style="margin-bottom:16px">
+            <label style="font-size:12px;font-weight:600;color:var(--gray-600);display:block;margin-bottom:8px">Formas de pagamento</label>
+            <div style="display:flex;gap:8px">
+              <label style="display:flex;align-items:center;gap:6px;font-size:13px;font-weight:500;cursor:pointer">
+                <input type="checkbox" id="cobrBoleto" checked> Boleto
+              </label>
+              <label style="display:flex;align-items:center;gap:6px;font-size:13px;font-weight:500;cursor:pointer">
+                <input type="checkbox" id="cobrPix" checked> PIX
+              </label>
+            </div>
+          </div>
+          <button id="cobrEnviarBtn" onclick="enviarCobranca(${id})" style="width:100%;background:#7c3aed;color:white;border:none;border-radius:var(--radius);padding:14px;font-size:15px;font-weight:700;cursor:pointer">Gerar Boleto/PIX</button>
+          <button onclick="fecharModalCobranca()" style="margin-top:8px;width:100%;background:var(--gray-100);color:var(--gray-600);border:none;border-radius:var(--radius);padding:12px;font-size:13px;font-weight:600;cursor:pointer">Cancelar</button>
+        </div>`;
+
+      document.getElementById('modalCobranca').innerHTML = html;
+      document.getElementById('modalCobrancaOverlay').style.display = 'flex';
+    }
+
+    async function enviarCobranca(id) {
+      const nome = document.getElementById('cobrNome').value.trim();
+      const doc = document.getElementById('cobrDoc').value.trim();
+      const email = document.getElementById('cobrEmail').value.trim();
+      const boleto = document.getElementById('cobrBoleto').checked;
+      const pix = document.getElementById('cobrPix').checked;
+
+      if (!nome || !doc) {
+        alert('Preencha o nome e CPF/CNPJ do cliente');
+        return;
+      }
+      if (!boleto && !pix) {
+        alert('Selecione pelo menos uma forma de pagamento');
+        return;
+      }
+
+      const forms = [];
+      if (boleto) forms.push('BANK_SLIP');
+      if (pix) forms.push('PIX');
+
+      const btn = document.getElementById('cobrEnviarBtn');
+      btn.disabled = true;
+      btn.textContent = 'Gerando...';
+
+      try {
+        const resp = await fetch(API_URL + '/cora/cobranca', {
+          method: 'POST',
+          headers: apiHeaders(),
+          body: JSON.stringify({
+            orcamentoId: id,
+            paymentForms: forms,
+            customer: {
+              name: nome,
+              document: doc,
+              email: email || undefined
+            }
+          })
+        });
+
+        const data = await resp.json();
+        if (!resp.ok) {
+          throw new Error(data.error || 'Erro ao gerar cobranca');
+        }
+
+        // Update local orcamento
+        const lista = getOrcamentos();
+        const orc = lista.find(o => o.id === id);
+        if (orc) {
+          orc.coraPayment = data;
+          saveOrcamentosLocal(lista);
+        }
+
+        fecharModalCobranca();
+        showToast('Cobranca gerada com sucesso!');
+        mostrarCobrancaDetalhes(data);
+        renderHistorico();
+      } catch (e) {
+        alert('Erro: ' + e.message);
+        btn.disabled = false;
+        btn.textContent = 'Gerar Boleto/PIX';
+      }
+    }
+
+    function verCobranca(id) {
+      const lista = getOrcamentos();
+      const orc = lista.find(o => o.id === id);
+      if (!orc || !orc.coraPayment) return;
+      mostrarCobrancaDetalhes(orc.coraPayment, orc.numero);
+    }
+
+    function mostrarCobrancaDetalhes(payment, numero) {
+      _currentPixEmv = payment.pixEmv || '';
+      let boletoSection = '';
+      if (payment.boletoUrl || payment.boletoDigitableLine) {
+        boletoSection = `
+          <div style="margin-bottom:16px">
+            <h4 style="font-size:14px;font-weight:700;color:var(--gray-800);margin-bottom:8px;display:flex;align-items:center;gap:6px">
+              <svg viewBox="0 0 24 24" fill="none" stroke="#7c3aed" stroke-width="2" style="width:18px;height:18px"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
+              Boleto Bancario
+            </h4>
+            ${payment.boletoDigitableLine ? `
+              <div style="background:var(--gray-50);border:1px solid var(--gray-200);border-radius:8px;padding:12px;margin-bottom:8px">
+                <div style="font-size:10px;font-weight:600;color:var(--gray-500);margin-bottom:4px">LINHA DIGITAVEL</div>
+                <div id="boletoLinhaDigitavel" style="font-size:13px;font-weight:600;color:var(--gray-800);word-break:break-all">${payment.boletoDigitableLine}</div>
+              </div>
+              <button onclick="copiarTexto('${payment.boletoDigitableLine}', 'Linha digitavel copiada!')" style="width:100%;background:var(--gray-100);color:var(--gray-700);border:none;border-radius:8px;padding:10px;font-size:13px;font-weight:600;cursor:pointer;margin-bottom:8px">Copiar Linha Digitavel</button>
+            ` : ''}
+            ${payment.boletoUrl ? `
+              <a href="${payment.boletoUrl}" target="_blank" style="display:block;width:100%;background:#7c3aed;color:white;border:none;border-radius:8px;padding:12px;font-size:14px;font-weight:700;cursor:pointer;text-align:center;text-decoration:none">Abrir Boleto PDF</a>
+            ` : ''}
+          </div>`;
+      }
+
+      let pixSection = '';
+      if (payment.pixEmv) {
+        pixSection = `
+          <div style="margin-bottom:16px">
+            <h4 style="font-size:14px;font-weight:700;color:var(--gray-800);margin-bottom:8px;display:flex;align-items:center;gap:6px">
+              <svg viewBox="0 0 24 24" fill="none" stroke="#059669" stroke-width="2" style="width:18px;height:18px"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+              PIX
+            </h4>
+            <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:12px;margin-bottom:8px">
+              <div style="font-size:10px;font-weight:600;color:#059669;margin-bottom:4px">CODIGO PIX (COPIA E COLA)</div>
+              <div style="font-size:11px;color:var(--gray-700);word-break:break-all;max-height:80px;overflow-y:auto">${payment.pixEmv}</div>
+            </div>
+            <button onclick="copiarPixEmv()" style="width:100%;background:#059669;color:white;border:none;border-radius:8px;padding:12px;font-size:14px;font-weight:700;cursor:pointer">Copiar Codigo PIX</button>
+          </div>`;
+      }
+
+      let statusColor = '#7c3aed';
+      let statusText = payment.coraStatus || 'Gerada';
+      if (payment.coraStatus === 'PAID') { statusColor = '#059669'; statusText = 'PAGO'; }
+      if (payment.coraStatus === 'OVERDUE') { statusColor = '#dc2626'; statusText = 'VENCIDO'; }
+
+      const html = `
+        <div style="padding:24px">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+            <h3 style="font-size:18px;font-weight:800;color:var(--primary)">Cobranca ${numero || ''}</h3>
+            <span style="font-size:11px;font-weight:700;color:${statusColor};background:${statusColor}15;padding:4px 12px;border-radius:20px">${statusText}</span>
+          </div>
+          ${payment.totalAmount ? `<p style="font-size:14px;color:var(--gray-600);margin-bottom:4px">Valor: <strong style="color:var(--green)">${formatPrice(payment.totalAmount)}</strong></p>` : ''}
+          ${payment.dueDate ? `<p style="font-size:13px;color:var(--gray-500);margin-bottom:16px">Vencimento: ${payment.dueDate}</p>` : ''}
+          ${boletoSection}
+          ${pixSection}
+          ${payment.coraInvoiceId ? `
+            <button onclick="verificarStatusCobranca('${payment.coraInvoiceId}')" style="width:100%;background:var(--gray-100);color:var(--gray-700);border:none;border-radius:8px;padding:10px;font-size:13px;font-weight:600;cursor:pointer;margin-bottom:8px">Atualizar Status</button>
+          ` : ''}
+          <button onclick="fecharModalCobranca()" style="width:100%;background:var(--gray-100);color:var(--gray-600);border:none;border-radius:var(--radius);padding:12px;font-size:13px;font-weight:600;cursor:pointer">Fechar</button>
+        </div>`;
+
+      document.getElementById('modalCobranca').innerHTML = html;
+      document.getElementById('modalCobrancaOverlay').style.display = 'flex';
+    }
+
+    let _currentPixEmv = '';
+
+    function copiarPixEmv() {
+      copiarTexto(_currentPixEmv, 'Codigo PIX copiado!');
+    }
+
+    function copiarTexto(texto, msg) {
+      navigator.clipboard.writeText(texto).then(() => {
+        showToast(msg || 'Copiado!');
+      }).catch(() => {
+        // Fallback
+        const ta = document.createElement('textarea');
+        ta.value = texto;
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        document.body.removeChild(ta);
+        showToast(msg || 'Copiado!');
+      });
+    }
+
+    async function verificarStatusCobranca(invoiceId) {
+      try {
+        const resp = await fetch(API_URL + '/cora/cobranca?invoiceId=' + invoiceId, {
+          headers: apiHeaders()
+        });
+        const data = await resp.json();
+        if (!resp.ok) throw new Error(data.error);
+
+        showToast('Status: ' + (data.status || 'Desconhecido'));
+
+        // Update local if status changed
+        const lista = getOrcamentos();
+        for (const orc of lista) {
+          if (orc.coraPayment && orc.coraPayment.coraInvoiceId === invoiceId) {
+            orc.coraPayment.coraStatus = data.status;
+            if (data.pix && data.pix.emv) orc.coraPayment.pixEmv = data.pix.emv;
+            break;
+          }
+        }
+        saveOrcamentosLocal(lista);
+        renderHistorico();
+      } catch (e) {
+        alert('Erro ao verificar status: ' + e.message);
+      }
+    }
+
+    function fecharModalCobranca() {
+      document.getElementById('modalCobrancaOverlay').style.display = 'none';
     }
 
     let editingOrcId = null;
