@@ -2769,7 +2769,7 @@
 
       // Render PDF with pdf.js
       if (p.boletoUrl) {
-        renderPdfToCanvas(p.boletoUrl);
+        renderBoletoDoc(p.boletoUrl);
       }
 
       // Wire up buttons
@@ -2790,62 +2790,74 @@
       btnVoltar.onclick = () => showPage(_cobrancaFromPage);
     }
 
-    // Render PDF pages as images using pdf.js
-    async function renderPdfToCanvas(url) {
+    // Render boleto document (PNG image or PDF)
+    async function renderBoletoDoc(url) {
       try {
-        const blob = await fetchPdfBlob(url);
-        const arrayBuffer = await blob.arrayBuffer();
-        const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+        const { blob, contentType } = await fetchBoletoBlob(url);
         const container = document.getElementById('pdfContainer');
         const loading = document.getElementById('pdfLoading');
         if (!container) return;
 
-        const containerWidth = container.clientWidth || 360;
+        if (contentType.includes('image')) {
+          // It's an image (PNG/JPG) - show directly
+          const imgUrl = URL.createObjectURL(blob);
+          const img = document.createElement('img');
+          img.src = imgUrl;
+          img.style.width = '100%';
+          img.style.height = 'auto';
+          img.style.display = 'block';
+          img.style.borderRadius = 'var(--radius)';
+          container.appendChild(img);
+          if (loading) loading.style.display = 'none';
+        } else if (contentType.includes('pdf')) {
+          // It's a PDF - render with pdf.js
+          const arrayBuffer = await blob.arrayBuffer();
+          const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+          const containerWidth = container.clientWidth || 360;
 
-        for (let i = 1; i <= pdf.numPages; i++) {
-          const page = await pdf.getPage(i);
-          const viewport = page.getViewport({ scale: 1 });
-          const scale = containerWidth / viewport.width;
-          const scaledViewport = page.getViewport({ scale: scale * 2 }); // 2x for retina
+          for (let i = 1; i <= pdf.numPages; i++) {
+            const page = await pdf.getPage(i);
+            const viewport = page.getViewport({ scale: 1 });
+            const scale = containerWidth / viewport.width;
+            const scaledViewport = page.getViewport({ scale: scale * 2 });
 
-          const canvas = document.createElement('canvas');
-          canvas.width = scaledViewport.width;
-          canvas.height = scaledViewport.height;
-          canvas.style.width = '100%';
-          canvas.style.height = 'auto';
-          canvas.style.display = 'block';
-          if (i > 1) canvas.style.marginTop = '4px';
+            const canvas = document.createElement('canvas');
+            canvas.width = scaledViewport.width;
+            canvas.height = scaledViewport.height;
+            canvas.style.width = '100%';
+            canvas.style.height = 'auto';
+            canvas.style.display = 'block';
 
-          const ctx = canvas.getContext('2d');
-          await page.render({ canvasContext: ctx, viewport: scaledViewport }).promise;
-          container.appendChild(canvas);
+            const ctx = canvas.getContext('2d');
+            await page.render({ canvasContext: ctx, viewport: scaledViewport }).promise;
+            container.appendChild(canvas);
+          }
+          if (loading) loading.style.display = 'none';
+        } else {
+          throw new Error('Formato nao suportado: ' + contentType);
         }
-
-        if (loading) loading.style.display = 'none';
       } catch (e) {
         const loading = document.getElementById('pdfLoading');
-        if (loading) loading.innerHTML = `<div style="color:#dc2626;font-size:13px;padding:12px">Erro ao carregar PDF:<br><span style="font-size:11px;color:#666">${e.message}</span></div>`;
-        console.error('PDF render error:', e);
+        if (loading) loading.innerHTML = `<div style="color:#dc2626;font-size:13px;padding:12px">Erro ao carregar boleto:<br><span style="font-size:11px;color:#666">${e.message}</span></div>`;
+        console.error('Boleto render error:', e);
       }
     }
 
-    // Fetch PDF via backend proxy (avoids CORS)
-    async function fetchPdfBlob(url) {
+    // Fetch boleto file via backend proxy (avoids CORS)
+    async function fetchBoletoBlob(url) {
       const proxyUrl = API_URL + '/cora/boleto-pdf?url=' + encodeURIComponent(url);
       const resp = await fetch(proxyUrl, {
         headers: { 'Authorization': 'Bearer ' + getApiToken() }
       });
       const ct = resp.headers.get('content-type') || '';
-      // If response is JSON, it's an error with debug info
       if (ct.includes('json')) {
         const d = await resp.json();
-        console.error('PDF proxy debug:', d);
-        throw new Error((d.error || 'Proxy erro') + (d.preview ? '\n' + d.preview.substring(0, 150) : '') + (d.contentType ? '\nTipo: ' + d.contentType : ''));
+        throw new Error(d.error || 'Proxy erro');
       }
       if (!resp.ok) throw new Error('Erro HTTP ' + resp.status);
       const blob = await resp.blob();
-      if (blob.size < 100) throw new Error('PDF vazio (' + blob.size + ' bytes)');
-      return blob;
+      if (blob.size < 100) throw new Error('Arquivo vazio');
+      return { blob, contentType: ct };
     }
 
     function getParcelaInfo(parcelaIdx) {
@@ -2862,12 +2874,15 @@
 
     async function enviarBoletoWhatsApp(boletoUrl, parcelaIdx) {
       const { p, parcelaLabel, valor, venc, nome, numero } = getParcelaInfo(parcelaIdx);
-      const fileName = `Boleto-${numero}${parcelaLabel.replace(/[^a-zA-Z0-9]/g, '')}.pdf`;
 
       try {
         showToast('Preparando boleto...');
-        const blob = await fetchPdfBlob(boletoUrl);
-        const file = new File([blob], fileName, { type: 'application/pdf' });
+        const result = await fetchBoletoBlob(boletoUrl);
+        const blob = result.blob;
+        const ext = result.contentType.includes('png') ? '.png' : result.contentType.includes('image') ? '.jpg' : '.pdf';
+        const mime = result.contentType || 'application/pdf';
+        const fileName = `Boleto-${numero}${parcelaLabel.replace(/[^a-zA-Z0-9]/g, '')}${ext}`;
+        const file = new File([blob], fileName, { type: mime });
 
         if (navigator.canShare && navigator.canShare({ files: [file] })) {
           await navigator.share({
@@ -2889,12 +2904,15 @@
 
     async function enviarBoletoEmail(boletoUrl, parcelaIdx) {
       const { p, parcelaLabel, valor, venc, nome, numero } = getParcelaInfo(parcelaIdx);
-      const fileName = `Boleto-${numero}${parcelaLabel.replace(/[^a-zA-Z0-9]/g, '')}.pdf`;
 
       try {
         showToast('Preparando boleto...');
-        const blob = await fetchPdfBlob(boletoUrl);
-        const file = new File([blob], fileName, { type: 'application/pdf' });
+        const result = await fetchBoletoBlob(boletoUrl);
+        const blob = result.blob;
+        const ext = result.contentType.includes('png') ? '.png' : result.contentType.includes('image') ? '.jpg' : '.pdf';
+        const mime = result.contentType || 'application/pdf';
+        const fileName = `Boleto-${numero}${parcelaLabel.replace(/[^a-zA-Z0-9]/g, '')}${ext}`;
+        const file = new File([blob], fileName, { type: mime });
 
         if (navigator.canShare && navigator.canShare({ files: [file] })) {
           await navigator.share({
@@ -2915,10 +2933,12 @@
 
     async function baixarBoletoPdf(boletoUrl, parcelaIdx) {
       const { parcelaLabel, numero } = getParcelaInfo(parcelaIdx);
-      const fileName = `Boleto-${numero}${parcelaLabel.replace(/[^a-zA-Z0-9]/g, '')}.pdf`;
       try {
         showToast('Baixando...');
-        const blob = await fetchPdfBlob(boletoUrl);
+        const result = await fetchBoletoBlob(boletoUrl);
+        const blob = result.blob;
+        const ext = result.contentType.includes('png') ? '.png' : result.contentType.includes('image') ? '.jpg' : '.pdf';
+        const fileName = `Boleto-${numero}${parcelaLabel.replace(/[^a-zA-Z0-9]/g, '')}${ext}`;
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
