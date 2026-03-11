@@ -2549,17 +2549,16 @@
         actionBtn = `<button onclick="marcarEntregaFeita(${o.id})" style="background:#059669;color:white;border:none;border-radius:8px;padding:8px 14px;font-size:12px;font-weight:700;cursor:pointer">Entrega feita</button>`;
       } else if (o.status === 'pronto') {
         actionBtn = `<span style="background:#d1fae5;color:#059669;border-radius:8px;padding:6px 12px;font-size:11px;font-weight:700">Pronto</span>`;
-      } else if (isDinheiro) {
-        // Dinheiro: entrega pronta sempre disponivel + controle do caixa
+      } else if (isDinheiro || isPixChave || isBoleto || pago) {
         actionBtn = `<button onclick="agendarEntrega(${o.id})" style="background:#059669;color:white;border:none;border-radius:8px;padding:8px 14px;font-size:12px;font-weight:700;cursor:pointer">Entrega pronta</button>`;
-        if (!dinheiroRecebido) {
-          actionBtn += `<button onclick="marcarDinheiroRecebido(${o.id})" style="background:#d97706;color:white;border:none;border-radius:8px;padding:8px 14px;font-size:12px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:4px">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px"><path d="M12 1v22M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg> Dinheiro em caixa
-          </button>`;
-        }
-      } else if (isPixChave || isBoleto || pago) {
-        // PIX Chave/Boleto: nao aguarda pagamento. PIX Cora: so se pago.
-        actionBtn = `<button onclick="agendarEntrega(${o.id})" style="background:#059669;color:white;border:none;border-radius:8px;padding:8px 14px;font-size:12px;font-weight:700;cursor:pointer">Entrega pronta</button>`;
+      }
+
+      // Dinheiro em caixa: aparece em qualquer status ate ser acionado
+      let dinheiroBtn = '';
+      if (isDinheiro && !dinheiroRecebido) {
+        dinheiroBtn = `<button onclick="marcarDinheiroRecebido(${o.id})" style="background:#d97706;color:white;border:none;border-radius:8px;padding:8px 14px;font-size:12px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:4px">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px"><path d="M12 1v22M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg> Dinheiro em caixa
+        </button>`;
       }
 
       // Delete button only for admin
@@ -2584,6 +2583,7 @@
             <span style="font-size:18px;font-weight:800;color:var(--green)">${formatPrice(o.total)}</span>
             <div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end">
               ${actionBtn}
+              ${dinheiroBtn}
               <button onclick="verOrcamentoEntrega(${o.id})" style="background:var(--gray-100);color:var(--gray-700);border:none;border-radius:8px;padding:8px 14px;font-size:12px;font-weight:700;cursor:pointer">Pedido</button>
               ${(isDinheiro || isPixChave) ? '' : `<button onclick="verCobranca(${o.id},'entrega')" style="background:#f5f3ff;color:#7c3aed;border:none;border-radius:8px;padding:8px 14px;font-size:12px;font-weight:700;cursor:pointer">Cobranca</button>`}
               ${deleteBtn}
@@ -2628,8 +2628,10 @@
             <div class="orc-total-row grand"><span>TOTAL</span><span class="value">${formatPrice(o.total)}</span></div>
           </div>
           ${o.obs ? '<div class="orc-obs"><strong>Observacoes:</strong> ' + o.obs + '</div>' : ''}
+          ${o.formaPagamento === 'PIX Chave' ? '<div style="background:#f0fdf4;border-top:2px solid #bbf7d0;padding:16px 24px;text-align:center"><div style="font-size:14px;font-weight:800;color:#059669;margin-bottom:4px">PIX para pagamento</div><div style="font-size:12px;color:var(--gray-600);margin-bottom:6px">Chave CNPJ:</div><div style="font-size:16px;font-weight:800;color:#0d2b6b;letter-spacing:1px">' + (o.pixChave || PIX_CHAVE_CNPJ) + '</div><div style="font-size:11px;color:var(--gray-400);margin-top:4px">Ecoville - Especialista em Limpeza</div></div>' : ''}
         </div>`;
 
+      _reenvioOrc = o;
       document.getElementById('orcamentoContent').innerHTML = html;
       // Show preview page with reenvio buttons + Voltar
       document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
@@ -2652,6 +2654,8 @@
       window.scrollTo(0, 0);
     }
 
+    let _reenvioOrc = null;
+
     function reenviarPrintOrcamento() {
       const content = document.getElementById('orcPrint');
       if (!content) return;
@@ -2666,23 +2670,30 @@
     async function reenviarWhatsApp() {
       const content = document.getElementById('orcPrint');
       if (!content) return;
+      const o = _reenvioOrc;
+      const phone = o && o.clientePhone ? o.clientePhone.replace(/\D/g, '') : '';
+      let msg = `*ORCAMENTO ECOVILLE*\nCliente: ${o ? o.cliente : ''}\n*TOTAL: ${o ? formatPrice(o.total) : ''}*`;
+      if (o && o.formaPagamento === 'PIX Chave') {
+        msg += `\n\n*PIX para pagamento:*\nChave CNPJ: ${o.pixChave || PIX_CHAVE_CNPJ}\nEcoville - Especialista em Limpeza`;
+      }
+      msg += '\n_Veja a imagem do orcamento em anexo_';
       try {
         const canvas = await html2canvas(content, { scale: 2, useCORS: true, backgroundColor: '#ffffff' });
-        canvas.toBlob(async (blob) => {
-          const file = new File([blob], 'orcamento.png', { type: 'image/png' });
-          if (navigator.canShare && navigator.canShare({ files: [file] })) {
-            await navigator.share({ files: [file], text: 'Orcamento Ecoville' });
-          } else {
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url; a.download = 'orcamento.png'; a.click();
-            URL.revokeObjectURL(url);
-            window.open('https://wa.me/', '_blank');
-          }
-          showToast('Orcamento reenviado!');
-        }, 'image/png');
+        const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
+        const file = new File([blob], 'orcamento.png', { type: 'image/png' });
+        if (navigator.canShare && navigator.canShare({ files: [file] })) {
+          await navigator.share({ files: [file], text: msg });
+        } else {
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url; a.download = 'orcamento.png'; a.click();
+          URL.revokeObjectURL(url);
+          const waUrl = phone ? 'https://wa.me/55' + phone + '?text=' : 'https://wa.me/?text=';
+          window.open(waUrl + encodeURIComponent(msg), '_blank');
+        }
+        showToast('Orcamento reenviado!');
       } catch (e) {
-        showToast('Erro ao gerar imagem');
+        if (e.name !== 'AbortError') showToast('Erro ao gerar imagem');
       }
     }
 
