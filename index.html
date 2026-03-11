@@ -1894,16 +1894,6 @@
           showToast('Orcamento reenviado!');
         }
 
-        // PIX Chave: after sending image, send a second message with just the key for easy copy
-        if (isReenvio && _reenvioOrc.formaPagamento === 'PIX Chave') {
-          const chave = _reenvioOrc.pixChave || PIX_CHAVE_CNPJ;
-          const pixMsg = `Chave PIX (CNPJ):\n${chave}\n\nValor: ${formatPrice(totalVal)}\nEcoville - Especialista em Limpeza`;
-          const waUrl2 = phone ? 'https://wa.me/55' + phone + '?text=' : 'https://wa.me/?text=';
-          // Small delay to not overlap with first share
-          setTimeout(() => {
-            window.open(waUrl2 + encodeURIComponent(pixMsg), '_blank');
-          }, 1500);
-        }
       } catch(e) {
         if (e.name !== 'AbortError') {
           showToast('Erro ao compartilhar. Tente novamente.');
@@ -2696,8 +2686,26 @@
             b.onclick = voltarDePreview;
           }
         });
+        // Add PIX Chave button if applicable
+        if (o.formaPagamento === 'PIX Chave') {
+          const voltarBtn = previewBtns.querySelector('button:last-child');
+          const pixBtn = document.createElement('button');
+          pixBtn.className = 'btn btn-outline';
+          pixBtn.style.cssText = 'color:#059669;border-color:#059669';
+          pixBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:18px;height:18px"><path d="M12 1v22M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg> Enviar Chave PIX';
+          pixBtn.onclick = function() { enviarChavePixWhatsApp(o); };
+          previewBtns.insertBefore(pixBtn, voltarBtn);
+        }
       }
       window.scrollTo(0, 0);
+    }
+
+    function enviarChavePixWhatsApp(o) {
+      const chave = o.pixChave || PIX_CHAVE_CNPJ;
+      const phone = o.clientePhone ? o.clientePhone.replace(/\D/g, '') : '';
+      const msg = `Chave PIX (CNPJ):\n${chave}\n\nValor: ${formatPrice(o.total)}\nEcoville - Especialista em Limpeza`;
+      const waUrl = phone ? 'https://wa.me/55' + phone + '?text=' : 'https://wa.me/?text=';
+      window.open(waUrl + encodeURIComponent(msg), '_blank');
     }
 
     let _reenvioOrc = null;
