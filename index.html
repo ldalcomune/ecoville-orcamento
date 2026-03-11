@@ -1335,6 +1335,7 @@
 
     // ========== API ==========
     const API_URL = 'https://ecoville-api.vercel.app/api';
+    const PIX_CHAVE_CNPJ = '08.060.620/0001-18';
 
     function getApiToken() {
       return localStorage.getItem('ecoville_api_token') || '';
@@ -2473,11 +2474,12 @@
       const session = JSON.parse(localStorage.getItem('ecoville_session') || '{}');
       const isAdmin = session.user === 'admin';
       const isDinheiro = o.formaPagamento === 'Dinheiro';
+      const isPixChave = o.formaPagamento === 'PIX Chave';
       const dinheiroRecebido = isDinheiro && o.dinheiroRecebido;
-      const tipo = isDinheiro ? 'DINHEIRO' : getPaymentType(o);
+      const tipo = isDinheiro ? 'DINHEIRO' : isPixChave ? 'PIX_CHAVE' : getPaymentType(o);
       const isBoleto = tipo === 'BOLETO';
       const pago = dinheiroRecebido || isCobrancaPaga(o);
-      const atrasado = isDinheiro ? false : isCobrancaAtrasada(o);
+      const atrasado = (isDinheiro || isPixChave) ? false : isCobrancaAtrasada(o);
 
       // Status badge
       let statusColor, statusBg, statusText;
@@ -2491,6 +2493,8 @@
         statusColor = '#059669'; statusBg = '#d1fae5'; statusText = 'RECEBIDO';
       } else if (isDinheiro) {
         statusColor = '#d97706'; statusBg = '#fef3c7'; statusText = 'AGUARDANDO';
+      } else if (isPixChave) {
+        statusColor = '#059669'; statusBg = '#d1fae5'; statusText = 'PIX CHAVE';
       } else if (pago) {
         statusColor = '#059669'; statusBg = '#d1fae5'; statusText = 'PAGO';
       } else if (atrasado) {
@@ -2501,7 +2505,12 @@
 
       // Build parcelas status display
       let parcelasHtml = '';
-      if (isDinheiro) {
+      if (isPixChave) {
+        parcelasHtml = `<div style="margin-top:6px;display:flex;align-items:center;gap:6px;font-size:11px">
+          <span style="font-weight:700;color:#059669;min-width:60px">PIX Chave</span>
+          <span style="color:var(--gray-500)">${o.pixChave || PIX_CHAVE_CNPJ}</span>
+        </div>`;
+      } else if (isDinheiro) {
         const dinColor = dinheiroRecebido ? '#059669' : '#d97706';
         const dinStatus = dinheiroRecebido ? 'Recebido' : 'Aguardando';
         const dinRecEm = o.dinheiroRecebidoEm ? ` em ${o.dinheiroRecebidoEm}` : '';
@@ -2545,8 +2554,8 @@
         actionBtn = `<button onclick="marcarDinheiroRecebido(${o.id})" style="background:#d97706;color:white;border:none;border-radius:8px;padding:8px 14px;font-size:12px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:4px">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px"><path d="M12 1v22M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg> Dinheiro em caixa
         </button>`;
-      } else if (dinheiroRecebido || isBoleto || pago) {
-        // Dinheiro recebido/Boleto: nao aguarda pagamento. PIX: so se pago.
+      } else if (isPixChave || dinheiroRecebido || isBoleto || pago) {
+        // PIX Chave/Dinheiro recebido/Boleto: nao aguarda pagamento. PIX Cora: so se pago.
         actionBtn = `<button onclick="agendarEntrega(${o.id})" style="background:#059669;color:white;border:none;border-radius:8px;padding:8px 14px;font-size:12px;font-weight:700;cursor:pointer">Entrega pronta</button>`;
       }
 
@@ -2573,7 +2582,7 @@
             <div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end">
               ${actionBtn}
               <button onclick="verOrcamentoEntrega(${o.id})" style="background:var(--gray-100);color:var(--gray-700);border:none;border-radius:8px;padding:8px 14px;font-size:12px;font-weight:700;cursor:pointer">Pedido</button>
-              ${isDinheiro ? '' : `<button onclick="verCobranca(${o.id},'entrega')" style="background:#f5f3ff;color:#7c3aed;border:none;border-radius:8px;padding:8px 14px;font-size:12px;font-weight:700;cursor:pointer">Cobranca</button>`}
+              ${(isDinheiro || isPixChave) ? '' : `<button onclick="verCobranca(${o.id},'entrega')" style="background:#f5f3ff;color:#7c3aed;border:none;border-radius:8px;padding:8px 14px;font-size:12px;font-weight:700;cursor:pointer">Cobranca</button>`}
               ${deleteBtn}
             </div>
           </div>
@@ -2619,17 +2628,59 @@
         </div>`;
 
       document.getElementById('orcamentoContent').innerHTML = html;
-      // Show preview page with only Voltar button
+      // Show preview page with reenvio buttons + Voltar
       document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
       document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
       document.getElementById('page-preview').classList.add('active');
-      // Hide all preview buttons, show only Voltar
       const previewBtns = document.getElementById('page-preview').querySelector('div[style*="margin-top"]');
       if (previewBtns) {
         previewBtns.dataset.originalHtml = previewBtns.innerHTML;
-        previewBtns.innerHTML = '<button class="btn btn-outline" onclick="voltarDePreview()">Voltar</button>';
+        previewBtns.innerHTML = `
+          <button class="btn btn-outline" onclick="reenviarPrintOrcamento()" style="color:var(--primary);border-color:var(--primary)">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+            Imprimir PDF
+          </button>
+          <button class="btn btn-whatsapp" onclick="reenviarWhatsApp()">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
+            Reenviar WhatsApp
+          </button>
+          <button class="btn btn-outline" onclick="voltarDePreview()">Voltar</button>`;
       }
       window.scrollTo(0, 0);
+    }
+
+    function reenviarPrintOrcamento() {
+      const content = document.getElementById('orcPrint');
+      if (!content) return;
+      const win = window.open('', '_blank');
+      win.document.write('<html><head><title>Orcamento</title><style>body{margin:0;padding:20px;font-family:Inter,sans-serif;-webkit-print-color-adjust:exact}img{max-width:120px}.orc-preview{max-width:800px;margin:auto}.orc-top-bar{height:6px;background:linear-gradient(135deg,#0d2b6b,#1e40af);border-radius:6px 6px 0 0}.orc-header{text-align:center;padding:24px}.orc-header img{margin-bottom:8px}.company-name{font-size:13px;color:#6b7280;font-weight:600}.orc-number{font-size:20px;font-weight:800;color:#0d2b6b;margin-top:8px}.orc-date{font-size:12px;color:#9ca3af}.orc-info-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;padding:0 24px 16px}.orc-info-item{background:#f9fafb;padding:10px 14px;border-radius:8px}.orc-info-item.full{grid-column:1/-1}.orc-info-item .label{font-size:10px;color:#9ca3af;font-weight:700;text-transform:uppercase}.orc-info-item .value{font-size:13px;color:#1f2937;font-weight:600;margin-top:2px}.orc-table{width:100%;border-collapse:collapse;font-size:12px}.orc-table th{background:#f3f4f6;padding:8px 12px;text-align:left;font-weight:700;color:#4b5563;font-size:10px;text-transform:uppercase}.orc-table td{padding:8px 12px;border-bottom:1px solid #f3f4f6;color:#374151}.orc-totals{padding:16px 24px}.orc-total-row{display:flex;justify-content:space-between;padding:6px 0;font-size:13px;color:#4b5563}.orc-total-row.grand{border-top:2px solid #0d2b6b;margin-top:8px;padding-top:12px;font-size:18px;font-weight:800;color:#0d2b6b}.orc-obs{padding:12px 24px;font-size:12px;color:#6b7280;background:#fffbeb;border-top:1px solid #fde68a}.orc-footer{background:#f9fafb;padding:16px 24px;border-top:1px solid #e5e7eb}.orc-footer-contact{text-align:center;font-size:11px;color:#4b5563;line-height:1.7}.orc-footer-contact strong{color:#0d2b6b}.orc-footer-validity{text-align:center;font-size:10px;color:#9ca3af;margin-top:10px;padding-top:10px;border-top:1px solid #e5e7eb}</style></head><body>');
+      win.document.write(content.outerHTML);
+      win.document.write('</body></html>');
+      win.document.close();
+      setTimeout(() => win.print(), 500);
+    }
+
+    async function reenviarWhatsApp() {
+      const content = document.getElementById('orcPrint');
+      if (!content) return;
+      try {
+        const canvas = await html2canvas(content, { scale: 2, useCORS: true, backgroundColor: '#ffffff' });
+        canvas.toBlob(async (blob) => {
+          const file = new File([blob], 'orcamento.png', { type: 'image/png' });
+          if (navigator.canShare && navigator.canShare({ files: [file] })) {
+            await navigator.share({ files: [file], text: 'Orcamento Ecoville' });
+          } else {
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url; a.download = 'orcamento.png'; a.click();
+            URL.revokeObjectURL(url);
+            window.open('https://wa.me/', '_blank');
+          }
+          showToast('Orcamento reenviado!');
+        }, 'image/png');
+      } catch (e) {
+        showToast('Erro ao gerar imagem');
+      }
     }
 
     function voltarDePreview() {
@@ -2850,6 +2901,9 @@
                 <input type="radio" name="cobrTipo" value="PIX"> PIX
               </label>
               <label style="flex:1;display:flex;align-items:center;gap:8px;padding:12px;border:2px solid var(--gray-200);border-radius:var(--radius);cursor:pointer;font-size:13px;font-weight:600">
+                <input type="radio" name="cobrTipo" value="PIX_CHAVE"> PIX Chave
+              </label>
+              <label style="flex:1;display:flex;align-items:center;gap:8px;padding:12px;border:2px solid var(--gray-200);border-radius:var(--radius);cursor:pointer;font-size:13px;font-weight:600">
                 <input type="radio" name="cobrTipo" value="DINHEIRO"> Dinheiro
               </label>
             </div>
@@ -2870,6 +2924,12 @@
               <span style="font-size:13px;font-weight:700;color:#059669">PIX Cora - a vista - pagamento imediato</span>
             </div>
           </div>
+          <div id="cobrPixChaveWrapper" style="display:none;margin-bottom:12px">
+            <div style="background:#f0fdf4;border:2px solid #bbf7d0;border-radius:var(--radius);padding:12px;text-align:center">
+              <span style="font-size:13px;font-weight:700;color:#059669">PIX via chave CNPJ: ${PIX_CHAVE_CNPJ}</span><br>
+              <span style="font-size:11px;color:var(--gray-500)">A chave sera enviada ao cliente para pagamento manual</span>
+            </div>
+          </div>
           <div id="cobrDinheiroWrapper" style="display:none;margin-bottom:12px">
             <div style="background:#fef3c7;border:2px solid #fde68a;border-radius:var(--radius);padding:12px;text-align:center">
               <span style="font-size:13px;font-weight:700;color:#d97706">Pagamento em dinheiro - sem cobranca Cora</span>
@@ -2883,17 +2943,17 @@
       document.getElementById('modalCobrancaOverlay').style.display = 'flex';
       atualizarParcelasDatas();
 
-      // Toggle boleto parcelas vs PIX vencimento vs Dinheiro
+      // Toggle boleto parcelas vs PIX vs PIX Chave vs Dinheiro
       document.querySelectorAll('input[name="cobrTipo"]').forEach(r => {
         r.addEventListener('change', () => {
           const val = document.querySelector('input[name="cobrTipo"]:checked').value;
-          const isDinheiro = val === 'DINHEIRO';
-          const isBoleto = val === 'BANK_SLIP';
-          document.getElementById('cobrParcelasWrapper').style.display = isBoleto ? '' : 'none';
+          const semCora = val === 'DINHEIRO' || val === 'PIX_CHAVE';
+          document.getElementById('cobrParcelasWrapper').style.display = val === 'BANK_SLIP' ? '' : 'none';
           document.getElementById('cobrPixVencWrapper').style.display = val === 'PIX' ? '' : 'none';
-          document.getElementById('cobrDinheiroWrapper').style.display = isDinheiro ? '' : 'none';
-          // Hide Cora fields for Dinheiro
-          document.getElementById('cobrCoraFields').style.display = isDinheiro ? 'none' : '';
+          document.getElementById('cobrPixChaveWrapper').style.display = val === 'PIX_CHAVE' ? '' : 'none';
+          document.getElementById('cobrDinheiroWrapper').style.display = val === 'DINHEIRO' ? '' : 'none';
+          // Hide Cora fields for Dinheiro and PIX Chave
+          document.getElementById('cobrCoraFields').style.display = semCora ? 'none' : '';
         });
       });
     }
@@ -2920,20 +2980,21 @@
       const isDinheiro = tipo === 'DINHEIRO';
       const isBoleto = tipo === 'BANK_SLIP';
 
-      // Dinheiro: skip Cora, just mark as entrega
-      if (isDinheiro) {
+      // Dinheiro ou PIX Chave: skip Cora, just mark as entrega
+      if (isDinheiro || tipo === 'PIX_CHAVE') {
         const lista = getOrcamentos();
         const orc = lista.find(o => o.id === id);
         if (orc) {
-          orc.formaPagamento = 'Dinheiro';
+          orc.formaPagamento = isDinheiro ? 'Dinheiro' : 'PIX Chave';
+          if (tipo === 'PIX_CHAVE') orc.pixChave = PIX_CHAVE_CNPJ;
           orc.status = 'entrega';
           saveOrcamentosLocal(lista);
-          apiUpdateOrcamento(id, { formaPagamento: 'Dinheiro', status: 'entrega' }).catch(() => {});
+          apiUpdateOrcamento(id, { formaPagamento: orc.formaPagamento, pixChave: orc.pixChave || null, status: 'entrega' }).catch(() => {});
         }
         fecharModalCobranca();
         renderHistorico();
         renderEntrega();
-        showToast('Pagamento em dinheiro registrado!');
+        showToast(isDinheiro ? 'Pagamento em dinheiro registrado!' : 'PIX Chave registrado!');
         return;
       }
 
