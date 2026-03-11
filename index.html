@@ -2392,9 +2392,10 @@
       const session = JSON.parse(localStorage.getItem('ecoville_session') || '{}');
       const isAdmin = session.user === 'admin';
       const isDinheiro = o.formaPagamento === 'Dinheiro';
+      const dinheiroRecebido = isDinheiro && o.dinheiroRecebido;
       const tipo = isDinheiro ? 'DINHEIRO' : getPaymentType(o);
       const isBoleto = tipo === 'BOLETO';
-      const pago = isDinheiro || isCobrancaPaga(o);
+      const pago = dinheiroRecebido || isCobrancaPaga(o);
       const atrasado = isDinheiro ? false : isCobrancaAtrasada(o);
 
       // Status badge
@@ -2405,8 +2406,10 @@
         statusColor = '#2563eb'; statusBg = '#dbeafe'; statusText = 'ENTREGA AGENDADA';
       } else if (o.status === 'pronto') {
         statusColor = '#059669'; statusBg = '#d1fae5'; statusText = 'PRONTO P/ ENTREGA';
+      } else if (dinheiroRecebido) {
+        statusColor = '#059669'; statusBg = '#d1fae5'; statusText = 'RECEBIDO';
       } else if (isDinheiro) {
-        statusColor = '#d97706'; statusBg = '#fef3c7'; statusText = 'DINHEIRO';
+        statusColor = '#d97706'; statusBg = '#fef3c7'; statusText = 'AGUARDANDO';
       } else if (pago) {
         statusColor = '#059669'; statusBg = '#d1fae5'; statusText = 'PAGO';
       } else if (atrasado) {
@@ -2418,7 +2421,13 @@
       // Build parcelas status display
       let parcelasHtml = '';
       if (isDinheiro) {
-        parcelasHtml = '<div style="margin-top:6px;font-size:12px;font-weight:700;color:#d97706">Pagamento: Dinheiro</div>';
+        const dinColor = dinheiroRecebido ? '#059669' : '#d97706';
+        const dinStatus = dinheiroRecebido ? 'Recebido' : 'Aguardando';
+        const dinRecEm = o.dinheiroRecebidoEm ? ` em ${o.dinheiroRecebidoEm}` : '';
+        parcelasHtml = `<div style="margin-top:6px;display:flex;align-items:center;gap:6px;font-size:11px">
+          <span style="font-weight:700;color:#d97706;min-width:60px">Dinheiro</span>
+          <span style="font-weight:700;color:${dinColor};background:${dinColor}15;padding:1px 8px;border-radius:12px;font-size:10px">${dinStatus}${dinRecEm}</span>
+        </div>`;
       } else if (o.coraPayment) {
         const parc = o.coraPayment.parcelas || [o.coraPayment];
         parcelasHtml = '<div style="margin-top:6px;display:flex;flex-direction:column;gap:3px">';
@@ -2450,8 +2459,13 @@
         actionBtn = `<button onclick="marcarEntregaFeita(${o.id})" style="background:#059669;color:white;border:none;border-radius:8px;padding:8px 14px;font-size:12px;font-weight:700;cursor:pointer">Entrega feita</button>`;
       } else if (o.status === 'pronto') {
         actionBtn = `<span style="background:#d1fae5;color:#059669;border-radius:8px;padding:6px 12px;font-size:11px;font-weight:700">Pronto</span>`;
-      } else if (isDinheiro || isBoleto || pago) {
-        // Dinheiro/Boleto: nao aguarda pagamento. PIX: so se pago.
+      } else if (isDinheiro && !dinheiroRecebido) {
+        // Dinheiro aguardando recebimento pelo caixa
+        actionBtn = `<button onclick="marcarDinheiroRecebido(${o.id})" style="background:#d97706;color:white;border:none;border-radius:8px;padding:8px 14px;font-size:12px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:4px">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px"><path d="M12 1v22M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg> Dinheiro em caixa
+        </button>`;
+      } else if (dinheiroRecebido || isBoleto || pago) {
+        // Dinheiro recebido/Boleto: nao aguarda pagamento. PIX: so se pago.
         actionBtn = `<button onclick="agendarEntrega(${o.id})" style="background:#059669;color:white;border:none;border-radius:8px;padding:8px 14px;font-size:12px;font-weight:700;cursor:pointer">Entrega pronta</button>`;
       }
 
@@ -2590,6 +2604,20 @@
       fecharModalCobranca();
       renderEntrega();
       showToast('Entrega agendada para ' + dataFormatada + (hora ? ' as ' + hora : ''));
+    }
+
+    function marcarDinheiroRecebido(id) {
+      if (!confirm('Confirmar que o dinheiro foi recebido no caixa?')) return;
+      const lista = getOrcamentos();
+      const orc = lista.find(o => o.id === id);
+      if (!orc) return;
+
+      orc.dinheiroRecebido = true;
+      orc.dinheiroRecebidoEm = new Date().toLocaleDateString('pt-BR') + ' ' + new Date().toLocaleTimeString('pt-BR', {hour:'2-digit',minute:'2-digit'});
+      saveOrcamentosLocal(lista);
+      apiUpdateOrcamento(id, { dinheiroRecebido: true, dinheiroRecebidoEm: orc.dinheiroRecebidoEm }).catch(() => {});
+      renderEntrega();
+      showToast('Dinheiro recebido no caixa!');
     }
 
     function marcarEntregaFeita(id) {
