@@ -1829,13 +1829,16 @@
       `);
       w.document.close();
       setTimeout(() => w.print(), 500);
-      finalizarOrcamento('PDF');
+      if (!_reenvioOrc) {
+        finalizarOrcamento('PDF');
+      }
     }
 
     async function sendWhatsApp() {
       const el = document.getElementById('orcPrint');
       if (!el) { showToast('Erro: orcamento nao encontrado'); return; }
 
+      const isReenvio = !!_reenvioOrc;
       showToast('Gerando imagem do orcamento...');
 
       try {
@@ -1848,11 +1851,31 @@
         const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
         const file = new File([blob], 'orcamento-ecoville.png', { type: 'image/png' });
 
+        // Build message text
+        let clientName, totalVal, phone;
+        if (isReenvio) {
+          clientName = _reenvioOrc.cliente || 'Cliente';
+          totalVal = _reenvioOrc.total || 0;
+          phone = _reenvioOrc.clientePhone ? _reenvioOrc.clientePhone.replace(/\D/g, '') : '';
+        } else {
+          clientName = document.getElementById('clientName').value || 'Cliente';
+          const total = cart.reduce((s, i) => s + i.price * i.qty, 0);
+          const discountPct = parseFloat(document.getElementById('discountInput').value) || 0;
+          totalVal = total - Math.round(total * discountPct / 100);
+          phone = '';
+        }
+        let msg = `*ORCAMENTO ECOVILLE*\nCliente: ${clientName}\n*TOTAL: ${formatPrice(totalVal)}*`;
+        // Add PIX Chave info if applicable
+        if (isReenvio && _reenvioOrc.formaPagamento === 'PIX Chave') {
+          msg += `\n\n*PIX para pagamento:*\nChave CNPJ: *${_reenvioOrc.pixChave || PIX_CHAVE_CNPJ}*\nEcoville - Especialista em Limpeza`;
+        }
+        msg += '\n_Veja a imagem do orcamento em anexo_';
+
         if (navigator.canShare && navigator.canShare({ files: [file] })) {
           await navigator.share({
             files: [file],
             title: 'Orcamento Ecoville',
-            text: 'Segue o orcamento Ecoville'
+            text: msg
           });
         } else {
           // Fallback: baixa a imagem e abre WhatsApp com texto
@@ -1861,16 +1884,15 @@
           link.download = 'orcamento-ecoville.png';
           link.click();
           showToast('Imagem salva! Envie manualmente pelo WhatsApp.');
-
-          const clientName = document.getElementById('clientName').value || 'Cliente';
-          const total = cart.reduce((s, i) => s + i.price * i.qty, 0);
-          const discountPct = parseFloat(document.getElementById('discountInput').value) || 0;
-          const discountVal = Math.round(total * discountPct / 100);
-          const msg = `*ORCAMENTO ECOVILLE*\nCliente: ${clientName}\n*TOTAL: ${formatPrice(total - discountVal)}*\n_Veja a imagem do orcamento em anexo_`;
-          window.open('https://wa.me/?text=' + encodeURIComponent(msg), '_blank');
+          const waUrl = phone ? 'https://wa.me/55' + phone + '?text=' : 'https://wa.me/?text=';
+          window.open(waUrl + encodeURIComponent(msg), '_blank');
         }
 
-        finalizarOrcamento('WhatsApp');
+        if (!isReenvio) {
+          finalizarOrcamento('WhatsApp');
+        } else {
+          showToast('Orcamento reenviado!');
+        }
       } catch(e) {
         if (e.name !== 'AbortError') {
           showToast('Erro ao compartilhar. Tente novamente.');
@@ -2644,72 +2666,30 @@
 
       _reenvioOrc = o;
       document.getElementById('orcamentoContent').innerHTML = html;
-      // Show preview page with reenvio buttons + Voltar
+      // Show preview page with original buttons but swap "Voltar e Editar" for "Voltar"
       document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
       document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
       document.getElementById('page-preview').classList.add('active');
+      // Hide Salvar button and change last button to Voltar
       const previewBtns = document.getElementById('page-preview').querySelector('div[style*="margin-top"]');
       if (previewBtns) {
-        // Save original only once (not if already replaced)
         if (!previewBtns.dataset.originalHtml) {
           previewBtns.dataset.originalHtml = previewBtns.innerHTML;
         }
-        previewBtns.innerHTML = `
-          <button class="btn btn-outline" onclick="reenviarPrintOrcamento()" style="color:var(--primary);border-color:var(--primary)">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
-            Imprimir PDF
-          </button>
-          <button class="btn btn-whatsapp" onclick="reenviarWhatsApp()">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
-            Reenviar WhatsApp
-          </button>
-          <button class="btn btn-outline" onclick="voltarDePreview()">Voltar</button>`;
+        // Hide Salvar, keep PDF and WhatsApp, replace Voltar e Editar
+        const btns = previewBtns.querySelectorAll('button');
+        btns.forEach(b => {
+          if (b.textContent.trim().includes('Salvar')) b.style.display = 'none';
+          if (b.textContent.trim().includes('Voltar')) {
+            b.textContent = 'Voltar';
+            b.onclick = voltarDePreview;
+          }
+        });
       }
       window.scrollTo(0, 0);
     }
 
     let _reenvioOrc = null;
-
-    function reenviarPrintOrcamento() {
-      const content = document.getElementById('orcPrint');
-      if (!content) return;
-      const win = window.open('', '_blank');
-      win.document.write('<html><head><title>Orcamento</title><style>body{margin:0;padding:20px;font-family:Inter,sans-serif;-webkit-print-color-adjust:exact}img{max-width:120px}.orc-preview{max-width:800px;margin:auto}.orc-top-bar{height:6px;background:linear-gradient(135deg,#0d2b6b,#1e40af);border-radius:6px 6px 0 0}.orc-header{text-align:center;padding:24px}.orc-header img{margin-bottom:8px}.company-name{font-size:13px;color:#6b7280;font-weight:600}.orc-number{font-size:20px;font-weight:800;color:#0d2b6b;margin-top:8px}.orc-date{font-size:12px;color:#9ca3af}.orc-info-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;padding:0 24px 16px}.orc-info-item{background:#f9fafb;padding:10px 14px;border-radius:8px}.orc-info-item.full{grid-column:1/-1}.orc-info-item .label{font-size:10px;color:#9ca3af;font-weight:700;text-transform:uppercase}.orc-info-item .value{font-size:13px;color:#1f2937;font-weight:600;margin-top:2px}.orc-table{width:100%;border-collapse:collapse;font-size:12px}.orc-table th{background:#f3f4f6;padding:8px 12px;text-align:left;font-weight:700;color:#4b5563;font-size:10px;text-transform:uppercase}.orc-table td{padding:8px 12px;border-bottom:1px solid #f3f4f6;color:#374151}.orc-totals{padding:16px 24px}.orc-total-row{display:flex;justify-content:space-between;padding:6px 0;font-size:13px;color:#4b5563}.orc-total-row.grand{border-top:2px solid #0d2b6b;margin-top:8px;padding-top:12px;font-size:18px;font-weight:800;color:#0d2b6b}.orc-obs{padding:12px 24px;font-size:12px;color:#6b7280;background:#fffbeb;border-top:1px solid #fde68a}.orc-footer{background:#f9fafb;padding:16px 24px;border-top:1px solid #e5e7eb}.orc-footer-contact{text-align:center;font-size:11px;color:#4b5563;line-height:1.7}.orc-footer-contact strong{color:#0d2b6b}.orc-footer-validity{text-align:center;font-size:10px;color:#9ca3af;margin-top:10px;padding-top:10px;border-top:1px solid #e5e7eb}</style></head><body>');
-      win.document.write(content.outerHTML);
-      win.document.write('</body></html>');
-      win.document.close();
-      setTimeout(() => win.print(), 500);
-    }
-
-    async function reenviarWhatsApp() {
-      const content = document.getElementById('orcPrint');
-      if (!content) return;
-      const o = _reenvioOrc;
-      const phone = o && o.clientePhone ? o.clientePhone.replace(/\D/g, '') : '';
-      let msg = `*ORCAMENTO ECOVILLE*\nCliente: ${o ? o.cliente : ''}\n*TOTAL: ${o ? formatPrice(o.total) : ''}*`;
-      if (o && o.formaPagamento === 'PIX Chave') {
-        msg += `\n\n*PIX para pagamento:*\nChave CNPJ: ${o.pixChave || PIX_CHAVE_CNPJ}\nEcoville - Especialista em Limpeza`;
-      }
-      msg += '\n_Veja a imagem do orcamento em anexo_';
-      try {
-        const canvas = await html2canvas(content, { scale: 2, useCORS: true, backgroundColor: '#ffffff' });
-        const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
-        const file = new File([blob], 'orcamento.png', { type: 'image/png' });
-        if (navigator.canShare && navigator.canShare({ files: [file] })) {
-          await navigator.share({ files: [file], text: msg });
-        } else {
-          const url = URL.createObjectURL(blob);
-          const a = document.createElement('a');
-          a.href = url; a.download = 'orcamento.png'; a.click();
-          URL.revokeObjectURL(url);
-          const waUrl = phone ? 'https://wa.me/55' + phone + '?text=' : 'https://wa.me/?text=';
-          window.open(waUrl + encodeURIComponent(msg), '_blank');
-        }
-        showToast('Orcamento reenviado!');
-      } catch (e) {
-        if (e.name !== 'AbortError') showToast('Erro ao gerar imagem');
-      }
-    }
 
     function voltarDePreview() {
       // Restore original preview buttons
@@ -2718,6 +2698,7 @@
         previewBtns.innerHTML = previewBtns.dataset.originalHtml;
         delete previewBtns.dataset.originalHtml;
       }
+      _reenvioOrc = null;
       showPage('entrega');
     }
 
