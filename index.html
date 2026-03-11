@@ -1893,6 +1893,17 @@
         } else {
           showToast('Orcamento reenviado!');
         }
+
+        // PIX Chave: after sending image, send a second message with just the key for easy copy
+        if (isReenvio && _reenvioOrc.formaPagamento === 'PIX Chave') {
+          const chave = _reenvioOrc.pixChave || PIX_CHAVE_CNPJ;
+          const pixMsg = `Chave PIX (CNPJ):\n${chave}\n\nValor: ${formatPrice(totalVal)}\nEcoville - Especialista em Limpeza`;
+          const waUrl2 = phone ? 'https://wa.me/55' + phone + '?text=' : 'https://wa.me/?text=';
+          // Small delay to not overlap with first share
+          setTimeout(() => {
+            window.open(waUrl2 + encodeURIComponent(pixMsg), '_blank');
+          }, 1500);
+        }
       } catch(e) {
         if (e.name !== 'AbortError') {
           showToast('Erro ao compartilhar. Tente novamente.');
