@@ -2359,17 +2359,21 @@
 
     // ========== ENTREGA ==========
 
-    async function renderEntrega() {
+    async function renderEntrega(localOnly) {
       const container = document.getElementById('entregaLista');
       const emptyEl = document.getElementById('entregaEmpty');
 
-      const remote = await apiGetOrcamentos();
       let todas;
-      if (remote) {
-        todas = remote;
-        saveOrcamentosLocal(todas);
-      } else {
+      if (localOnly) {
         todas = getOrcamentos();
+      } else {
+        const remote = await apiGetOrcamentos();
+        if (remote) {
+          todas = remote;
+          saveOrcamentosLocal(todas);
+        } else {
+          todas = getOrcamentos();
+        }
       }
 
       const session = JSON.parse(localStorage.getItem('ecoville_session') || '{}');
@@ -2762,7 +2766,7 @@
       apiUpdateOrcamento(id, { status: 'agendado', entregaData: orc.entregaData, entregaHora: orc.entregaHora }).catch(() => {});
 
       fecharModalCobranca();
-      renderEntrega();
+      renderEntrega(true);
       showToast('Entrega agendada para ' + dataFormatada + (hora ? ' as ' + hora : ''));
     }
 
@@ -2776,7 +2780,7 @@
       orc.pixChaveConfirmadoEm = new Date().toLocaleDateString('pt-BR') + ' ' + new Date().toLocaleTimeString('pt-BR', {hour:'2-digit',minute:'2-digit'});
       saveOrcamentosLocal(lista);
       apiUpdateOrcamento(id, { pixChaveConfirmado: true, pixChaveConfirmadoEm: orc.pixChaveConfirmadoEm }).catch(() => {});
-      renderEntrega();
+      renderEntrega(true);
       showToast('PIX confirmado!');
     }
 
@@ -2790,7 +2794,7 @@
       orc.dinheiroRecebidoEm = new Date().toLocaleDateString('pt-BR') + ' ' + new Date().toLocaleTimeString('pt-BR', {hour:'2-digit',minute:'2-digit'});
       saveOrcamentosLocal(lista);
       apiUpdateOrcamento(id, { dinheiroRecebido: true, dinheiroRecebidoEm: orc.dinheiroRecebidoEm }).catch(() => {});
-      renderEntrega();
+      renderEntrega(true);
       showToast('Dinheiro recebido no caixa!');
     }
 
@@ -2804,7 +2808,7 @@
       orc.entregueEm = new Date().toLocaleDateString('pt-BR') + ' ' + new Date().toLocaleTimeString('pt-BR', {hour:'2-digit',minute:'2-digit'});
       saveOrcamentosLocal(lista);
       apiUpdateOrcamento(id, { status: 'entregue', entregueEm: orc.entregueEm }).catch(() => {});
-      renderEntrega();
+      renderEntrega(true);
       showToast('Entrega realizada!');
     }
 
