@@ -2693,14 +2693,16 @@
           pixBtn.className = 'btn btn-outline';
           pixBtn.style.cssText = 'color:#059669;border-color:#059669';
           pixBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:18px;height:18px"><path d="M12 1v22M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg> Enviar Chave PIX';
-          pixBtn.onclick = function() { enviarChavePixWhatsApp(o); };
+          pixBtn.onclick = enviarChavePixWhatsApp;
           previewBtns.insertBefore(pixBtn, voltarBtn);
         }
       }
       window.scrollTo(0, 0);
     }
 
-    function enviarChavePixWhatsApp(o) {
+    function enviarChavePixWhatsApp() {
+      const o = _reenvioOrc;
+      if (!o) return;
       const chave = o.pixChave || PIX_CHAVE_CNPJ;
       const phone = o.clientePhone ? o.clientePhone.replace(/\D/g, '') : '';
       const msg = `Chave PIX (CNPJ):\n${chave}\n\nValor: ${formatPrice(o.total)}\nEcoville - Especialista em Limpeza`;
