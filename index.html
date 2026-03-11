@@ -1051,16 +1051,23 @@
     </div>
     <div class="form-section">
       <div class="form-group">
-        <label>Nome / Razao Social</label>
-        <input type="text" id="clientName" placeholder="Nome completo ou razao social">
+        <label>Nome / Razao Social *</label>
+        <input type="text" id="clientName" placeholder="Nome completo ou razao social" required>
       </div>
       <div class="form-group">
         <label>CNPJ / CPF</label>
         <input type="text" id="clientDoc" placeholder="00.000.000/0000-00">
       </div>
       <div class="form-group">
-        <label>Telefone</label>
-        <input type="tel" id="clientPhone" placeholder="(27) 99999-9999">
+        <label>Telefone *</label>
+        <input type="tel" id="clientPhone" placeholder="(27) 99999-9999" required>
+      </div>
+      <div class="form-group">
+        <label>CEP</label>
+        <div style="display:flex;gap:8px">
+          <input type="text" id="clientCep" placeholder="29000-000" maxlength="9" style="flex:0 0 130px" oninput="formatCep(this)" onblur="buscarCep()">
+          <button type="button" onclick="buscarCep()" style="background:var(--primary);color:white;border:none;border-radius:var(--radius);padding:8px 14px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap">Buscar</button>
+        </div>
       </div>
       <div class="form-group">
         <label>Endereco</label>
@@ -1598,6 +1605,35 @@
       document.getElementById('cartTotal').textContent = formatPrice(total);
     }
 
+    // ========== CEP ==========
+    function formatCep(input) {
+      let v = input.value.replace(/\D/g, '');
+      if (v.length > 5) v = v.substring(0,5) + '-' + v.substring(5,8);
+      input.value = v;
+    }
+
+    async function buscarCep() {
+      const cepInput = document.getElementById('clientCep');
+      const cep = cepInput.value.replace(/\D/g, '');
+      if (cep.length !== 8) {
+        if (cep.length > 0) showToast('CEP deve ter 8 digitos');
+        return;
+      }
+      try {
+        const resp = await fetch('https://viacep.com.br/ws/' + cep + '/json/');
+        const data = await resp.json();
+        if (data.erro) {
+          showToast('CEP nao encontrado');
+          return;
+        }
+        const parts = [data.logradouro, data.bairro, data.localidade, data.uf].filter(Boolean);
+        document.getElementById('clientAddress').value = parts.join(', ');
+        showToast('Endereco preenchido!');
+      } catch (e) {
+        showToast('Erro ao buscar CEP');
+      }
+    }
+
     // ========== ORCAMENTO ==========
     function generateOrcamento() {
       if (cart.length === 0) {
@@ -1605,9 +1641,20 @@
         return;
       }
 
-      const clientName = document.getElementById('clientName').value || 'Nao informado';
+      const clientName = document.getElementById('clientName').value.trim();
+      const clientPhone = document.getElementById('clientPhone').value.trim();
+      if (!clientName) {
+        showToast('Preencha o nome do cliente');
+        document.getElementById('clientName').focus();
+        return;
+      }
+      if (!clientPhone) {
+        showToast('Preencha o telefone do cliente');
+        document.getElementById('clientPhone').focus();
+        return;
+      }
+
       const clientDoc = document.getElementById('clientDoc').value || '';
-      const clientPhone = document.getElementById('clientPhone').value || '';
       const clientAddress = document.getElementById('clientAddress').value || '';
       const clientObs = document.getElementById('clientObs').value || '';
       const validity = document.getElementById('orcValidity').value || '7 dias';
@@ -1714,6 +1761,7 @@
       document.getElementById('clientName').value = '';
       document.getElementById('clientDoc').value = '';
       document.getElementById('clientPhone').value = '';
+      document.getElementById('clientCep').value = '';
       document.getElementById('clientAddress').value = '';
       document.getElementById('clientObs').value = '';
       document.getElementById('discountInput').value = '0';
@@ -1816,6 +1864,7 @@
       document.getElementById('clientName').value = '';
       document.getElementById('clientDoc').value = '';
       document.getElementById('clientPhone').value = '';
+      document.getElementById('clientCep').value = '';
       document.getElementById('clientAddress').value = '';
       document.getElementById('clientObs').value = '';
       document.getElementById('discountInput').value = '0';
@@ -2142,9 +2191,10 @@
       if (orcamentoJaSalvo) return;
       orcamentoJaSalvo = true;
       const session = JSON.parse(localStorage.getItem('ecoville_session') || '{}');
-      const clientName = document.getElementById('clientName').value || 'Nao informado';
+      const clientName = document.getElementById('clientName').value.trim() || 'Nao informado';
       const clientDoc = document.getElementById('clientDoc').value || '';
-      const clientPhone = document.getElementById('clientPhone').value || '';
+      const clientPhone = document.getElementById('clientPhone').value.trim() || '';
+      const clientCep = document.getElementById('clientCep').value || '';
       const clientAddress = document.getElementById('clientAddress').value || '';
       const clientObs = document.getElementById('clientObs').value || '';
       const validity = document.getElementById('orcValidity').value || '7 dias';
@@ -2165,6 +2215,7 @@
         cliente: clientName,
         clienteDoc: clientDoc,
         clientePhone: clientPhone,
+        clienteCep: clientCep,
         clienteAddress: clientAddress,
         obs: clientObs,
         validade: validity,
@@ -3284,6 +3335,7 @@
       document.getElementById('clientName').value = o.cliente || '';
       document.getElementById('clientDoc').value = o.clienteDoc || '';
       document.getElementById('clientPhone').value = o.clientePhone || '';
+      document.getElementById('clientCep').value = o.clienteCep || '';
       document.getElementById('clientAddress').value = o.clienteAddress || '';
       document.getElementById('clientObs').value = o.obs || '';
       document.getElementById('orcValidity').value = o.validade || '7 dias';
