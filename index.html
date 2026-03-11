@@ -2549,13 +2549,16 @@
         actionBtn = `<button onclick="marcarEntregaFeita(${o.id})" style="background:#059669;color:white;border:none;border-radius:8px;padding:8px 14px;font-size:12px;font-weight:700;cursor:pointer">Entrega feita</button>`;
       } else if (o.status === 'pronto') {
         actionBtn = `<span style="background:#d1fae5;color:#059669;border-radius:8px;padding:6px 12px;font-size:11px;font-weight:700">Pronto</span>`;
-      } else if (isDinheiro && !dinheiroRecebido) {
-        // Dinheiro aguardando recebimento pelo caixa
-        actionBtn = `<button onclick="marcarDinheiroRecebido(${o.id})" style="background:#d97706;color:white;border:none;border-radius:8px;padding:8px 14px;font-size:12px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:4px">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px"><path d="M12 1v22M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg> Dinheiro em caixa
-        </button>`;
-      } else if (isPixChave || dinheiroRecebido || isBoleto || pago) {
-        // PIX Chave/Dinheiro recebido/Boleto: nao aguarda pagamento. PIX Cora: so se pago.
+      } else if (isDinheiro) {
+        // Dinheiro: entrega pronta sempre disponivel + controle do caixa
+        actionBtn = `<button onclick="agendarEntrega(${o.id})" style="background:#059669;color:white;border:none;border-radius:8px;padding:8px 14px;font-size:12px;font-weight:700;cursor:pointer">Entrega pronta</button>`;
+        if (!dinheiroRecebido) {
+          actionBtn += `<button onclick="marcarDinheiroRecebido(${o.id})" style="background:#d97706;color:white;border:none;border-radius:8px;padding:8px 14px;font-size:12px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:4px">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px"><path d="M12 1v22M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg> Dinheiro em caixa
+          </button>`;
+        }
+      } else if (isPixChave || isBoleto || pago) {
+        // PIX Chave/Boleto: nao aguarda pagamento. PIX Cora: so se pago.
         actionBtn = `<button onclick="agendarEntrega(${o.id})" style="background:#059669;color:white;border:none;border-radius:8px;padding:8px 14px;font-size:12px;font-weight:700;cursor:pointer">Entrega pronta</button>`;
       }
 
