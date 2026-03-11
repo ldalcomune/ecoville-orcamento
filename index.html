@@ -2698,14 +2698,16 @@
       window.scrollTo(0, 0);
     }
 
-    function enviarChavePixWhatsApp() {
+    async function enviarChavePixWhatsApp() {
       const o = _reenvioOrc;
       if (!o) { showToast('Erro: pedido nao encontrado'); return; }
       const chave = o.pixChave || PIX_CHAVE_CNPJ;
-      const phone = o.clientePhone ? o.clientePhone.replace(/\D/g, '') : '';
       const msg = `Chave Pix para o pagamento do pedido: ${chave}`;
-      const waUrl = phone ? 'https://wa.me/55' + phone + '?text=' : 'https://wa.me/?text=';
-      location.href = waUrl + encodeURIComponent(msg);
+      if (navigator.canShare && navigator.canShare({ text: msg })) {
+        await navigator.share({ title: 'Chave PIX Ecoville', text: msg });
+      } else {
+        window.open('https://wa.me/?text=' + encodeURIComponent(msg), '_blank');
+      }
     }
 
     function voltarDePreview() {
