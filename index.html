@@ -1055,8 +1055,8 @@
         <input type="text" id="clientName" placeholder="Nome completo ou razao social" required>
       </div>
       <div class="form-group">
-        <label>CNPJ / CPF</label>
-        <input type="text" id="clientDoc" placeholder="00.000.000/0000-00">
+        <label>CNPJ / CPF *</label>
+        <input type="text" id="clientDoc" placeholder="00.000.000/0000-00" required>
       </div>
       <div class="form-group">
         <label>Telefone *</label>
@@ -1071,7 +1071,17 @@
       </div>
       <div class="form-group">
         <label>Endereco</label>
-        <input type="text" id="clientAddress" placeholder="Rua, numero, bairro, cidade">
+        <input type="text" id="clientAddress" placeholder="Rua, bairro, cidade" readonly style="background:#f3f4f6">
+      </div>
+      <div style="display:flex;gap:8px">
+        <div class="form-group" style="flex:0 0 100px">
+          <label>Numero</label>
+          <input type="text" id="clientNumero" placeholder="123">
+        </div>
+        <div class="form-group" style="flex:1">
+          <label>Complemento</label>
+          <input type="text" id="clientComplemento" placeholder="Apto, bloco, sala...">
+        </div>
       </div>
     </div>
     <div class="form-section">
@@ -1654,8 +1664,16 @@
         return;
       }
 
-      const clientDoc = document.getElementById('clientDoc').value || '';
+      const clientDoc = document.getElementById('clientDoc').value.trim();
+      if (!clientDoc) {
+        showToast('Preencha o CPF ou CNPJ do cliente');
+        document.getElementById('clientDoc').focus();
+        return;
+      }
+
       const clientAddress = document.getElementById('clientAddress').value || '';
+      const clientNumero = document.getElementById('clientNumero').value || '';
+      const clientComplemento = document.getElementById('clientComplemento').value || '';
       const clientObs = document.getElementById('clientObs').value || '';
       const validity = document.getElementById('orcValidity').value || '7 dias';
       const discountPct = parseFloat(document.getElementById('discountInput').value) || 0;
@@ -1687,7 +1705,7 @@
               <div class="value">${clientDoc || '-'}</div>
             </div>
             ${clientPhone ? `<div class="orc-info-item"><div class="label">Telefone</div><div class="value">${clientPhone}</div></div>` : ''}
-            ${clientAddress ? `<div class="orc-info-item full"><div class="label">Endereco</div><div class="value">${clientAddress}</div></div>` : ''}
+            ${clientAddress ? `<div class="orc-info-item full"><div class="label">Endereco</div><div class="value">${clientAddress}${clientNumero ? ', ' + clientNumero : ''}${clientComplemento ? ' - ' + clientComplemento : ''}</div></div>` : ''}
           </div>
 
           <div class="orc-table-wrapper">
@@ -1762,7 +1780,11 @@
       document.getElementById('clientDoc').value = '';
       document.getElementById('clientPhone').value = '';
       document.getElementById('clientCep').value = '';
+      document.getElementById('clientNumero').value = '';
+      document.getElementById('clientComplemento').value = '';
       document.getElementById('clientAddress').value = '';
+      document.getElementById('clientNumero').value = '';
+      document.getElementById('clientComplemento').value = '';
       document.getElementById('clientObs').value = '';
       document.getElementById('discountInput').value = '0';
       showPage('products');
@@ -1865,7 +1887,11 @@
       document.getElementById('clientDoc').value = '';
       document.getElementById('clientPhone').value = '';
       document.getElementById('clientCep').value = '';
+      document.getElementById('clientNumero').value = '';
+      document.getElementById('clientComplemento').value = '';
       document.getElementById('clientAddress').value = '';
+      document.getElementById('clientNumero').value = '';
+      document.getElementById('clientComplemento').value = '';
       document.getElementById('clientObs').value = '';
       document.getElementById('discountInput').value = '0';
       showPage('products');
@@ -2196,6 +2222,8 @@
       const clientPhone = document.getElementById('clientPhone').value.trim() || '';
       const clientCep = document.getElementById('clientCep').value || '';
       const clientAddress = document.getElementById('clientAddress').value || '';
+      const clientNumero = document.getElementById('clientNumero').value || '';
+      const clientComplemento = document.getElementById('clientComplemento').value || '';
       const clientObs = document.getElementById('clientObs').value || '';
       const validity = document.getElementById('orcValidity').value || '7 dias';
       const discountPct = parseFloat(document.getElementById('discountInput').value) || 0;
@@ -2217,6 +2245,8 @@
         clientePhone: clientPhone,
         clienteCep: clientCep,
         clienteAddress: clientAddress,
+        clienteNumero: clientNumero,
+        clienteComplemento: clientComplemento,
         obs: clientObs,
         validade: validity,
         items: cart.map(i => ({ code: i.code, description: i.description, price: i.price, qty: i.qty })),
@@ -2569,7 +2599,7 @@
             <div class="orc-info-item"><div class="label">Cliente</div><div class="value">${o.cliente}</div></div>
             <div class="orc-info-item"><div class="label">CNPJ/CPF</div><div class="value">${o.clienteDoc || '-'}</div></div>
             ${o.clientePhone ? '<div class="orc-info-item"><div class="label">Telefone</div><div class="value">' + o.clientePhone + '</div></div>' : ''}
-            ${o.clienteAddress ? '<div class="orc-info-item full"><div class="label">Endereco</div><div class="value">' + o.clienteAddress + '</div></div>' : ''}
+            ${o.clienteAddress ? '<div class="orc-info-item full"><div class="label">Endereco</div><div class="value">' + o.clienteAddress + (o.clienteNumero ? ', ' + o.clienteNumero : '') + (o.clienteComplemento ? ' - ' + o.clienteComplemento : '') + '</div></div>' : ''}
             ${o.formaPagamento ? '<div class="orc-info-item"><div class="label">Pagamento</div><div class="value" style="color:#059669">' + o.formaPagamento + '</div></div>' : ''}
           </div>
           <div class="orc-table-wrapper">
@@ -3336,7 +3366,11 @@
       document.getElementById('clientDoc').value = o.clienteDoc || '';
       document.getElementById('clientPhone').value = o.clientePhone || '';
       document.getElementById('clientCep').value = o.clienteCep || '';
+      document.getElementById('clientNumero').value = o.clienteNumero || '';
+      document.getElementById('clientComplemento').value = o.clienteComplemento || '';
       document.getElementById('clientAddress').value = o.clienteAddress || '';
+      document.getElementById('clientNumero').value = o.clienteNumero || '';
+      document.getElementById('clientComplemento').value = o.clienteComplemento || '';
       document.getElementById('clientObs').value = o.obs || '';
       document.getElementById('orcValidity').value = o.validade || '7 dias';
       document.getElementById('discountInput').value = o.desconto || 0;
@@ -3389,7 +3423,7 @@
             <div class="orc-info-item"><div class="label">Cliente</div><div class="value">${o.cliente}</div></div>
             <div class="orc-info-item"><div class="label">CNPJ/CPF</div><div class="value">${o.clienteDoc || '-'}</div></div>
             ${o.clientePhone ? '<div class="orc-info-item"><div class="label">Telefone</div><div class="value">' + o.clientePhone + '</div></div>' : ''}
-            ${o.clienteAddress ? '<div class="orc-info-item full"><div class="label">Endereco</div><div class="value">' + o.clienteAddress + '</div></div>' : ''}
+            ${o.clienteAddress ? '<div class="orc-info-item full"><div class="label">Endereco</div><div class="value">' + o.clienteAddress + (o.clienteNumero ? ', ' + o.clienteNumero : '') + (o.clienteComplemento ? ' - ' + o.clienteComplemento : '') + '</div></div>' : ''}
             ${o.enviadoPor ? '<div class="orc-info-item"><div class="label">Enviado via</div><div class="value">' + o.enviadoPor + '</div></div>' : ''}
             ${o.formaPagamento ? '<div class="orc-info-item"><div class="label">Forma de Pagamento</div><div class="value" style="color:#059669">' + o.formaPagamento + '</div></div>' : ''}
           </div>
