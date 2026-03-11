@@ -2702,7 +2702,7 @@
       const o = _reenvioOrc;
       if (!o) { showToast('Erro: pedido nao encontrado'); return; }
       const chave = o.pixChave || PIX_CHAVE_CNPJ;
-      const msg = `Chave Pix para o pagamento do pedido: ${chave}`;
+      const msg = `Chave Pix para o pagamento do pedido:\n\n${chave}`;
       if (navigator.canShare && navigator.canShare({ text: msg })) {
         await navigator.share({ title: 'Chave PIX Ecoville', text: msg });
       } else {
