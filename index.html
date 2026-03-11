@@ -1335,7 +1335,7 @@
 
     // ========== API ==========
     const API_URL = 'https://ecoville-api.vercel.app/api';
-    const PIX_CHAVE_CNPJ = '08.060.620/0001-18';
+    const PIX_CHAVE_CNPJ = '62.200.700/0001-87';
 
     function getApiToken() {
       return localStorage.getItem('ecoville_api_token') || '';
@@ -2476,9 +2476,10 @@
       const isDinheiro = o.formaPagamento === 'Dinheiro';
       const isPixChave = o.formaPagamento === 'PIX Chave';
       const dinheiroRecebido = isDinheiro && o.dinheiroRecebido;
+      const pixChaveConfirmado = isPixChave && o.pixChaveConfirmado;
       const tipo = isDinheiro ? 'DINHEIRO' : isPixChave ? 'PIX_CHAVE' : getPaymentType(o);
       const isBoleto = tipo === 'BOLETO';
-      const pago = dinheiroRecebido || isCobrancaPaga(o);
+      const pago = dinheiroRecebido || pixChaveConfirmado || isCobrancaPaga(o);
       const atrasado = (isDinheiro || isPixChave) ? false : isCobrancaAtrasada(o);
 
       // Status badge
@@ -2491,10 +2492,12 @@
         statusColor = '#059669'; statusBg = '#d1fae5'; statusText = 'PRONTO P/ ENTREGA';
       } else if (dinheiroRecebido) {
         statusColor = '#059669'; statusBg = '#d1fae5'; statusText = 'RECEBIDO';
+      } else if (pixChaveConfirmado) {
+        statusColor = '#059669'; statusBg = '#d1fae5'; statusText = 'PIX RECEBIDO';
       } else if (isDinheiro) {
         statusColor = '#d97706'; statusBg = '#fef3c7'; statusText = 'AGUARDANDO';
       } else if (isPixChave) {
-        statusColor = '#059669'; statusBg = '#d1fae5'; statusText = 'PIX CHAVE';
+        statusColor = '#d97706'; statusBg = '#fef3c7'; statusText = 'AGUARDANDO PIX';
       } else if (pago) {
         statusColor = '#059669'; statusBg = '#d1fae5'; statusText = 'PAGO';
       } else if (atrasado) {
@@ -2506,9 +2509,13 @@
       // Build parcelas status display
       let parcelasHtml = '';
       if (isPixChave) {
+        const pixColor = pixChaveConfirmado ? '#059669' : '#d97706';
+        const pixStatus = pixChaveConfirmado ? 'Recebido' : 'Aguardando';
+        const pixRecEm = o.pixChaveConfirmadoEm ? ` em ${o.pixChaveConfirmadoEm}` : '';
         parcelasHtml = `<div style="margin-top:6px;display:flex;align-items:center;gap:6px;font-size:11px">
           <span style="font-weight:700;color:#059669;min-width:60px">PIX Chave</span>
           <span style="color:var(--gray-500)">${o.pixChave || PIX_CHAVE_CNPJ}</span>
+          <span style="font-weight:700;color:${pixColor};background:${pixColor}15;padding:1px 8px;border-radius:12px;font-size:10px">${pixStatus}${pixRecEm}</span>
         </div>`;
       } else if (isDinheiro) {
         const dinColor = dinheiroRecebido ? '#059669' : '#d97706';
@@ -2553,11 +2560,15 @@
         actionBtn = `<button onclick="agendarEntrega(${o.id})" style="background:#059669;color:white;border:none;border-radius:8px;padding:8px 14px;font-size:12px;font-weight:700;cursor:pointer">Entrega pronta</button>`;
       }
 
-      // Dinheiro em caixa: aparece em qualquer status ate ser acionado
-      let dinheiroBtn = '';
+      // Dinheiro em caixa / PIX recebido: aparece em qualquer status ate ser acionado
+      let pagamentoBtn = '';
       if (isDinheiro && !dinheiroRecebido) {
-        dinheiroBtn = `<button onclick="marcarDinheiroRecebido(${o.id})" style="background:#d97706;color:white;border:none;border-radius:8px;padding:8px 14px;font-size:12px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:4px">
+        pagamentoBtn = `<button onclick="marcarDinheiroRecebido(${o.id})" style="background:#d97706;color:white;border:none;border-radius:8px;padding:8px 14px;font-size:12px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:4px">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px"><path d="M12 1v22M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg> Dinheiro em caixa
+        </button>`;
+      } else if (isPixChave && !pixChaveConfirmado) {
+        pagamentoBtn = `<button onclick="confirmarPixChave(${o.id})" style="background:#059669;color:white;border:none;border-radius:8px;padding:8px 14px;font-size:12px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:4px">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px"><path d="M20 6L9 17l-5-5"/></svg> PIX Recebido
         </button>`;
       }
 
@@ -2583,7 +2594,7 @@
             <span style="font-size:18px;font-weight:800;color:var(--green)">${formatPrice(o.total)}</span>
             <div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end">
               ${actionBtn}
-              ${dinheiroBtn}
+              ${pagamentoBtn}
               <button onclick="verOrcamentoEntrega(${o.id})" style="background:var(--gray-100);color:var(--gray-700);border:none;border-radius:8px;padding:8px 14px;font-size:12px;font-weight:700;cursor:pointer">Pedido</button>
               ${(isDinheiro || isPixChave) ? '' : `<button onclick="verCobranca(${o.id},'entrega')" style="background:#f5f3ff;color:#7c3aed;border:none;border-radius:8px;padding:8px 14px;font-size:12px;font-weight:700;cursor:pointer">Cobranca</button>`}
               ${deleteBtn}
@@ -2750,6 +2761,20 @@
       fecharModalCobranca();
       renderEntrega();
       showToast('Entrega agendada para ' + dataFormatada + (hora ? ' as ' + hora : ''));
+    }
+
+    function confirmarPixChave(id) {
+      if (!confirm('Confirmar que o PIX foi recebido?')) return;
+      const lista = getOrcamentos();
+      const orc = lista.find(o => o.id === id);
+      if (!orc) return;
+
+      orc.pixChaveConfirmado = true;
+      orc.pixChaveConfirmadoEm = new Date().toLocaleDateString('pt-BR') + ' ' + new Date().toLocaleTimeString('pt-BR', {hour:'2-digit',minute:'2-digit'});
+      saveOrcamentosLocal(lista);
+      apiUpdateOrcamento(id, { pixChaveConfirmado: true, pixChaveConfirmadoEm: orc.pixChaveConfirmadoEm }).catch(() => {});
+      renderEntrega();
+      showToast('PIX confirmado!');
     }
 
     function marcarDinheiroRecebido(id) {
