@@ -2391,10 +2391,11 @@
     function renderEntregaCard(o) {
       const session = JSON.parse(localStorage.getItem('ecoville_session') || '{}');
       const isAdmin = session.user === 'admin';
-      const tipo = getPaymentType(o);
+      const isDinheiro = o.formaPagamento === 'Dinheiro';
+      const tipo = isDinheiro ? 'DINHEIRO' : getPaymentType(o);
       const isBoleto = tipo === 'BOLETO';
-      const pago = isCobrancaPaga(o);
-      const atrasado = isCobrancaAtrasada(o);
+      const pago = isDinheiro || isCobrancaPaga(o);
+      const atrasado = isDinheiro ? false : isCobrancaAtrasada(o);
 
       // Status badge
       let statusColor, statusBg, statusText;
@@ -2404,6 +2405,8 @@
         statusColor = '#2563eb'; statusBg = '#dbeafe'; statusText = 'ENTREGA AGENDADA';
       } else if (o.status === 'pronto') {
         statusColor = '#059669'; statusBg = '#d1fae5'; statusText = 'PRONTO P/ ENTREGA';
+      } else if (isDinheiro) {
+        statusColor = '#d97706'; statusBg = '#fef3c7'; statusText = 'DINHEIRO';
       } else if (pago) {
         statusColor = '#059669'; statusBg = '#d1fae5'; statusText = 'PAGO';
       } else if (atrasado) {
@@ -2414,7 +2417,9 @@
 
       // Build parcelas status display
       let parcelasHtml = '';
-      if (o.coraPayment) {
+      if (isDinheiro) {
+        parcelasHtml = '<div style="margin-top:6px;font-size:12px;font-weight:700;color:#d97706">Pagamento: Dinheiro</div>';
+      } else if (o.coraPayment) {
         const parc = o.coraPayment.parcelas || [o.coraPayment];
         parcelasHtml = '<div style="margin-top:6px;display:flex;flex-direction:column;gap:3px">';
         parc.forEach((p, i) => {
@@ -2445,8 +2450,8 @@
         actionBtn = `<button onclick="marcarEntregaFeita(${o.id})" style="background:#059669;color:white;border:none;border-radius:8px;padding:8px 14px;font-size:12px;font-weight:700;cursor:pointer">Entrega feita</button>`;
       } else if (o.status === 'pronto') {
         actionBtn = `<span style="background:#d1fae5;color:#059669;border-radius:8px;padding:6px 12px;font-size:11px;font-weight:700">Pronto</span>`;
-      } else if (isBoleto || pago) {
-        // Boleto: nao aguarda pagamento. PIX: so se pago.
+      } else if (isDinheiro || isBoleto || pago) {
+        // Dinheiro/Boleto: nao aguarda pagamento. PIX: so se pago.
         actionBtn = `<button onclick="agendarEntrega(${o.id})" style="background:#059669;color:white;border:none;border-radius:8px;padding:8px 14px;font-size:12px;font-weight:700;cursor:pointer">Entrega pronta</button>`;
       }
 
@@ -2473,7 +2478,7 @@
             <div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end">
               ${actionBtn}
               <button onclick="verOrcamentoEntrega(${o.id})" style="background:var(--gray-100);color:var(--gray-700);border:none;border-radius:8px;padding:8px 14px;font-size:12px;font-weight:700;cursor:pointer">Pedido</button>
-              <button onclick="verCobranca(${o.id},'entrega')" style="background:#f5f3ff;color:#7c3aed;border:none;border-radius:8px;padding:8px 14px;font-size:12px;font-weight:700;cursor:pointer">Cobranca</button>
+              ${isDinheiro ? '' : `<button onclick="verCobranca(${o.id},'entrega')" style="background:#f5f3ff;color:#7c3aed;border:none;border-radius:8px;padding:8px 14px;font-size:12px;font-weight:700;cursor:pointer">Cobranca</button>`}
               ${deleteBtn}
             </div>
           </div>
@@ -2712,6 +2717,7 @@
         <div style="padding:24px">
           <h3 style="font-size:18px;font-weight:800;color:var(--primary);margin-bottom:4px">Gerar Cobranca</h3>
           <p style="font-size:13px;color:var(--gray-500);margin-bottom:16px">${orc.numero} - ${nomeCliente} - ${formatPrice(orc.total)}</p>
+          <div id="cobrCoraFields">
           <div style="margin-bottom:12px">
             <label style="font-size:12px;font-weight:600;color:var(--gray-600);display:block;margin-bottom:4px">Nome do Cliente *</label>
             <input id="cobrNome" type="text" value="${nomeCliente}" style="width:100%;padding:10px 12px;border:2px solid var(--gray-200);border-radius:var(--radius);font-size:14px;font-family:inherit" placeholder="Nome completo">
@@ -2724,14 +2730,18 @@
             <label style="font-size:12px;font-weight:600;color:var(--gray-600);display:block;margin-bottom:4px">Email (opcional)</label>
             <input id="cobrEmail" type="email" value="" style="width:100%;padding:10px 12px;border:2px solid var(--gray-200);border-radius:var(--radius);font-size:14px;font-family:inherit" placeholder="email@exemplo.com">
           </div>
+          </div>
           <div style="margin-bottom:12px">
-            <label style="font-size:12px;font-weight:600;color:var(--gray-600);display:block;margin-bottom:8px">Forma de cobranca *</label>
-            <div style="display:flex;gap:8px">
+            <label style="font-size:12px;font-weight:600;color:var(--gray-600);display:block;margin-bottom:8px">Forma de pagamento *</label>
+            <div style="display:flex;gap:8px;flex-wrap:wrap">
               <label style="flex:1;display:flex;align-items:center;gap:8px;padding:12px;border:2px solid var(--gray-200);border-radius:var(--radius);cursor:pointer;font-size:13px;font-weight:600">
                 <input type="radio" name="cobrTipo" value="BANK_SLIP" checked> Boleto
               </label>
               <label style="flex:1;display:flex;align-items:center;gap:8px;padding:12px;border:2px solid var(--gray-200);border-radius:var(--radius);cursor:pointer;font-size:13px;font-weight:600">
-                <input type="radio" name="cobrTipo" value="PIX"> PIX (a vista)
+                <input type="radio" name="cobrTipo" value="PIX"> PIX
+              </label>
+              <label style="flex:1;display:flex;align-items:center;gap:8px;padding:12px;border:2px solid var(--gray-200);border-radius:var(--radius);cursor:pointer;font-size:13px;font-weight:600">
+                <input type="radio" name="cobrTipo" value="DINHEIRO"> Dinheiro
               </label>
             </div>
           </div>
@@ -2751,6 +2761,11 @@
               <span style="font-size:13px;font-weight:700;color:#059669">PIX Cora - a vista - pagamento imediato</span>
             </div>
           </div>
+          <div id="cobrDinheiroWrapper" style="display:none;margin-bottom:12px">
+            <div style="background:#fef3c7;border:2px solid #fde68a;border-radius:var(--radius);padding:12px;text-align:center">
+              <span style="font-size:13px;font-weight:700;color:#d97706">Pagamento em dinheiro - sem cobranca Cora</span>
+            </div>
+          </div>
           <button id="cobrEnviarBtn" onclick="enviarCobranca(${id})" style="width:100%;background:#7c3aed;color:white;border:none;border-radius:var(--radius);padding:14px;font-size:15px;font-weight:700;cursor:pointer">Gerar Cobranca</button>
           <button onclick="fecharModalCobranca()" style="margin-top:8px;width:100%;background:var(--gray-100);color:var(--gray-600);border:none;border-radius:var(--radius);padding:12px;font-size:13px;font-weight:600;cursor:pointer">Cancelar</button>
         </div>`;
@@ -2759,12 +2774,17 @@
       document.getElementById('modalCobrancaOverlay').style.display = 'flex';
       atualizarParcelasDatas();
 
-      // Toggle boleto parcelas vs PIX vencimento
+      // Toggle boleto parcelas vs PIX vencimento vs Dinheiro
       document.querySelectorAll('input[name="cobrTipo"]').forEach(r => {
         r.addEventListener('change', () => {
-          const isBoleto = document.querySelector('input[name="cobrTipo"]:checked').value === 'BANK_SLIP';
+          const val = document.querySelector('input[name="cobrTipo"]:checked').value;
+          const isDinheiro = val === 'DINHEIRO';
+          const isBoleto = val === 'BANK_SLIP';
           document.getElementById('cobrParcelasWrapper').style.display = isBoleto ? '' : 'none';
-          document.getElementById('cobrPixVencWrapper').style.display = isBoleto ? 'none' : '';
+          document.getElementById('cobrPixVencWrapper').style.display = val === 'PIX' ? '' : 'none';
+          document.getElementById('cobrDinheiroWrapper').style.display = isDinheiro ? '' : 'none';
+          // Hide Cora fields for Dinheiro
+          document.getElementById('cobrCoraFields').style.display = isDinheiro ? 'none' : '';
         });
       });
     }
@@ -2787,11 +2807,30 @@
     }
 
     async function enviarCobranca(id) {
+      const tipo = document.querySelector('input[name="cobrTipo"]:checked').value;
+      const isDinheiro = tipo === 'DINHEIRO';
+      const isBoleto = tipo === 'BANK_SLIP';
+
+      // Dinheiro: skip Cora, just mark as entrega
+      if (isDinheiro) {
+        const lista = getOrcamentos();
+        const orc = lista.find(o => o.id === id);
+        if (orc) {
+          orc.formaPagamento = 'Dinheiro';
+          orc.status = 'entrega';
+          saveOrcamentosLocal(lista);
+          apiUpdateOrcamento(id, { formaPagamento: 'Dinheiro', status: 'entrega' }).catch(() => {});
+        }
+        fecharModalCobranca();
+        renderHistorico();
+        renderEntrega();
+        showToast('Pagamento em dinheiro registrado!');
+        return;
+      }
+
       const nome = document.getElementById('cobrNome').value.trim();
       const doc = document.getElementById('cobrDoc').value.trim();
       const email = document.getElementById('cobrEmail').value.trim();
-      const tipo = document.querySelector('input[name="cobrTipo"]:checked').value;
-      const isBoleto = tipo === 'BANK_SLIP';
 
       if (!nome || !doc) {
         alert('Preencha o nome e CPF/CNPJ do cliente');
