@@ -2702,12 +2702,12 @@
 
     function enviarChavePixWhatsApp() {
       const o = _reenvioOrc;
-      if (!o) return;
+      if (!o) { showToast('Erro: pedido nao encontrado'); return; }
       const chave = o.pixChave || PIX_CHAVE_CNPJ;
       const phone = o.clientePhone ? o.clientePhone.replace(/\D/g, '') : '';
       const msg = `Chave PIX (CNPJ):\n${chave}\n\nValor: ${formatPrice(o.total)}\nEcoville - Especialista em Limpeza`;
       const waUrl = phone ? 'https://wa.me/55' + phone + '?text=' : 'https://wa.me/?text=';
-      window.open(waUrl + encodeURIComponent(msg), '_blank');
+      location.href = waUrl + encodeURIComponent(msg);
     }
 
     let _reenvioOrc = null;
@@ -3036,8 +3036,7 @@
           apiUpdateOrcamento(id, { formaPagamento: orc.formaPagamento, pixChave: orc.pixChave || null, status: 'entrega' }).catch(() => {});
         }
         fecharModalCobranca();
-        renderHistorico();
-        renderEntrega();
+        showPage('entrega');
         showToast(isDinheiro ? 'Pagamento em dinheiro registrado!' : 'PIX Chave registrado!');
         return;
       }
@@ -3111,7 +3110,7 @@
 
         fecharModalCobranca();
         showToast('Cobranca gerada! Pedido movido para Entrega');
-        mostrarCobrancaDetalhes(data, orc || null, 'historico');
+        mostrarCobrancaDetalhes(data, orc || null, 'entrega');
       } catch (e) {
         alert('Erro: ' + e.message);
         btn.disabled = false;
