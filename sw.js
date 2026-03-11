@@ -1,4 +1,4 @@
-const CACHE_NAME = 'ecoville-v60';
+const CACHE_NAME = 'ecoville-v61';
 const urlsToCache = [
   './',
   './index.html',
@@ -9,7 +9,7 @@ const urlsToCache = [
   './users.json'
 ];
 
-// Install - cache all files
+// Install - cache all files and activate immediately
 self.addEventListener('install', event => {
   self.skipWaiting();
   event.waitUntil(
@@ -17,17 +17,26 @@ self.addEventListener('install', event => {
   );
 });
 
-// Activate - remove old caches
+// Activate - remove old caches and take control immediately
 self.addEventListener('activate', event => {
   event.waitUntil(
     caches.keys().then(keys =>
       Promise.all(keys.filter(k => k !== CACHE_NAME).map(k => caches.delete(k)))
     ).then(() => self.clients.claim())
   );
+  // Notify all clients to reload
+  self.clients.matchAll().then(clients => {
+    clients.forEach(client => client.postMessage({ type: 'SW_UPDATED' }));
+  });
 });
 
 // Fetch - network first, fallback to cache
 self.addEventListener('fetch', event => {
+  // Skip non-GET and chrome-extension requests
+  if (event.request.method !== 'GET') return;
+  // Don't cache API calls
+  if (event.request.url.includes('/api/')) return;
+
   event.respondWith(
     fetch(event.request)
       .then(response => {
