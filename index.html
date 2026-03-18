@@ -76,20 +76,12 @@
       width: auto;
       filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));
     }
-    .header-text h1 {
-      font-size: 20px;
-      font-weight: 800;
-      letter-spacing: -0.5px;
-      line-height: 1.1;
-    }
-    .header-text h1 span { color: var(--accent); }
     .header-text .subtitle {
-      font-size: 10px;
-      font-weight: 500;
-      opacity: 0.7;
-      letter-spacing: 1.5px;
+      font-size: 12px;
+      font-weight: 600;
+      opacity: 0.85;
+      letter-spacing: 1.2px;
       text-transform: uppercase;
-      margin-top: 2px;
     }
     .header-actions {
       display: flex;
@@ -147,18 +139,38 @@
     }
     .nav-btn {
       flex: 1;
-      padding: 8px 0 10px;
+      padding: 6px 0 8px;
       text-align: center;
-      font-size: 10px;
+      font-size: 9px;
       font-weight: 600;
       color: var(--gray-400);
       background: none;
       border: none;
       cursor: pointer;
       transition: all 0.2s;
-      letter-spacing: 0.3px;
+      letter-spacing: 0.2px;
       position: relative;
+      min-width: 0;
     }
+    .nav-badge {
+      position: absolute;
+      top: 4px;
+      right: 50%;
+      transform: translateX(14px);
+      background: var(--red);
+      color: white;
+      font-size: 9px;
+      font-weight: 800;
+      min-width: 16px;
+      height: 16px;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0 4px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+    }
+    .nav-badge.empty { display: none; }
     .nav-btn::before {
       content: '';
       position: absolute;
@@ -173,7 +185,7 @@
     }
     .nav-btn.active { color: var(--primary); }
     .nav-btn.active::before { width: 40px; }
-    .nav-btn svg { display: block; margin: 0 auto 3px; width: 22px; height: 22px; }
+    .nav-btn svg { display: block; margin: 0 auto 2px; width: 18px; height: 18px; }
 
     /* ===== PAGES ===== */
     .page { display: none; padding: 16px; max-width: 600px; margin: 0 auto; }
@@ -209,6 +221,73 @@
       height: 18px;
       color: var(--gray-400);
       pointer-events: none;
+    }
+    .scan-btn {
+      position: absolute;
+      right: 8px;
+      background: var(--primary);
+      color: white;
+      border: none;
+      border-radius: 8px;
+      width: 36px;
+      height: 36px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+    }
+    .scan-btn svg { width: 20px; height: 20px; }
+    .scan-modal {
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0,0,0,0.95);
+      z-index: 10000;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+    }
+    .scan-modal video {
+      width: 100%;
+      max-width: 400px;
+      border-radius: 12px;
+      border: 3px solid var(--green);
+    }
+    .scan-modal .scan-label {
+      color: white;
+      margin-top: 16px;
+      font-size: 15px;
+      text-align: center;
+    }
+    .scan-modal .scan-close {
+      margin-top: 20px;
+      background: white;
+      color: var(--gray-800);
+      border: none;
+      border-radius: 10px;
+      padding: 10px 32px;
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .scan-overlay {
+      position: relative;
+      width: 100%;
+      max-width: 400px;
+    }
+    .scan-line {
+      position: absolute;
+      left: 10%;
+      right: 10%;
+      height: 2px;
+      background: var(--green);
+      top: 50%;
+      animation: scanMove 2s ease-in-out infinite;
+      box-shadow: 0 0 8px rgba(5,150,105,0.6);
+    }
+    @keyframes scanMove {
+      0%, 100% { top: 30%; }
+      50% { top: 70%; }
     }
 
     /* ===== FILTER CHIPS ===== */
@@ -268,7 +347,7 @@
       margin-bottom: 8px;
       box-shadow: var(--shadow-sm);
       display: flex;
-      align-items: center;
+      align-items: flex-start;
       gap: 14px;
       border: 1px solid var(--gray-100);
       transition: all 0.2s;
@@ -283,6 +362,7 @@
       align-items: center;
       justify-content: center;
       flex-shrink: 0;
+      margin-top: 2px;
     }
     .product-icon svg { width: 20px; height: 20px; color: var(--primary); opacity: 0.6; }
     .product-info { flex: 1; min-width: 0; }
@@ -298,15 +378,29 @@
     }
     .product-meta {
       display: flex;
+      flex-direction: column;
+      gap: 3px;
+      margin-top: 6px;
+    }
+    .product-meta-row {
+      display: flex;
       align-items: center;
       gap: 6px;
-      margin-top: 4px;
       flex-wrap: wrap;
     }
     .product-code {
-      font-size: 11px;
-      color: var(--gray-400);
-      font-weight: 500;
+      font-size: 12px;
+      color: var(--gray-500);
+      font-weight: 600;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .product-code svg {
+      width: 12px;
+      height: 12px;
+      opacity: 0.5;
+      flex-shrink: 0;
     }
     .product-sector-badge {
       font-size: 9px;
@@ -318,9 +412,59 @@
       text-transform: uppercase;
       letter-spacing: 0.3px;
     }
+    .product-barcode {
+      font-size: 11px;
+      color: var(--gray-500);
+      font-family: monospace;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .product-barcode svg {
+      width: 14px;
+      height: 14px;
+      opacity: 0.45;
+      flex-shrink: 0;
+    }
+    .stock-badge {
+      font-size: 10px;
+      font-weight: 700;
+      padding: 2px 8px;
+      border-radius: 6px;
+      letter-spacing: 0.3px;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .stock-badge svg {
+      width: 12px;
+      height: 12px;
+    }
+    .stock-in {
+      color: #16a34a;
+      background: rgba(22,163,74,0.1);
+    }
+    .stock-out {
+      color: var(--red);
+      background: var(--red-light);
+    }
+    .cart-stock {
+      font-size: 10px;
+      color: var(--gray-400);
+      margin-left: 6px;
+    }
+    .cart-stock-limit {
+      color: var(--red);
+      font-weight: 600;
+    }
     .product-right {
       text-align: right;
       flex-shrink: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 6px;
+      padding-top: 2px;
     }
     .product-price {
       font-size: 15px;
@@ -332,20 +476,26 @@
       background: var(--primary);
       color: white;
       border: none;
-      width: 34px;
-      height: 34px;
-      border-radius: 10px;
-      font-size: 18px;
+      width: 40px;
+      height: 40px;
+      border-radius: 12px;
+      font-size: 22px;
       cursor: pointer;
       display: flex;
       align-items: center;
       justify-content: center;
       transition: all 0.15s;
-      margin-top: 6px;
-      margin-left: auto;
       box-shadow: 0 2px 6px rgba(13,43,107,0.3);
     }
     .add-btn:active { transform: scale(0.9); background: var(--primary-light); }
+    .product-stock {
+      font-size: 11px;
+      font-weight: 700;
+      text-align: center;
+      margin-top: 2px;
+    }
+    .stock-in-text { color: #16a34a; }
+    .stock-out-text { color: var(--red); }
 
     /* ===== CART ===== */
     .cart-item {
@@ -588,6 +738,24 @@
       box-shadow: 0 0 0 3px rgba(13,43,107,0.08);
     }
     .form-group textarea { min-height: 80px; resize: vertical; }
+
+    /* ===== CLIENT AUTOCOMPLETE ===== */
+    .autocomplete-wrapper { position: relative; }
+    .autocomplete-list {
+      position: absolute; top: 100%; left: 0; right: 0; z-index: 100;
+      background: var(--white); border: 1px solid var(--gray-200);
+      border-radius: var(--radius); box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+      max-height: 240px; overflow-y: auto; display: none;
+    }
+    .autocomplete-list.show { display: block; }
+    .autocomplete-item {
+      padding: 10px 14px; cursor: pointer; border-bottom: 1px solid var(--gray-100);
+      font-size: 13px; line-height: 1.4;
+    }
+    .autocomplete-item:last-child { border-bottom: none; }
+    .autocomplete-item:hover, .autocomplete-item.active { background: var(--gray-100); }
+    .autocomplete-item .ac-name { font-weight: 700; color: var(--gray-800); }
+    .autocomplete-item .ac-detail { color: var(--gray-500); font-size: 12px; }
 
     /* ===== EMPTY STATE ===== */
     .empty-state {
@@ -841,12 +1009,19 @@
       height: 70px;
       margin-bottom: 8px;
     }
+    .login-card .login-tagline {
+      font-size: 16px;
+      color: var(--gray-700);
+      font-weight: 700;
+      letter-spacing: 0.5px;
+      margin-top: 4px;
+      margin-bottom: 4px;
+    }
     .login-card .login-subtitle {
-      font-size: 11px;
+      font-size: 13px;
       color: var(--gray-400);
-      text-transform: uppercase;
-      letter-spacing: 2px;
-      font-weight: 600;
+      letter-spacing: 1px;
+      font-weight: 500;
       margin-bottom: 28px;
     }
     .login-card .login-title {
@@ -920,12 +1095,14 @@
   <script>pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';</script>
 </head>
 <body>
+  <div style="height:24px;"></div>
 
   <!-- Login Screen -->
   <div class="login-screen" id="loginScreen">
     <div class="login-card">
       <img src="logo.png" alt="Ecoville">
-      <div class="login-subtitle">Especialista em Limpeza</div>
+      <div class="login-tagline">Especialista em Limpeza</div>
+      <div class="login-subtitle">Domingos Martins - ES</div>
       <div class="login-title">Acesso ao Sistema</div>
       <p style="font-size:13px;color:var(--gray-400);margin-bottom:24px">Digite suas credenciais para continuar</p>
       <form onsubmit="doLogin(event)">
@@ -940,7 +1117,6 @@
         <div class="login-error" id="loginError"></div>
         <button type="submit" class="login-btn">Entrar</button>
       </form>
-      <div class="login-footer">Ecoville &bull; Domingos Martins/ES</div>
     </div>
   </div>
 
@@ -953,8 +1129,7 @@
       <div class="header-logo">
         <img src="logo.png" alt="Ecoville">
         <div class="header-text">
-          <h1>Eco<span>ville</span></h1>
-          <div class="subtitle">Domingos Martins / ES</div>
+          <div class="subtitle">Domingos Martins - ES</div>
         </div>
       </div>
       <div class="header-actions">
@@ -977,7 +1152,10 @@
     <div class="search-container">
       <div class="search-bar">
         <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
-        <input type="text" id="searchInput" placeholder="Buscar produto por nome ou codigo..." oninput="filterProducts()">
+        <input type="text" id="searchInput" placeholder="Buscar produto por nome ou codigo..." oninput="filterProducts()" style="padding-right:50px">
+        <button class="scan-btn" onclick="startBarcodeScan()" title="Escanear codigo de barras">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7V5a2 2 0 012-2h2"/><path d="M17 3h2a2 2 0 012 2v2"/><path d="M21 17v2a2 2 0 01-2 2h-2"/><path d="M7 21H5a2 2 0 01-2-2v-2"/><line x1="7" y1="12" x2="17" y2="12"/><line x1="7" y1="8" x2="9" y2="8"/><line x1="7" y1="16" x2="9" y2="16"/><line x1="11" y1="8" x2="11" y2="16"/><line x1="13" y1="7" x2="13" y2="17"/><line x1="15" y1="8" x2="17" y2="8"/><line x1="15" y1="16" x2="17" y2="16"/></svg>
+        </button>
       </div>
     </div>
     <div class="filter-row" id="filterRow">
@@ -1050,9 +1228,10 @@
       <h2>Dados do Cliente</h2>
     </div>
     <div class="form-section">
-      <div class="form-group">
+      <div class="form-group autocomplete-wrapper">
         <label>Nome / Razao Social *</label>
-        <input type="text" id="clientName" placeholder="Nome completo ou razao social" required>
+        <input type="text" id="clientName" placeholder="Nome completo ou razao social" required autocomplete="off" oninput="searchClients(this.value)" onfocus="searchClients(this.value)">
+        <div id="clientAutocomplete" class="autocomplete-list"></div>
       </div>
       <div class="form-group">
         <label>CNPJ / CPF *</label>
@@ -1174,6 +1353,127 @@
     </div>
   </div>
 
+  <!-- Page: Gerar Boleto (standalone) -->
+  <div class="page" id="page-gerarboleto">
+    <div class="section-header">
+      <div class="icon-circle" style="background:rgba(124,58,237,0.1)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="#7c3aed" stroke-width="2"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>
+      </div>
+      <h2>Gerar Boleto</h2>
+    </div>
+    <div class="form-section">
+      <div class="form-group autocomplete-wrapper">
+        <label>Nome / Razao Social *</label>
+        <input type="text" id="boletoClientName" placeholder="Nome completo ou razao social" required autocomplete="off" oninput="searchClientsBoleto(this.value)" onfocus="searchClientsBoleto(this.value)">
+        <div id="boletoClientAutocomplete" class="autocomplete-list"></div>
+      </div>
+      <div class="form-group">
+        <label>CNPJ / CPF *</label>
+        <input type="text" id="boletoClientDoc" placeholder="00.000.000/0000-00" required>
+      </div>
+      <div class="form-group">
+        <label>Telefone</label>
+        <input type="tel" id="boletoClientPhone" placeholder="(27) 99999-9999">
+      </div>
+      <div class="form-group">
+        <label>Email</label>
+        <input type="email" id="boletoClientEmail" placeholder="email@exemplo.com">
+      </div>
+      <div class="form-group">
+        <label>CEP</label>
+        <div style="display:flex;gap:8px">
+          <input type="text" id="boletoClientCep" placeholder="29000-000" maxlength="9" style="flex:0 0 130px" oninput="formatCep(this)" onblur="buscarCepBoleto()">
+          <button type="button" onclick="buscarCepBoleto()" style="background:var(--primary);color:white;border:none;border-radius:var(--radius);padding:8px 14px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap">Buscar</button>
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Endereco</label>
+        <input type="text" id="boletoClientAddress" placeholder="Rua, bairro, cidade" readonly style="background:#f3f4f6">
+      </div>
+      <div style="display:flex;gap:8px">
+        <div class="form-group" style="flex:0 0 100px">
+          <label>Numero</label>
+          <input type="text" id="boletoClientNumero" placeholder="123">
+        </div>
+        <div class="form-group" style="flex:1">
+          <label>Complemento</label>
+          <input type="text" id="boletoClientComplemento" placeholder="Apto, bloco, sala...">
+        </div>
+      </div>
+    </div>
+    <div class="form-section">
+      <div class="form-section-title">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>
+        Dados do Boleto
+      </div>
+      <div class="form-group">
+        <label>Descricao / Referencia *</label>
+        <input type="text" id="boletoDescricao" placeholder="Ex: Servico de limpeza, Venda de produtos...">
+      </div>
+      <div class="form-group">
+        <label>Valor Total (R$) *</label>
+        <input type="text" id="boletoValor" placeholder="0,00" oninput="formatBoletoValor(this)">
+      </div>
+      <div class="form-group">
+        <label>Forma de Pagamento *</label>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <label style="flex:1;display:flex;align-items:center;gap:8px;padding:12px;border:2px solid var(--gray-200);border-radius:var(--radius);cursor:pointer;font-size:13px;font-weight:600">
+            <input type="radio" name="boletoTipo" value="BANK_SLIP" checked onchange="toggleBoletoParcelas()"> Boleto
+          </label>
+          <label style="flex:1;display:flex;align-items:center;gap:8px;padding:12px;border:2px solid var(--gray-200);border-radius:var(--radius);cursor:pointer;font-size:13px;font-weight:600">
+            <input type="radio" name="boletoTipo" value="PIX" onchange="toggleBoletoParcelas()"> PIX
+          </label>
+        </div>
+      </div>
+      <div id="boletoParcelasWrapper">
+        <div class="form-group">
+          <label>Parcelas</label>
+          <select id="boletoParcelas" onchange="atualizarBoletoParcelasDatas()" style="width:100%;padding:10px 12px;border:2px solid var(--gray-200);border-radius:var(--radius);font-size:14px;font-family:inherit;background:var(--white)">
+            <option value="1">1x (a vista)</option>
+            <option value="2">2x</option>
+            <option value="3" selected>3x (7/14/21 dias)</option>
+          </select>
+        </div>
+        <div id="boletoParcelasDatas"></div>
+      </div>
+      <div id="boletoPixInfo" style="display:none;margin-bottom:12px">
+        <div style="background:#f0fdf4;border:2px solid #bbf7d0;border-radius:var(--radius);padding:12px;text-align:center">
+          <span style="font-size:13px;font-weight:700;color:#059669">PIX Cora - a vista - pagamento imediato</span>
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Observacoes</label>
+        <textarea id="boletoObs" placeholder="Observacoes adicionais..."></textarea>
+      </div>
+    </div>
+    <button class="btn btn-primary" id="btnGerarBoletoAvulso" onclick="gerarBoletoAvulso()" style="background:#7c3aed">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>
+      Gerar Boleto
+    </button>
+  </div>
+
+  <!-- Page: Boletos a Receber -->
+  <div class="page" id="page-boletos">
+    <div class="section-header">
+      <div class="icon-circle" style="background:rgba(16,185,129,0.1)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2"><path d="M12 1v22M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+      </div>
+      <h2>Boletos a Receber</h2>
+    </div>
+    <div style="display:flex;gap:8px;margin-bottom:12px">
+      <button class="chip active" onclick="filtrarBoletos('todos',this)">Todos</button>
+      <button class="chip" onclick="filtrarBoletos('pendente',this)">Pendentes</button>
+      <button class="chip" onclick="filtrarBoletos('pago',this)">Pagos</button>
+      <button class="chip" onclick="filtrarBoletos('atrasado',this)">Atrasados</button>
+    </div>
+    <div id="boletosResumo" style="display:flex;gap:8px;margin-bottom:16px"></div>
+    <div id="boletosLista"></div>
+    <div id="boletosEmpty" style="text-align:center;padding:40px 20px;color:var(--gray-400)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="width:48px;height:48px;margin-bottom:12px;opacity:0.4"><path d="M12 1v22M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+      <p>Nenhum boleto gerado ainda</p>
+    </div>
+  </div>
+
   <!-- Page: Config -->
   <div class="page" id="page-config">
     <div class="section-header">
@@ -1278,6 +1578,7 @@
     <button class="nav-btn" id="nav-cart" onclick="showPage('cart')">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 5H2v14h20V5h-7"/><path d="M9 5a3 3 0 0 1 6 0"/></svg>
       Orcamento
+      <span class="nav-badge empty" id="navCartBadge">0</span>
     </button>
     <button class="nav-btn" id="nav-orcamento" onclick="showPage('orcamento')">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
@@ -1290,6 +1591,14 @@
     <button class="nav-btn" id="nav-entrega" onclick="showPage('entrega')">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
       Entrega
+    </button>
+    <button class="nav-btn" id="nav-gerarboleto" onclick="showPage('gerarboleto')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>
+      Boleto
+    </button>
+    <button class="nav-btn" id="nav-boletos" onclick="showPage('boletos')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1v22M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+      Receber
     </button>
     <button class="nav-btn" id="nav-config" onclick="showPage('config')">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
@@ -1318,15 +1627,22 @@
     const BUILTIN_PRODUCTS = [{"id":1,"code":"10000052","description":"ALCOOL GEL ACENDEDOR TUPI 80 INPM PET 425G 12X1","reference":"2.140","sector":"GERAL","price":795},{"id":2,"code":"10000057","description":"ALCOOL LIQUIDO TUPI 92,8 INPM 1000ML 12X1","reference":"1.100","sector":"GERAL","price":1490},{"id":3,"code":"10000012","description":"DESENGORDURANTE ZOOM ECOVILLE - 2X5L","reference":"eco0022","sector":"GERAL","price":3910},{"id":4,"code":"10000049","description":"DESINF. ALCOOL LIQUIDO TUPI ZEROBAC 46,2 INPM - NEUTRO 1000ML 12X1","reference":"1.112","sector":"GERAL","price":890},{"id":5,"code":"10000048","description":"DESINF. ALCOOL LIQUIDO TUPI ZEROBAC 46,2 INPM 1000ML LAVANDA 12X1","reference":"1.110","sector":"GERAL","price":990},{"id":6,"code":"10000004","description":"LIMPADOR COM ALCOOL ECOVILLE - BRISA DO MAR - 2X5L","reference":"ECO0093","sector":"GERAL","price":4900},{"id":7,"code":"10000005","description":"LIMPADOR COM ALCOOL ECOVILLE - BRISA DO MAR - 6X2L","reference":"ECO0092","sector":"GERAL","price":2290},{"id":8,"code":"10000002","description":"LIMPADOR COM ALCOOL ECOVILLE - FOLHAS DE PIMENTA - 2X5L","reference":"ECO0091","sector":"GERAL","price":4900},{"id":9,"code":"10000003","description":"LIMPADOR COM ALCOOL ECOVILLE - FOLHAS DE PIMENTA - 6X2L","reference":"ECO0090","sector":"GERAL","price":2290},{"id":10,"code":"10000024","description":"LP VALENTE LIMPA TUDO 500ML","reference":"LP040","sector":"GERAL","price":2680},{"id":11,"code":"10000058","description":"MULTI TUPI ALCOOL/BICARBONATO LAVANDA 1L 12X1","reference":"14.022","sector":"GERAL","price":790},{"id":12,"code":"10000028","description":"PANO DE MICROFIBRA 30 X 30 - SORTIDOS","reference":"7.001","sector":"GERAL","price":510},{"id":13,"code":"10000029","description":"PANO DE MICROFIBRA 48 X 70 - SORTIDOS","reference":"7.003","sector":"GERAL","price":1520},{"id":14,"code":"10000047","description":"RODO PLASTICO ARTICULADO TWIST CLEAN AZUL 45 CM","reference":"4034","sector":"GERAL","price":4430},{"id":15,"code":"10000055","description":"SABONETE LIQUIDO ANTISSEPTICO CALLA ERVA DOCE - 500 ML - 12X1","reference":"SLED","sector":"GERAL","price":890},{"id":16,"code":"10000056","description":"SABONETE LÍQUIDO COM GLICERINA CALLA - ERVA DOCE 2L - 6X1","reference":"SLEDG","sector":"GERAL","price":1090},{"id":17,"code":"10000054","description":"SABONETE LÍQUIDO COM GLICERINA CALLA 2L - 6X1","reference":"SLCG","sector":"GERAL","price":1090},{"id":18,"code":"10000025","description":"SACO ALVEJADO G 42 X 68","reference":"4.004","sector":"GERAL","price":630},{"id":19,"code":"10000026","description":"SACO ALVEJADO XGG 53 X 73","reference":"4.008","sector":"GERAL","price":980},{"id":20,"code":"10000060","description":"SACO LIXO 200 LTS 100 UND. PT REFORCADO","reference":"658","sector":"GERAL","price":7491},{"id":21,"code":"10000059","description":"SACO LIXO 300 LTS 50 UND. PT REFORCADO","reference":"184","sector":"GERAL","price":7991},{"id":22,"code":"10000032","description":"SACO P LIXO PRETO 40CMx50CM H1 20lts 100UN","reference":"6","sector":"GERAL","price":1680},{"id":23,"code":"10000033","description":"SACO P LIXO PRETO 48CMX53CM H1 40LTS 100UN","reference":"12","sector":"GERAL","price":2190},{"id":24,"code":"10000034","description":"SACO P LIXO PRETO 60CMx70CM H1 60LTS 100UN","reference":"22","sector":"GERAL","price":3590},{"id":25,"code":"10000046","description":"SACO P LIXO PRETO 70CMx80CM H1 100LTS 100UN","reference":"14","sector":"GERAL","price":5340},{"id":26,"code":"10000035","description":"SACO P LIXO PRETO 75CMx85CM H4 10UN LINHA PESADA","reference":"24","sector":"GERAL","price":1330},{"id":27,"code":"10000037","description":"SACO P LIXO PRETO 75CMX85CM H4 50UN LINHA PESADA","reference":"52","sector":"GERAL","price":5890},{"id":28,"code":"10000036","description":"SACO P LIXO PRETO 75CMX90CM 100LTS 5UN REFORCADO ALMOFADA","reference":"65","sector":"GERAL","price":740},{"id":29,"code":"10000045","description":"SACO P LIXO PRETO SM REPORPACK 100lts 20UN","reference":"9","sector":"GERAL","price":2550},{"id":30,"code":"10000044","description":"SACO P LIXO PRETO SM REPORPACK 50LTS 50UN","reference":"1","sector":"GERAL","price":3410},{"id":31,"code":"10000043","description":"SACO P LIXO SM REPORPACK 30lts 50UN","reference":"8","sector":"GERAL","price":2310},{"id":32,"code":"10000042","description":"SACO P LIXO SM REPORPACK PIA&BANHEIRO 15LTS 50UN","reference":"10","sector":"GERAL","price":1070},{"id":33,"code":"10000041","description":"SACO PARA LIXO ROLL 100 LTS REPORPACK15UN","reference":"35","sector":"GERAL","price":1180},{"id":34,"code":"10000038","description":"SACO PARA LIXO ROLL 15 LTS REPORPACK 60UN","reference":"32","sector":"GERAL","price":1270},{"id":35,"code":"10000039","description":"SACO PARA LIXO ROLL 30 LTS REPORPACK 30UN","reference":"33","sector":"GERAL","price":1270},{"id":36,"code":"10000040","description":"SACO PARA LIXO ROLL 50 LTS REPORPACK 30UN","reference":"34","sector":"GERAL","price":1260},{"id":37,"code":"10000027","description":"SACO XADREZ GIGANTE 60 X 80","reference":"4.013","sector":"GERAL","price":910},{"id":38,"code":"10000053","description":"SOLV. QUEROSENE TUPI 1000ML LAVANDA 12X1","reference":"24.002","sector":"GERAL","price":1790},{"id":39,"code":"10000050","description":"SOLV. QUEROSENE TUPI 1000ML TRADICIONAL 12X1","reference":"11.006","sector":"GERAL","price":1790},{"id":40,"code":"10000051","description":"SOLV. REMOVEDOR TUPI 1000ML TRADICIONAL 12X1","reference":"11.007","sector":"GERAL","price":1595},{"id":41,"code":"5464","description":"ALVEJANTE SEM CLORO WHITE 5LT","reference":"","sector":"PRODUTOS ECOVILLE","price":4730},{"id":42,"code":"5488","description":"AMACIANTE BABY PLUS AZUL 5LT","reference":"","sector":"PRODUTOS ECOVILLE","price":3370},{"id":43,"code":"5489","description":"AMACIANTE BABY PLUS BRANCO 5LT","reference":"","sector":"PRODUTOS ECOVILLE","price":3270},{"id":44,"code":"5523","description":"AMACIANTE BABY PLUS CONCENTRADO 5LT","reference":"","sector":"PRODUTOS ECOVILLE","price":6680},{"id":45,"code":"828","description":"AMACIANTE PREMIUM AMOR 2LT","reference":"","sector":"PRODUTOS ECOVILLE","price":1710},{"id":46,"code":"5503","description":"AMACIANTE PREMIUM AMOR 5LT","reference":"","sector":"PRODUTOS ECOVILLE","price":3520},{"id":47,"code":"204725","description":"CERA LIQUIDA ECOFLOOR 2L","reference":"","sector":"PRODUTOS ECOVILLE","price":3190},{"id":48,"code":"5498","description":"CERA LIQUIDA INCOLOR ECOFLOOR 5LT","reference":"","sector":"PRODUTOS ECOVILLE","price":6830},{"id":49,"code":"5419","description":"DESINFETANTE ECOQUALY EUCALIPTO 5LT","reference":"","sector":"PRODUTOS ECOVILLE","price":3230},{"id":50,"code":"49","description":"DESINFETANTE ECOQUALY FLORAL 2LT","reference":"","sector":"PRODUTOS ECOVILLE","price":1450},{"id":51,"code":"5492","description":"DESINFETANTE ECOQUALY FLORAL 5LT","reference":"","sector":"PRODUTOS ECOVILLE","price":3230},{"id":52,"code":"100631","description":"DESINFETANTE ECOQUALY INTENSO 5LT","reference":"","sector":"PRODUTOS ECOVILLE","price":3230},{"id":53,"code":"100623","description":"DESINFETANTE ECOQUALY JASMIM 5LT","reference":"","sector":"PRODUTOS ECOVILLE","price":3230},{"id":54,"code":"100622","description":"DESINFETANTE ECOQUALY KAIAK 5LT","reference":"","sector":"PRODUTOS ECOVILLE","price":3230},{"id":55,"code":"1027","description":"DESINFETANTE ECOQUALY LAVANDA ROXO 2LT","reference":"","sector":"PRODUTOS ECOVILLE","price":1450},{"id":56,"code":"5465","description":"DESINFETANTE ECOQUALY LAVANDA ROXO 5LT","reference":"","sector":"PRODUTOS ECOVILLE","price":3230},{"id":57,"code":"47","description":"DESINFETANTE ECOQUALY PEROLA 2LT","reference":"","sector":"PRODUTOS ECOVILLE","price":1450},{"id":58,"code":"5430","description":"DESINFETANTE ECOQUALY PEROLA 5LT","reference":"","sector":"PRODUTOS ECOVILLE","price":3230},{"id":59,"code":"5462","description":"DESINFETANTE ECOQUALY PINHO AMARELO 5LT","reference":"","sector":"PRODUTOS ECOVILLE","price":3230},{"id":60,"code":"100612","description":"DESINFETANTE ECOQUALY TALCO 5LT","reference":"","sector":"PRODUTOS ECOVILLE","price":3230},{"id":61,"code":"40","description":"DETERGENTE C/ AMONIACO NITRO 500ML","reference":"","sector":"PRODUTOS ECOVILLE","price":1130},{"id":62,"code":"5426","description":"DETERGENTE C/ AMONIACO NITRO 5LT","reference":"","sector":"PRODUTOS ECOVILLE","price":5820},{"id":63,"code":"5506","description":"DETERGENTE CONCENTRADO NITRO 5LT","reference":"","sector":"PRODUTOS ECOVILLE","price":5260},{"id":64,"code":"5785","description":"DETERGENTE DESINCRUSTANTE ECOGRILL 500ML","reference":"","sector":"PRODUTOS ECOVILLE","price":3710},{"id":65,"code":"5427","description":"DETERGENTE DESINCRUSTANTE ECOGRILL 5LT","reference":"","sector":"PRODUTOS ECOVILLE","price":7710},{"id":66,"code":"5433","description":"HIPOCLORITO DE SODIO ECO CLORO 5LT","reference":"","sector":"PRODUTOS ECOVILLE","price":5500},{"id":67,"code":"62","description":"LAVA AUTOS FORMULA X 1/10 500ML","reference":"","sector":"PRODUTOS ECOVILLE","price":1120},{"id":68,"code":"5434","description":"LAVA AUTOS FORMULA X 1/10 5LT","reference":"","sector":"PRODUTOS ECOVILLE","price":4760},{"id":69,"code":"59","description":"LAVA AUTOS SHOW CAR 1/10 2LT","reference":"","sector":"PRODUTOS ECOVILLE","price":2020},{"id":70,"code":"5435","description":"LAVA AUTOS ULTRA CONCENTRADO FORMULA X 1/100 5LT","reference":"","sector":"PRODUTOS ECOVILLE","price":6160},{"id":71,"code":"5486","description":"LAVA LOUCAS ZOOM LIMAO 5LT","reference":"","sector":"PRODUTOS ECOVILLE","price":4060},{"id":72,"code":"5484","description":"LAVA LOUCAS ZOOM MACA 5LT","reference":"","sector":"PRODUTOS ECOVILLE","price":4060},{"id":73,"code":"5432","description":"LAVA LOUCAS ZOOM NEUTRO 5LT","reference":"","sector":"PRODUTOS ECOVILLE","price":4060},{"id":74,"code":"1086","description":"LAVA ROUPAS ECO AMOR 5LT","reference":"","sector":"PRODUTOS ECOVILLE","price":4590},{"id":75,"code":"204726","description":"LAVA ROUPAS ECOBABY 2L","reference":"","sector":"PRODUTOS ECOVILLE","price":2080},{"id":76,"code":"962","description":"LAVA ROUPAS ECOBABY 500ML","reference":"","sector":"PRODUTOS ECOVILLE","price":1160},{"id":77,"code":"97","description":"LAVA ROUPAS VAMIX COCO 500ML","reference":"","sector":"PRODUTOS ECOVILLE","price":1160},{"id":78,"code":"5454","description":"LAVA ROUPAS VAMIX COCO 5LT","reference":"","sector":"PRODUTOS ECOVILLE","price":4860},{"id":79,"code":"5472","description":"LAVA ROUPAS VAMIX CONCENTRADO 5LT","reference":"","sector":"PRODUTOS ECOVILLE","price":5950},{"id":80,"code":"70","description":"LAVA ROUPAS VAMIX TRADICIONAL 2LT","reference":"","sector":"PRODUTOS ECOVILLE","price":2380},{"id":81,"code":"5441","description":"LAVA ROUPAS VAMIX TRADICIONAL 5LT","reference":"","sector":"PRODUTOS ECOVILLE","price":5050},{"id":82,"code":"5689","description":"LIMPA ALUMINIO ECOVILLE 5LT","reference":"","sector":"PRODUTOS ECOVILLE","price":3490},{"id":83,"code":"101449","description":"LIMPA CANIL 2LT","reference":"","sector":"PRODUTOS ECOVILLE","price":3210},{"id":84,"code":"1885","description":"LIMPA CANIL 500ML","reference":"","sector":"PRODUTOS ECOVILLE","price":1500},{"id":85,"code":"5444","description":"LIMPA CANIL 5LT","reference":"","sector":"PRODUTOS ECOVILLE","price":7370},{"id":86,"code":"5727","description":"LIMPA CARPETE 5LT","reference":"","sector":"PRODUTOS ECOVILLE","price":5750},{"id":87,"code":"204728","description":"LIMPA PEDRAS 2L","reference":"","sector":"PRODUTOS ECOVILLE","price":1870},{"id":88,"code":"5437","description":"LIMPA PEDRAS 5LT","reference":"","sector":"PRODUTOS ECOVILLE","price":4370},{"id":89,"code":"2271","description":"LIMPA PISOS ANTIDERRAPANTE LIMPAX 2LT","reference":"","sector":"PRODUTOS ECOVILLE","price":2320},{"id":90,"code":"5445","description":"LIMPA PISOS ANTIDERRAPANTE LIMPAX 5LT","reference":"","sector":"PRODUTOS ECOVILLE","price":4670},{"id":91,"code":"79","description":"LIMPA PISOS LIMPAX 2LT","reference":"","sector":"PRODUTOS ECOVILLE","price":2110},{"id":92,"code":"5447","description":"LIMPA PISOS LIMPAX 5LT","reference":"","sector":"PRODUTOS ECOVILLE","price":4250},{"id":93,"code":"100828","description":"LIMPA PORCELANATO MAXIMUS ALCALINO 2LT","reference":"","sector":"PRODUTOS ECOVILLE","price":3170},{"id":94,"code":"5448","description":"LIMPA PORCELANATO MAXIMUS ALCALINO 5LT","reference":"","sector":"PRODUTOS ECOVILLE","price":6780},{"id":95,"code":"100831","description":"LIMPA PORCELANATO MAXIMUS NEUTRO 2LT","reference":"","sector":"PRODUTOS ECOVILLE","price":3010},{"id":96,"code":"101","description":"LIMPA PORCELANATO MAXIMUS NEUTRO 500ML","reference":"","sector":"PRODUTOS ECOVILLE","price":1530},{"id":97,"code":"5450","description":"LIMPA PORCELANATO MAXIMUS NEUTRO 5LT","reference":"","sector":"PRODUTOS ECOVILLE","price":6780},{"id":98,"code":"1181","description":"LIMPA TUDO FLOTADOR GATILHO 500ML","reference":"","sector":"PRODUTOS ECOVILLE","price":2770},{"id":99,"code":"5461","description":"LIMPA VIDROS ZOOM 5LT","reference":"","sector":"PRODUTOS ECOVILLE","price":4980},{"id":100,"code":"5535","description":"LIMPADOR C/ ALCOOL LAVANDA ROXO 2LT","reference":"","sector":"PRODUTOS ECOVILLE","price":2290},{"id":101,"code":"5474","description":"LIMPADOR C/ ALCOOL LAVANDA ROXO 5LT","reference":"","sector":"PRODUTOS ECOVILLE","price":4900},{"id":102,"code":"2276","description":"LIMPADOR C/ ALCOOL PEROLA ROSA 2LT","reference":"","sector":"PRODUTOS ECOVILLE","price":2290},{"id":103,"code":"5477","description":"LIMPADOR C/ ALCOOL PEROLA ROSA 5LT","reference":"","sector":"PRODUTOS ECOVILLE","price":4900},{"id":104,"code":"101462","description":"LIMPADOR C/ BRILHO MAXIMUS LAVANDA 2LT","reference":"","sector":"PRODUTOS ECOVILLE","price":2200},{"id":105,"code":"5469","description":"LIMPADOR C/ BRILHO MAXIMUS LAVANDA 5LT","reference":"","sector":"PRODUTOS ECOVILLE","price":4710},{"id":106,"code":"897","description":"LIMPADOR CONCENTRADO GEL LAVANDA 500ML","reference":"","sector":"PRODUTOS ECOVILLE","price":1190},{"id":107,"code":"5499","description":"LIMPADOR CONCENTRADO GEL LAVANDA 5LT","reference":"","sector":"PRODUTOS ECOVILLE","price":6180},{"id":108,"code":"5473","description":"LIMPADOR PERFUMADO ECO QUALY TALCO E ALGODAO 5LT","reference":"","sector":"PRODUTOS ECOVILLE","price":3020},{"id":109,"code":"105413","description":"LIMPADOR PISOS LAMINADOS E MADEIRA MAXIMUS LAVANDA 5L","reference":"","sector":"PRODUTOS ECOVILLE","price":5610},{"id":110,"code":"6156","description":"LUSTRA MÓVEIS ECOFLOOR LAVANDA 200ML","reference":"","sector":"PRODUTOS ECOVILLE","price":850},{"id":111,"code":"5443","description":"MAGIA LIMPA CAIXA DE GORDURA 5LT","reference":"","sector":"PRODUTOS ECOVILLE","price":6090},{"id":112,"code":"101450","description":"MAGIA LIMPA CAIXA DE GORDURA 2LT","reference":"","sector":"PRODUTOS ECOVILLE","price":2550},{"id":113,"code":"5467","description":"MULTIUSO ZOOM OXIGENIO ATIVO 5LT","reference":"","sector":"PRODUTOS ECOVILLE","price":4050},{"id":114,"code":"2288","description":"MULTIUSO ZOOM OXIGENIO ATIVO SQUEEZE 500ML","reference":"","sector":"PRODUTOS ECOVILLE","price":1210},{"id":115,"code":"2290","description":"MULTIUSO ZOOM SQUEEZE 500ML","reference":"","sector":"PRODUTOS ECOVILLE","price":790},{"id":116,"code":"5424","description":"MULTIUSO ZOOM TRADICIONAL 5LT","reference":"","sector":"PRODUTOS ECOVILLE","price":4050},{"id":117,"code":"96","description":"PRETINHO P/ PNEUS FORMULA X 500ML","reference":"","sector":"PRODUTOS ECOVILLE","price":1290},{"id":118,"code":"5451","description":"PRETINHO P/ PNEUS FORMULA X 5LT","reference":"","sector":"PRODUTOS ECOVILLE","price":9590},{"id":119,"code":"2127","description":"SILICONE GEL FORMULA X CARRO NOVO 200GR","reference":"","sector":"PRODUTOS ECOVILLE","price":1230},{"id":120,"code":"5439","description":"SOLUGEL ALCALINO SL10000 5LT","reference":"","sector":"PRODUTOS ECOVILLE","price":3780},{"id":121,"code":"5504","description":"SOLUGEL ATIVADO LP10000 5LT","reference":"","sector":"PRODUTOS ECOVILLE","price":3960},{"id":122,"code":"106","description":"VAMIX ALVEJANTE SEM CLORO 2LT","reference":"","sector":"PRODUTOS ECOVILLE","price":1700},{"id":123,"code":"5457","description":"VAMIX ALVEJANTE SEM CLORO 5LT","reference":"","sector":"PRODUTOS ECOVILLE","price":3230},{"id":124,"code":"101393","description":"VAMIX ALVEJANTE SEM CLORO WHITE 2LT","reference":"","sector":"PRODUTOS ECOVILLE","price":2250},{"id":125,"code":"201348","description":"ALCOOL GEL 70º INPM 500G DESINF. ANTISSEPTICO","reference":"","sector":"PRODUTOS HOMOLOGADOS","price":795},{"id":126,"code":"201349","description":"ALCOOL GEL 70º INPM PET 5KG DESINF. ANTISSEPTICO","reference":"","sector":"PRODUTOS HOMOLOGADOS","price":5990},{"id":127,"code":"208188","description":"DESINF. ALCOOL GEL ANTISSEP TUPI 70 INPM 440G PUMP","reference":"","sector":"PRODUTOS HOMOLOGADOS","price":890},{"id":128,"code":"9006790","description":"DESINF. ANTISSEPTICO TUPI - ALCOOL LIQ. 70 INPM 1L","reference":"","sector":"PRODUTOS HOMOLOGADOS","price":990},{"id":129,"code":"9006791","description":"DESINF. ANTISSEPTICO TUPI - ALCOOL LIQ. 70 INPM 5L","reference":"","sector":"PRODUTOS HOMOLOGADOS","price":4890},{"id":130,"code":"102327","description":"ESPANADOR ELETROSTATICO C/ CABO PERFECT","reference":"","sector":"PRODUTOS HOMOLOGADOS","price":5460},{"id":131,"code":"102123","description":"EXTENSAO C/ PROLONGADOR 6MT PERFECT","reference":"","sector":"PRODUTOS HOMOLOGADOS","price":21090},{"id":132,"code":"209949","description":"FIBRA LIMPEZA GERAL PERFECT","reference":"","sector":"PRODUTOS HOMOLOGADOS","price":2090},{"id":133,"code":"211839","description":"FIBRA LIMPEZA LEVE BRANCA 24x10cm.","reference":"","sector":"PRODUTOS HOMOLOGADOS","price":370},{"id":134,"code":"209950","description":"FIBRA LIMPEZA MACIA PERFECT","reference":"","sector":"PRODUTOS HOMOLOGADOS","price":2090},{"id":135,"code":"209951","description":"FIBRA LIMPEZA PESADA PERFECT","reference":"","sector":"PRODUTOS HOMOLOGADOS","price":3280},{"id":136,"code":"211009","description":"FIBRA PARA SUPORTE LT LIMPEZA GERAL VERDE TWIST","reference":"","sector":"PRODUTOS HOMOLOGADOS","price":390},{"id":137,"code":"211008","description":"FIBRA PARA SUPORTE LT LIMPEZA PESADA VERDE TWIST","reference":"","sector":"PRODUTOS HOMOLOGADOS","price":580},{"id":138,"code":"211837","description":"FIBRA PARA SUPORTE LT PLUS LIMPEZA GERAL VERDE TWIST","reference":"","sector":"PRODUTOS HOMOLOGADOS","price":840},{"id":139,"code":"212009","description":"FIBRA PARA SUPORTE LT PLUS LIMPEZA LEVE BRANCA TWIST","reference":"","sector":"PRODUTOS HOMOLOGADOS","price":760},{"id":140,"code":"211838","description":"FIBRA PARA SUPORTE LT PLUS LIMPEZA PESADA VERDE TWIST","reference":"","sector":"PRODUTOS HOMOLOGADOS","price":1250},{"id":141,"code":"210607","description":"FLANELA LARANJA M 29X49","reference":"","sector":"PRODUTOS HOMOLOGADOS","price":260},{"id":142,"code":"210606","description":"FLANELA LARANJA P 29X39","reference":"","sector":"PRODUTOS HOMOLOGADOS","price":200},{"id":143,"code":"212767","description":"KIT MOP PO ACRILICO EURO PC 60CM","reference":"","sector":"PRODUTOS HOMOLOGADOS","price":10540},{"id":144,"code":"101802","description":"LAVADOR COMBINADO 30CM PERFECT","reference":"","sector":"PRODUTOS HOMOLOGADOS","price":4390},{"id":145,"code":"101808","description":"LIXEIRA BRANCA 17LT PERFECT","reference":"","sector":"PRODUTOS HOMOLOGADOS","price":6970},{"id":146,"code":"102259","description":"LIXEIRA BRANCA 35L PERFECT","reference":"","sector":"PRODUTOS HOMOLOGADOS","price":11400},{"id":147,"code":"212660","description":"LP DESINCRUSTANTE 1L","reference":"","sector":"PRODUTOS HOMOLOGADOS","price":6470},{"id":148,"code":"9001991","description":"LP LIMPEZA DIARIA 1L","reference":"","sector":"PRODUTOS HOMOLOGADOS","price":4200},{"id":149,"code":"212648","description":"LP LIMPEZA PESADA 1L","reference":"","sector":"PRODUTOS HOMOLOGADOS","price":5730},{"id":150,"code":"212650","description":"LP LUSTER 1L","reference":"","sector":"PRODUTOS HOMOLOGADOS","price":6190},{"id":151,"code":"212651","description":"LP REFINE 1L","reference":"","sector":"PRODUTOS HOMOLOGADOS","price":6420},{"id":152,"code":"212662","description":"LP REJUNTE RENEW 500ML","reference":"","sector":"PRODUTOS HOMOLOGADOS","price":4710},{"id":153,"code":"200967","description":"MOP MOVE PERFECT","reference":"","sector":"PRODUTOS HOMOLOGADOS","price":28520},{"id":154,"code":"81082","description":"MOP PRO PERFECT","reference":"","sector":"PRODUTOS HOMOLOGADOS","price":24000},{"id":155,"code":"9009429","description":"MULTI TUPI ÁLCOOL/BICARBONATO 1L","reference":"","sector":"PRODUTOS HOMOLOGADOS","price":790},{"id":156,"code":"205799","description":"PA COLETORA C/ ALCA PERFECT","reference":"","sector":"PRODUTOS HOMOLOGADOS","price":2930},{"id":157,"code":"205885","description":"PA COLETORA PLASTICO PERFECT PRO","reference":"","sector":"PRODUTOS HOMOLOGADOS","price":960},{"id":158,"code":"200341","description":"PANO MICROFIBRA CHAO 50X60 PERFECT - 380070","reference":"","sector":"PRODUTOS HOMOLOGADOS","price":1530},{"id":159,"code":"102261","description":"PANO MICROFIBRA UNIV VERDE 40X40 PERFECT","reference":"","sector":"PRODUTOS HOMOLOGADOS","price":820},{"id":160,"code":"102588","description":"PANO MICROFIBRA VERMELHO 40X40 PERFECT","reference":"","sector":"PRODUTOS HOMOLOGADOS","price":820},{"id":161,"code":"102262","description":"PANO MICROFIBRA VIDRO 40X40 PERFECT - 380073","reference":"","sector":"PRODUTOS HOMOLOGADOS","price":820},{"id":162,"code":"10000011","description":"PAPEL TOALHA INTERFOLHA ECOVILLE 17G 19,4CMX20CM 5","reference":"RV2020ECO","sector":"PRODUTOS HOMOLOGADOS","price":1950},{"id":163,"code":"10000010","description":"PAPEL TOALHA INTERFOLHA ECOVILLE 20G 23CMX20CM 5.0","reference":"RV113ECO","sector":"PRODUTOS HOMOLOGADOS","price":2620},{"id":164,"code":"10000009","description":"PAPEL TOALHA INTERFOLHA ECOVILLE 30G 23CMX20CM 5.0","reference":"RV097ECO","sector":"PRODUTOS HOMOLOGADOS","price":3630},{"id":165,"code":"212751","description":"PEK RUSTOUT GEL 100g","reference":"","sector":"PRODUTOS HOMOLOGADOS","price":5460},{"id":166,"code":"9009937","description":"Pek Ultra Removedor 1L","reference":"","sector":"PRODUTOS HOMOLOGADOS","price":9240},{"id":167,"code":"9003047","description":"PEK132","reference":"","sector":"PRODUTOS HOMOLOGADOS","price":6490},{"id":168,"code":"9004356","description":"PERFECT CABO CINZA LISO ALUMINIO 1,40M","reference":"","sector":"PRODUTOS HOMOLOGADOS","price":2410},{"id":169,"code":"200221","description":"PERFECT CABO EXTENSOR 2,4M","reference":"","sector":"PRODUTOS HOMOLOGADOS","price":11750},{"id":170,"code":"102124","description":"PERFECT CABO EXTENSOR 4,5M","reference":"","sector":"PRODUTOS HOMOLOGADOS","price":15030},{"id":171,"code":"10000001","description":"PERFECT CABO METALICO PRETO 12X1 - CABO DE VASSOURAS","reference":"972489","sector":"PRODUTOS HOMOLOGADOS","price":820},{"id":172,"code":"9002875","description":"PERFECT LIXEIRA 17L BLACK","reference":"","sector":"PRODUTOS HOMOLOGADOS","price":6970},{"id":173,"code":"9010496","description":"PERFECT MOP TORNADO INOX 1X1","reference":"","sector":"PRODUTOS HOMOLOGADOS","price":12750},{"id":174,"code":"9010495","description":"PERFECT MOP TORNADO PLASTICO 1X1","reference":"","sector":"PRODUTOS HOMOLOGADOS","price":10360},{"id":175,"code":"207416","description":"PERFECT PANO MICROFIBRA UNIV AMARE 40X40","reference":"","sector":"PRODUTOS HOMOLOGADOS","price":820},{"id":176,"code":"10000008","description":"PH DUO ECOVILLE 14,5+14,5G 250MX10CM 8 ROLOS","reference":"RV647ECO","sector":"PRODUTOS HOMOLOGADOS","price":13060},{"id":177,"code":"10000007","description":"PH SOFT ECOVILLE 15G 300MX10CM 8 ROLOS","reference":"RV2053ECO","sector":"PRODUTOS HOMOLOGADOS","price":8420},{"id":178,"code":"102120","description":"PULVERIZADOR 1L GATILHO SPRAY PERFECT","reference":"","sector":"PRODUTOS HOMOLOGADOS","price":1560},{"id":179,"code":"200955","description":"PULVERIZADOR 500ML GATILHO SPRAY PERFECT","reference":"","sector":"PRODUTOS HOMOLOGADOS","price":1270},{"id":180,"code":"9004721","description":"RODO COMBINADO LIMPA VIDRO 25CM C/L DOUBLE (VIDRO E CERA)","reference":"","sector":"PRODUTOS HOMOLOGADOS","price":4270},{"id":181,"code":"201792","description":"RODO PLASTICO DRY 45CM AZUL","reference":"","sector":"PRODUTOS HOMOLOGADOS","price":2520},{"id":182,"code":"9006838","description":"RODO PLASTICO ECO 40CM LARANJA","reference":"","sector":"PRODUTOS HOMOLOGADOS","price":1790},{"id":183,"code":"9006596","description":"RODO PLASTICO ECO 60CM VERDE TIFFANY","reference":"","sector":"PRODUTOS HOMOLOGADOS","price":2390},{"id":184,"code":"212079","description":"SABONETE LÍQUIDO COM GLICERINA CALLAMARYS - FRUTAS VERMELHAS 2L","reference":"","sector":"PRODUTOS HOMOLOGADOS","price":1090},{"id":185,"code":"9005422","description":"SACO ALVEJADO GG 45 X 70","reference":"","sector":"PRODUTOS HOMOLOGADOS","price":820},{"id":186,"code":"10000030","description":"SACO P LIXO PRETO 200LTS 5UN REFORCADO ALMOFADA","reference":"63","sector":"PRODUTOS HOMOLOGADOS","price":998},{"id":187,"code":"210603","description":"SACO XADREZ M 40X65","reference":"","sector":"PRODUTOS HOMOLOGADOS","price":600},{"id":188,"code":"203711","description":"SUPORTE LT AZUL","reference":"","sector":"PRODUTOS HOMOLOGADOS","price":1390},{"id":189,"code":"210927","description":"SUPORTE LT AZUL C/VELCRO","reference":"","sector":"PRODUTOS HOMOLOGADOS","price":1790},{"id":190,"code":"211835","description":"SUPORTE LT AZUL PLUS","reference":"","sector":"PRODUTOS HOMOLOGADOS","price":3090},{"id":191,"code":"205800","description":"VASSOURA USO GERAL PERFECT PRO","reference":"","sector":"PRODUTOS HOMOLOGADOS","price":1150}];
 
     // ========== LOAD PRODUCTS (localStorage override or builtin) ==========
-    let ALL_PRODUCTS = BUILTIN_PRODUCTS;
+    // Ensure all products have barcode and stock fields
+    function ensureStockFields(products) {
+      return products.map(p => ({
+        barcode: '', stock: 0, ...p
+      }));
+    }
+    let ALL_PRODUCTS = ensureStockFields(BUILTIN_PRODUCTS);
     let productsFromUpload = false;
-    (function loadProducts() {
+    // Load from localStorage as initial cache (server fetch happens after init)
+    (function loadProductsCache() {
       const saved = localStorage.getItem('ecoville_products');
       if (saved) {
         try {
           const parsed = JSON.parse(saved);
           if (Array.isArray(parsed) && parsed.length > 0) {
-            ALL_PRODUCTS = parsed;
+            ALL_PRODUCTS = ensureStockFields(parsed);
             productsFromUpload = true;
           }
         } catch(e) {}
@@ -1380,7 +1696,11 @@
           headers: apiHeaders(),
           body: JSON.stringify(orc)
         });
-        if (r.ok) return await r.json();
+        if (r.ok) return { ok: true, data: await r.json() };
+        if (r.status === 409) {
+          const err = await r.json();
+          return { ok: false, status: 409, error: err.error, outOfStock: err.outOfStock };
+        }
       } catch(e) {}
       return null;
     }
@@ -1406,6 +1726,93 @@
         if (r.ok) return true;
       } catch(e) {}
       return false;
+    }
+
+    // ========== PRODUCTS API ==========
+    let _productsVersion = 0;
+    let _productsSyncDate = null;
+
+    async function apiGetProducts() {
+      try {
+        const r = await fetch(API_URL + '/products', { headers: apiHeaders() });
+        if (r.ok) return await r.json();
+      } catch(e) {}
+      return null;
+    }
+
+    async function apiSaveProducts(products) {
+      try {
+        const r = await fetch(API_URL + '/products', {
+          method: 'POST',
+          headers: apiHeaders(),
+          body: JSON.stringify({ products })
+        });
+        if (r.ok) return await r.json();
+      } catch(e) {}
+      return null;
+    }
+
+    async function apiDeleteProducts() {
+      try {
+        const r = await fetch(API_URL + '/products', {
+          method: 'DELETE',
+          headers: apiHeaders()
+        });
+        if (r.ok) return true;
+      } catch(e) {}
+      return false;
+    }
+
+    async function loadProductsFromServer() {
+      const data = await apiGetProducts();
+      if (data && data.products && Array.isArray(data.products) && data.products.length > 0) {
+        ALL_PRODUCTS = ensureStockFields(data.products);
+        productsFromUpload = true;
+        _productsVersion = data.version || 0;
+        _productsSyncDate = data.syncDate || null;
+        localStorage.setItem('ecoville_products', JSON.stringify(data.products));
+        return true;
+      }
+      _productsVersion = (data && data.version) || 0;
+      // Server has no products but we have local uploaded products — sync them up
+      if (data && !data.products && productsFromUpload) {
+        const local = localStorage.getItem('ecoville_products');
+        if (local) {
+          try {
+            const parsed = JSON.parse(local);
+            if (Array.isArray(parsed) && parsed.length > 0) {
+              const result = await apiSaveProducts(parsed);
+              if (result && result.ok) {
+                _productsVersion = result.version || 0;
+              }
+            }
+          } catch(e) {}
+        }
+      }
+      return false;
+    }
+
+    async function refreshProductsIfChanged() {
+      try {
+        const data = await apiGetProducts();
+        if (!data) return;
+        const newVersion = data.version || 0;
+        if (newVersion !== _productsVersion) {
+          _productsVersion = newVersion;
+          _productsSyncDate = data.syncDate || null;
+          if (data.products && Array.isArray(data.products) && data.products.length > 0) {
+            ALL_PRODUCTS = ensureStockFields(data.products);
+            productsFromUpload = true;
+            localStorage.setItem('ecoville_products', JSON.stringify(data.products));
+          } else {
+            ALL_PRODUCTS = ensureStockFields(BUILTIN_PRODUCTS);
+            productsFromUpload = false;
+            localStorage.removeItem('ecoville_products');
+          }
+          filterProducts();
+          updateConfigInfo();
+        }
+      } catch(e) {}
     }
 
     async function syncOrcamentos() {
@@ -1453,6 +1860,11 @@
       const badge = document.getElementById('cartBadge');
       badge.textContent = count;
       badge.classList.toggle('empty', count === 0);
+      const navBadge = document.getElementById('navCartBadge');
+      if (navBadge) {
+        navBadge.textContent = count;
+        navBadge.classList.toggle('empty', count === 0);
+      }
     }
 
     function getSectorLabel(s) {
@@ -1476,6 +1888,8 @@
       if (page === 'cart') renderCart();
       if (page === 'historico') renderHistorico();
       if (page === 'entrega') renderEntrega();
+      if (page === 'gerarboleto') initBoletoPage();
+      if (page === 'boletos') renderBoletos();
       if (page === 'config') renderUsersList();
       window.scrollTo(0, 0);
     }
@@ -1494,10 +1908,22 @@
         const matchSector = currentSector === 'all' || p.sector === currentSector;
         const matchSearch = !searchTerm ||
           p.description.toLowerCase().includes(searchTerm) ||
-          p.code.toLowerCase().includes(searchTerm);
+          p.code.toLowerCase().includes(searchTerm) ||
+          (p.barcode && p.barcode.includes(searchTerm));
         return matchSector && matchSearch;
       });
       renderProducts(filtered);
+    }
+
+    function getReservingOrcamentos(productCode) {
+      const orcs = getOrcamentos();
+      const result = [];
+      for (const o of orcs) {
+        if (o.items && o.items.some(i => i.code === productCode)) {
+          result.push(o.numero);
+        }
+      }
+      return result;
     }
 
     function renderProducts(products) {
@@ -1507,7 +1933,20 @@
         container.innerHTML = '<div class="empty-state"><div class="empty-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg></div><h3>Nenhum resultado</h3><p>Tente buscar com outros termos.</p></div>';
         return;
       }
-      container.innerHTML = products.map(p => `
+      container.innerHTML = products.map(p => {
+        let stockLabel = '';
+        if (productsFromUpload) {
+          if (p.stock > 0) {
+            stockLabel = `<div class="product-stock stock-in-text">${p.stock} un</div>`;
+          } else {
+            const reserving = getReservingOrcamentos(p.code);
+            const tooltip = reserving.length > 0
+              ? `Reservado por ${reserving.join(', ')}. Se cancelado, ficara disponivel.`
+              : 'Sem estoque disponivel';
+            stockLabel = `<div class="product-stock stock-out-text" title="${tooltip}">0 un</div>`;
+          }
+        }
+        return `
         <div class="product-card">
           <div class="product-icon">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M20.59 13.41l-7.17 7.17a2 2 0 01-2.83 0L2 12V2h10l8.59 8.59a2 2 0 010 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>
@@ -1515,26 +1954,39 @@
           <div class="product-info">
             <div class="product-name">${p.description}</div>
             <div class="product-meta">
-              <span class="product-code">${p.code}</span>
-              <span class="product-sector-badge">${getSectorLabel(p.sector)}</span>
+              <div class="product-meta-row">
+                <span class="product-code"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V4a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v3"/></svg>${p.code}</span>
+                <span class="product-sector-badge">${getSectorLabel(p.sector)}</span>
+              </div>
+              ${p.barcode ? `<div class="product-meta-row"><span class="product-barcode"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="2" height="16"/><rect x="7" y="4" width="1" height="16"/><rect x="10" y="4" width="2" height="16"/><rect x="14" y="4" width="1" height="16"/><rect x="17" y="4" width="3" height="16"/><rect x="22" y="4" width="1" height="16"/></svg>${p.barcode}</span></div>` : ''}
             </div>
           </div>
           <div class="product-right">
             <div class="product-price">${formatPrice(p.price)}</div>
             <button class="add-btn" onclick="addToCart(${p.id})" title="Adicionar ao orcamento">+</button>
+            ${stockLabel}
           </div>
-        </div>
-      `).join('');
+        </div>`;
+      }).join('');
     }
 
     // ========== CART ==========
     function addToCart(productId) {
+      const product = ALL_PRODUCTS.find(p => p.id === productId);
+      if (!product) return;
+      if (productsFromUpload && product.stock <= 0) {
+        showToast('Estoque insuficiente!');
+        return;
+      }
       const existing = cart.find(i => i.productId === productId);
       if (existing) {
+        if (productsFromUpload && existing.qty >= product.stock) {
+          showToast('Quantidade maxima atingida (estoque: ' + product.stock + ')');
+          return;
+        }
         existing.qty++;
       } else {
-        const product = ALL_PRODUCTS.find(p => p.id === productId);
-        cart.push({ productId, qty: 1, price: product.price, description: product.description, code: product.code });
+        cart.push({ productId, qty: 1, price: product.price, description: product.description, code: product.code, barcode: product.barcode || '' });
       }
       saveCart();
       showToast('Produto adicionado!');
@@ -1549,7 +2001,15 @@
     function updateQty(productId, delta) {
       const item = cart.find(i => i.productId === productId);
       if (!item) return;
-      item.qty = Math.max(1, item.qty + delta);
+      let newQty = Math.max(1, item.qty + delta);
+      if (productsFromUpload) {
+        const product = ALL_PRODUCTS.find(p => p.id === productId);
+        if (product && newQty > product.stock) {
+          showToast('Quantidade maxima atingida (estoque: ' + product.stock + ')');
+          newQty = product.stock;
+        }
+      }
+      item.qty = newQty;
       saveCart();
       renderCart();
     }
@@ -1557,8 +2017,16 @@
     function setQty(productId, val) {
       const item = cart.find(i => i.productId === productId);
       if (!item) return;
-      const n = parseInt(val);
-      item.qty = isNaN(n) || n < 1 ? 1 : n;
+      let n = parseInt(val);
+      n = isNaN(n) || n < 1 ? 1 : n;
+      if (productsFromUpload) {
+        const product = ALL_PRODUCTS.find(p => p.id === productId);
+        if (product && n > product.stock) {
+          showToast('Quantidade maxima atingida (estoque: ' + product.stock + ')');
+          n = product.stock;
+        }
+      }
+      item.qty = n;
       saveCart();
       renderCart();
     }
@@ -1586,7 +2054,11 @@
       emptyEl.style.display = 'none';
       summaryEl.style.display = 'block';
 
-      listEl.innerHTML = cart.map(item => `
+      listEl.innerHTML = cart.map(item => {
+        const product = ALL_PRODUCTS.find(p => p.id === item.productId);
+        const stockInfo = productsFromUpload && product ? `<span class="cart-stock${item.qty >= product.stock ? ' cart-stock-limit' : ''}">(estoque: ${product.stock})</span>` : '';
+        const maxAttr = productsFromUpload && product ? ` max="${product.stock}"` : '';
+        return `
         <div class="cart-item">
           <div class="cart-item-header">
             <div class="cart-item-name">${item.description}</div>
@@ -1595,16 +2067,17 @@
           <div class="cart-item-controls">
             <div class="qty-controls">
               <button class="qty-btn" onclick="updateQty(${item.productId}, -1)">-</button>
-              <input class="qty-input" type="number" value="${item.qty}" min="1" onchange="setQty(${item.productId}, this.value)">
+              <input class="qty-input" type="number" value="${item.qty}" min="1"${maxAttr} onchange="setQty(${item.productId}, this.value)">
               <button class="qty-btn" onclick="updateQty(${item.productId}, 1)">+</button>
+              ${stockInfo}
             </div>
             <div class="cart-item-pricing">
               <div class="cart-item-unit">${formatPrice(item.price)} /un</div>
               <div class="cart-item-total">${formatPrice(item.price * item.qty)}</div>
             </div>
           </div>
-        </div>
-      `).join('');
+        </div>`;
+      }).join('');
 
       const subtotal = cart.reduce((s, i) => s + i.price * i.qty, 0);
       const discountPct = parseFloat(document.getElementById('discountInput').value) || 0;
@@ -1616,6 +2089,96 @@
       document.getElementById('discountRow').style.display = discountPct > 0 ? 'flex' : 'none';
       document.getElementById('cartTotal').textContent = formatPrice(total);
     }
+
+    // ========== CLIENT AUTOCOMPLETE ==========
+    let _clientsCache = null;
+    let _clientsCacheTime = 0;
+    const CLIENTS_CACHE_TTL = 5 * 60 * 1000; // 5 min
+
+    async function loadClientsCache() {
+      const now = Date.now();
+      if (_clientsCache && (now - _clientsCacheTime) < CLIENTS_CACHE_TTL) return _clientsCache;
+      try {
+        const r = await fetch(API_URL + '/clients', { headers: apiHeaders() });
+        console.log('Clients API status:', r.status);
+        if (r.ok) {
+          const data = await r.json();
+          let list = data.clients || [];
+          if (typeof list === 'string') { try { list = JSON.parse(list); } catch(e) { list = []; } }
+          _clientsCache = Array.isArray(list) ? list : [];
+          _clientsCacheTime = now;
+          console.log(`Clientes carregados: ${_clientsCache.length}`);
+          return _clientsCache;
+        } else {
+          console.log('Clients API erro:', await r.text());
+        }
+      } catch(e) { console.log('Erro ao carregar clientes:', e); }
+      return _clientsCache || [];
+    }
+
+    let _acTimeout = null;
+    function searchClients(query) {
+      clearTimeout(_acTimeout);
+      const list = document.getElementById('clientAutocomplete');
+      if (!query || query.length < 1) { list.classList.remove('show'); return; }
+      _acTimeout = setTimeout(async () => {
+        const clients = await loadClientsCache();
+        const q = query.toLowerCase();
+        const qDigits = q.replace(/\D/g, '');
+        const matches = clients.filter(c => {
+          if ((c.nome || '').toLowerCase().includes(q)) return true;
+          if (qDigits && (c.doc || '').replace(/\D/g, '').includes(qDigits)) return true;
+          if (qDigits && (c.telefone || '').replace(/\D/g, '').includes(qDigits)) return true;
+          return false;
+        }).slice(0, 8);
+
+        if (matches.length === 0) { list.classList.remove('show'); return; }
+
+        list.innerHTML = matches.map((c, i) => `
+          <div class="autocomplete-item" onclick="selectClient(${i})" data-idx="${i}">
+            <div class="ac-name">${c.nome}</div>
+            <div class="ac-detail">${c.doc || ''} ${c.telefone ? '| ' + c.telefone : ''}</div>
+          </div>
+        `).join('');
+        list._matches = matches;
+        list.classList.add('show');
+      }, 250);
+    }
+
+    function selectClient(idx) {
+      const list = document.getElementById('clientAutocomplete');
+      const c = list._matches[idx];
+      if (!c) return;
+
+      document.getElementById('clientName').value = c.nome || '';
+      document.getElementById('clientDoc').value = c.doc || '';
+      document.getElementById('clientPhone').value = c.telefone || '';
+
+      // Fill address fields if available
+      if (c.cep) {
+        document.getElementById('clientCep').value = c.cep;
+      }
+      if (c.endereco || c.bairro || c.cidade || c.uf) {
+        const parts = [c.endereco, c.bairro, c.cidade, c.uf].filter(Boolean);
+        document.getElementById('clientAddress').value = parts.join(', ');
+      }
+      if (c.numero) {
+        document.getElementById('clientNumero').value = c.numero;
+      }
+      if (c.complemento) {
+        document.getElementById('clientComplemento').value = c.complemento;
+      }
+
+      list.classList.remove('show');
+      showToast('Cliente selecionado: ' + c.nome);
+    }
+
+    // Close autocomplete when clicking outside
+    document.addEventListener('click', (e) => {
+      if (!e.target.closest('.autocomplete-wrapper')) {
+        document.getElementById('clientAutocomplete').classList.remove('show');
+      }
+    });
 
     // ========== CEP ==========
     function formatCep(input) {
@@ -1717,6 +2280,7 @@
                   <th>#</th>
                   <th>Produto</th>
                   <th>Cod.</th>
+                  <th>Cod. Barras</th>
                   <th>Qtd</th>
                   <th>Unitario</th>
                   <th>Total</th>
@@ -1728,6 +2292,7 @@
                     <td>${i + 1}</td>
                     <td style="font-weight:600">${item.description}</td>
                     <td>${item.code}</td>
+                    <td>${item.barcode || '-'}</td>
                     <td style="text-align:right">${item.qty}</td>
                     <td style="text-align:right">${formatPrice(item.price)}</td>
                     <td style="text-align:right;font-weight:700">${formatPrice(item.price * item.qty)}</td>
@@ -1792,7 +2357,7 @@
       showPage('products');
     }
 
-    function printOrcamento() {
+    async function printOrcamento() {
       const content = document.getElementById('orcPrint').innerHTML;
       const w = window.open('', '_blank');
       w.document.write(`
@@ -1831,7 +2396,7 @@
       w.document.close();
       setTimeout(() => w.print(), 500);
       if (!_reenvioOrc) {
-        finalizarOrcamento('PDF');
+        await finalizarOrcamento('PDF');
       }
     }
 
@@ -1890,7 +2455,7 @@
         }
 
         if (!isReenvio) {
-          finalizarOrcamento('WhatsApp');
+          await finalizarOrcamento('WhatsApp');
         } else {
           showToast('Orcamento reenviado!');
         }
@@ -1902,8 +2467,9 @@
       }
     }
 
-    function finalizarOrcamento(enviadoPor) {
-      salvarOrcamento(enviadoPor);
+    async function finalizarOrcamento(enviadoPor) {
+      const orc = await salvarOrcamento(enviadoPor);
+      if (!orc) return; // Stock error, stay on page
       // Limpar carrinho e dados do cliente
       cart = [];
       saveCart();
@@ -2169,8 +2735,26 @@
             const code = val0;
             const desc = (cells[1].textContent || '').trim();
             const ref = (cells[2].textContent || '').trim();
-            const priceText = (cells[cells.length - 1].textContent || '').trim();
-            const price = parseInt(parseFloat(priceText));
+            let stockVal = 0;
+            let barcodeVal = '';
+            // Format with 10+ columns: has stock (col 4) and barcode (col 5)
+            if (cells.length >= 10) {
+              // Column 4: stock (e.g. "11,00" -> 11, "-" -> 0)
+              const stockText = (cells[4].textContent || '').trim().replace(',', '.');
+              stockVal = parseFloat(stockText);
+              stockVal = isNaN(stockVal) || stockVal < 0 ? 0 : Math.floor(stockVal);
+              // Column 5: barcode (handle scientific notation e.g. 7.89891E+12)
+              let barcodeRaw = (cells[5].textContent || '').trim();
+              if (barcodeRaw && barcodeRaw !== '-') {
+                if (barcodeRaw.includes('E') || barcodeRaw.includes('e')) {
+                  try { barcodeVal = BigInt(Math.round(parseFloat(barcodeRaw))).toString(); } catch(e2) { barcodeVal = barcodeRaw; }
+                } else {
+                  barcodeVal = barcodeRaw.replace(/[^0-9]/g, '');
+                }
+              }
+            }
+            const priceText = (cells[cells.length - 1].textContent || '').trim().replace('.', '').replace(',', '.');
+            const price = Math.round(parseFloat(priceText) * 100);
             if (isNaN(price) || !desc) return;
             products.push({
               id: pid++,
@@ -2178,7 +2762,9 @@
               description: desc,
               reference: (ref && ref !== 'NaN') ? ref : '',
               sector: currentSector,
-              price: price
+              price: price,
+              barcode: barcodeVal,
+              stock: stockVal
             });
           } catch(e) {}
         });
@@ -2186,26 +2772,35 @@
       return products;
     }
 
-    function applyUploadedProducts() {
+    async function applyUploadedProducts() {
       if (!pendingProducts || pendingProducts.length === 0) return;
       localStorage.setItem('ecoville_products', JSON.stringify(pendingProducts));
-      ALL_PRODUCTS = pendingProducts;
+      ALL_PRODUCTS = ensureStockFields(pendingProducts);
       productsFromUpload = true;
+      const productsToSave = pendingProducts;
       pendingProducts = null;
       filterProducts();
       updateConfigInfo();
       document.getElementById('uploadInfo').style.display = 'none';
       document.getElementById('fileInput').value = '';
-      showToast('Produtos atualizados com sucesso!');
+      // Send to server
+      const result = await apiSaveProducts(productsToSave);
+      if (result && result.ok) {
+        _productsVersion = result.version || 0;
+        showToast('Produtos atualizados e sincronizados! (' + result.count + ' produtos)');
+      } else {
+        showToast('Produtos atualizados localmente (falha ao sincronizar)');
+      }
     }
 
-    function revertProducts() {
+    async function revertProducts() {
       if (confirm('Restaurar produtos originais do app? Os produtos carregados do arquivo serao removidos.')) {
         localStorage.removeItem('ecoville_products');
-        ALL_PRODUCTS = BUILTIN_PRODUCTS;
+        ALL_PRODUCTS = ensureStockFields(BUILTIN_PRODUCTS);
         productsFromUpload = false;
         filterProducts();
         updateConfigInfo();
+        apiDeleteProducts().catch(() => {});
         showToast('Produtos restaurados');
       }
     }
@@ -2215,7 +2810,12 @@
       const srcEl = document.getElementById('productsSource');
       const revertEl = document.getElementById('revertSection');
       if (productsFromUpload) {
-        srcEl.innerHTML = '<br><span style="color:var(--green);font-weight:600">(atualizado via upload)</span>';
+        let syncInfo = '<br><span style="color:var(--green);font-weight:600">(atualizado via upload)</span>';
+        if (_productsSyncDate) {
+          const d = new Date(_productsSyncDate);
+          syncInfo += `<br><span style="color:var(--gray-500);font-size:12px">Versao ${_productsVersion} - Sincronizado em ${d.toLocaleDateString('pt-BR')} ${d.toLocaleTimeString('pt-BR', {hour:'2-digit',minute:'2-digit'})}</span>`;
+        }
+        srcEl.innerHTML = syncInfo;
         revertEl.style.display = 'block';
       } else {
         srcEl.innerHTML = '';
@@ -2238,7 +2838,7 @@
 
     let orcamentoJaSalvo = false;
 
-    function salvarOrcamento(enviadoPor) {
+    async function salvarOrcamento(enviadoPor) {
       if (orcamentoJaSalvo) return;
       orcamentoJaSalvo = true;
       const session = JSON.parse(localStorage.getItem('ecoville_session') || '{}');
@@ -2296,8 +2896,22 @@
       }
       lista.unshift(orc);
       saveOrcamentosLocal(lista);
-      // Sync to server (fire and forget)
-      apiSaveOrcamento(orc).catch(() => {});
+      // Sync to server and handle stock errors
+      const result = await apiSaveOrcamento(orc);
+      if (result && !result.ok && result.status === 409) {
+        // Stock error - remove the local orcamento
+        const rollback = lista.filter(o => o.id !== orc.id);
+        saveOrcamentosLocal(rollback);
+        orcamentoJaSalvo = false;
+        const msgs = result.outOfStock.map(p => `${p.description}: pedido ${p.requested}, disponivel ${p.available}`);
+        alert('Estoque insuficiente!\n\n' + msgs.join('\n'));
+        // Refresh products to get updated stock
+        await loadProductsFromServer();
+        filterProducts();
+        return null;
+      }
+      // Refresh products to reflect deducted stock
+      loadProductsFromServer().then(() => filterProducts()).catch(() => {});
       return orc;
     }
 
@@ -3492,7 +4106,7 @@
       showPage('cart');
     }
 
-    function excluirOrcamento(id) {
+    async function excluirOrcamento(id) {
       const session = JSON.parse(localStorage.getItem('ecoville_session') || '{}');
       const todas = getOrcamentos();
       const orc = todas.find(o => o.id === id);
@@ -3504,7 +4118,9 @@
       if (!confirm('Excluir este orcamento?')) return;
       const lista = todas.filter(o => o.id !== id);
       saveOrcamentosLocal(lista);
-      apiDeleteOrcamento(id).catch(() => {});
+      await apiDeleteOrcamento(id);
+      // Refresh products (stock was restored on server)
+      loadProductsFromServer().then(() => filterProducts()).catch(() => {});
       renderHistorico();
       renderEntrega();
       showToast('Orcamento excluido');
@@ -3577,12 +4193,107 @@
       }
     }
 
+    // ========== BARCODE SCANNER ==========
+    let _scanStream = null;
+    let _scanInterval = null;
+
+    async function startBarcodeScan() {
+      // Check BarcodeDetector support
+      if (!('BarcodeDetector' in window)) {
+        // Fallback: prompt manual input
+        const code = prompt('Seu navegador nao suporta scanner.\nDigite o codigo de barras:');
+        if (code) handleBarcodeResult(code.trim());
+        return;
+      }
+
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } }
+        });
+        _scanStream = stream;
+
+        // Create modal
+        const modal = document.createElement('div');
+        modal.className = 'scan-modal';
+        modal.id = 'scanModal';
+        modal.innerHTML = `
+          <div class="scan-overlay">
+            <video id="scanVideo" autoplay playsinline></video>
+            <div class="scan-line"></div>
+          </div>
+          <div class="scan-label">Aponte para o codigo de barras</div>
+          <button class="scan-close" onclick="stopBarcodeScan()">Cancelar</button>
+        `;
+        document.body.appendChild(modal);
+
+        const video = document.getElementById('scanVideo');
+        video.srcObject = stream;
+        await video.play();
+
+        // Start scanning
+        const detector = new BarcodeDetector({ formats: ['ean_13', 'ean_8', 'code_128', 'code_39', 'upc_a', 'upc_e'] });
+
+        _scanInterval = setInterval(async () => {
+          try {
+            const barcodes = await detector.detect(video);
+            if (barcodes.length > 0) {
+              const code = barcodes[0].rawValue;
+              stopBarcodeScan();
+              handleBarcodeResult(code);
+            }
+          } catch(e) {}
+        }, 300);
+
+      } catch(err) {
+        alert('Nao foi possivel acessar a camera.\n' + err.message);
+      }
+    }
+
+    function stopBarcodeScan() {
+      if (_scanInterval) { clearInterval(_scanInterval); _scanInterval = null; }
+      if (_scanStream) { _scanStream.getTracks().forEach(t => t.stop()); _scanStream = null; }
+      const modal = document.getElementById('scanModal');
+      if (modal) modal.remove();
+    }
+
+    function handleBarcodeResult(code) {
+      // Search product by barcode
+      const product = ALL_PRODUCTS.find(p => p.barcode === code);
+      if (product) {
+        showToast('Produto encontrado!');
+        addToCart(product.id);
+        showPage('products');
+        document.getElementById('searchInput').value = code;
+        filterProducts();
+      } else {
+        // Try searching by code
+        const byCode = ALL_PRODUCTS.find(p => p.code === code);
+        if (byCode) {
+          showToast('Produto encontrado!');
+          addToCart(byCode.id);
+          showPage('products');
+          document.getElementById('searchInput').value = code;
+          filterProducts();
+        } else {
+          showToast('Produto nao encontrado: ' + code);
+          document.getElementById('searchInput').value = code;
+          filterProducts();
+        }
+      }
+    }
+
     // ========== INIT ==========
     checkAuth();
     fetchServerUsers();
     saveCart();
     filterProducts();
     updateConfigInfo();
+    // Load products from server (async, updates UI when ready)
+    loadProductsFromServer().then(loaded => {
+      if (loaded) { filterProducts(); updateConfigInfo(); }
+    }).catch(() => {});
+    // Refresh products every 30s
+    setInterval(() => refreshProductsIfChanged(), 30000);
 
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.register('sw.js').then(reg => {
@@ -3648,6 +4359,470 @@
         banner.remove();
       });
     }
+
+    // ========== GERAR BOLETO AVULSO ==========
+    function formatBoletoValor(input) {
+      let v = input.value.replace(/[^\d,]/g, '');
+      input.value = v;
+    }
+
+    function parseBoletoValor(str) {
+      const cleaned = str.replace(/\./g, '').replace(',', '.').trim();
+      const val = parseFloat(cleaned);
+      return isNaN(val) ? 0 : Math.round(val * 100);
+    }
+
+    function toggleBoletoParcelas() {
+      const tipo = document.querySelector('input[name="boletoTipo"]:checked').value;
+      document.getElementById('boletoParcelasWrapper').style.display = tipo === 'BANK_SLIP' ? '' : 'none';
+      document.getElementById('boletoPixInfo').style.display = tipo === 'PIX' ? '' : 'none';
+    }
+
+    function atualizarBoletoParcelasDatas() {
+      const n = parseInt(document.getElementById('boletoParcelas').value);
+      const container = document.getElementById('boletoParcelasDatas');
+      const defaults = [7, 14, 21];
+      let html = '';
+      for (let i = 0; i < n; i++) {
+        const d = new Date();
+        d.setDate(d.getDate() + defaults[i]);
+        const dateStr = d.toISOString().split('T')[0];
+        html += `<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+          <span style="font-size:13px;font-weight:600;color:var(--gray-600);min-width:65px">Parcela ${i+1}:</span>
+          <input type="date" id="boletoData${i}" value="${dateStr}" style="flex:1;padding:8px 10px;border:2px solid var(--gray-200);border-radius:8px;font-size:13px;font-family:inherit">
+        </div>`;
+      }
+      container.innerHTML = html;
+    }
+
+    async function buscarCepBoleto() {
+      const cepInput = document.getElementById('boletoClientCep');
+      const cep = cepInput.value.replace(/\D/g, '');
+      if (cep.length !== 8) { if (cep.length > 0) showToast('CEP deve ter 8 digitos'); return; }
+      try {
+        const resp = await fetch('https://viacep.com.br/ws/' + cep + '/json/');
+        const data = await resp.json();
+        if (data.erro) { showToast('CEP nao encontrado'); return; }
+        const parts = [data.logradouro, data.bairro, data.localidade, data.uf].filter(Boolean);
+        document.getElementById('boletoClientAddress').value = parts.join(', ');
+        showToast('Endereco preenchido!');
+      } catch (e) { showToast('Erro ao buscar CEP'); }
+    }
+
+    // Autocomplete for boleto page (reuses client cache)
+    let _acBoletoTimeout = null;
+    function searchClientsBoleto(query) {
+      clearTimeout(_acBoletoTimeout);
+      const list = document.getElementById('boletoClientAutocomplete');
+      if (!query || query.length < 1) { list.classList.remove('show'); return; }
+      _acBoletoTimeout = setTimeout(async () => {
+        const clients = await loadClientsCache();
+        const q = query.toLowerCase();
+        const qDigits = q.replace(/\D/g, '');
+        const matches = clients.filter(c => {
+          if ((c.nome || '').toLowerCase().includes(q)) return true;
+          if (qDigits && (c.doc || '').replace(/\D/g, '').includes(qDigits)) return true;
+          if (qDigits && (c.telefone || '').replace(/\D/g, '').includes(qDigits)) return true;
+          return false;
+        }).slice(0, 8);
+        if (matches.length === 0) { list.classList.remove('show'); return; }
+        list.innerHTML = matches.map((c, i) => `
+          <div class="autocomplete-item" onclick="selectClientBoleto(${i})" data-idx="${i}">
+            <div class="ac-name">${c.nome}</div>
+            <div class="ac-detail">${c.doc || ''} ${c.telefone ? '| ' + c.telefone : ''}</div>
+          </div>
+        `).join('');
+        list._matches = matches;
+        list.classList.add('show');
+      }, 250);
+    }
+
+    function selectClientBoleto(idx) {
+      const list = document.getElementById('boletoClientAutocomplete');
+      const c = list._matches[idx];
+      if (!c) return;
+      document.getElementById('boletoClientName').value = c.nome || '';
+      document.getElementById('boletoClientDoc').value = c.doc || '';
+      document.getElementById('boletoClientPhone').value = c.telefone || '';
+      document.getElementById('boletoClientEmail').value = c.email || '';
+      if (c.cep) document.getElementById('boletoClientCep').value = c.cep;
+      if (c.endereco || c.bairro || c.cidade || c.uf) {
+        document.getElementById('boletoClientAddress').value = [c.endereco, c.bairro, c.cidade, c.uf].filter(Boolean).join(', ');
+      }
+      if (c.numero) document.getElementById('boletoClientNumero').value = c.numero;
+      if (c.complemento) document.getElementById('boletoClientComplemento').value = c.complemento;
+      list.classList.remove('show');
+      showToast('Cliente selecionado: ' + c.nome);
+    }
+
+    // Close boleto autocomplete on outside click
+    document.addEventListener('click', (e) => {
+      if (!e.target.closest('.autocomplete-wrapper')) {
+        const el = document.getElementById('boletoClientAutocomplete');
+        if (el) el.classList.remove('show');
+      }
+    });
+
+    async function gerarBoletoAvulso() {
+      const nome = document.getElementById('boletoClientName').value.trim();
+      const doc = document.getElementById('boletoClientDoc').value.trim();
+      const phone = document.getElementById('boletoClientPhone').value.trim();
+      const email = document.getElementById('boletoClientEmail').value.trim();
+      const descricao = document.getElementById('boletoDescricao').value.trim();
+      const valorStr = document.getElementById('boletoValor').value.trim();
+      const obs = document.getElementById('boletoObs').value.trim();
+      const tipo = document.querySelector('input[name="boletoTipo"]:checked').value;
+      const isBoleto = tipo === 'BANK_SLIP';
+
+      if (!nome) { showToast('Preencha o nome do cliente'); document.getElementById('boletoClientName').focus(); return; }
+      if (!doc) { showToast('Preencha o CPF/CNPJ'); document.getElementById('boletoClientDoc').focus(); return; }
+      if (!descricao) { showToast('Preencha a descricao'); document.getElementById('boletoDescricao').focus(); return; }
+
+      const totalCents = parseBoletoValor(valorStr);
+      if (totalCents <= 0) { showToast('Preencha o valor'); document.getElementById('boletoValor').focus(); return; }
+
+      let parcelas = 1;
+      const dueDates = [];
+      if (isBoleto) {
+        parcelas = parseInt(document.getElementById('boletoParcelas').value);
+        for (let i = 0; i < parcelas; i++) {
+          const dt = document.getElementById('boletoData' + i).value;
+          if (!dt) { showToast('Preencha a data da parcela ' + (i+1)); return; }
+          dueDates.push(dt);
+        }
+      } else {
+        dueDates.push(new Date().toISOString().split('T')[0]);
+      }
+
+      const btn = document.getElementById('btnGerarBoletoAvulso');
+      btn.disabled = true;
+      btn.innerHTML = '<span>Gerando...</span>';
+
+      try {
+        const resp = await fetch(API_URL + '/cora/cobranca', {
+          method: 'POST',
+          headers: apiHeaders(),
+          body: JSON.stringify({
+            orcamentoId: null,
+            paymentType: tipo,
+            parcelas: parcelas,
+            dueDates: dueDates,
+            items: [{ description: descricao, quantity: 1, price: totalCents }],
+            total: totalCents,
+            customer: {
+              name: nome,
+              document: doc,
+              email: email || undefined
+            }
+          })
+        });
+
+        const data = await resp.json();
+        if (!resp.ok) throw new Error(data.error || 'Erro ao gerar cobranca');
+
+        data.paymentType = tipo === 'PIX' ? 'PIX' : 'BOLETO';
+
+        // Save boleto avulso locally and on server
+        const boletoAvulso = {
+          id: Date.now(),
+          tipo: 'boleto_avulso',
+          cliente: nome,
+          clienteDoc: doc,
+          clientePhone: phone,
+          clienteEmail: email,
+          descricao: descricao,
+          observacoes: obs,
+          total: totalCents,
+          coraPayment: data,
+          criadoEm: new Date().toISOString(),
+          status: 'pendente'
+        };
+
+        const boletos = getBoletos();
+        boletos.unshift(boletoAvulso);
+        saveBoletos(boletos);
+
+        // Clear form
+        document.getElementById('boletoClientName').value = '';
+        document.getElementById('boletoClientDoc').value = '';
+        document.getElementById('boletoClientPhone').value = '';
+        document.getElementById('boletoClientEmail').value = '';
+        document.getElementById('boletoClientCep').value = '';
+        document.getElementById('boletoClientAddress').value = '';
+        document.getElementById('boletoClientNumero').value = '';
+        document.getElementById('boletoClientComplemento').value = '';
+        document.getElementById('boletoDescricao').value = '';
+        document.getElementById('boletoValor').value = '';
+        document.getElementById('boletoObs').value = '';
+
+        showToast('Boleto gerado com sucesso!');
+
+        // Show the generated boleto
+        _cobrancaOrc = boletoAvulso;
+        _cobrancaFromPage = 'boletos';
+        const parcelasData = data.parcelas || [data];
+        renderCobrancaPage(parcelasData, 0);
+        document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+        document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+        document.getElementById('page-cobranca').classList.add('active');
+        window.scrollTo(0, 0);
+
+      } catch (e) {
+        alert('Erro: ' + e.message);
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg> Gerar Boleto';
+      }
+    }
+
+    // Init boleto parcelas dates on page load
+    function initBoletoPage() {
+      atualizarBoletoParcelasDatas();
+    }
+
+    // ========== BOLETOS A RECEBER ==========
+    function getBoletos() {
+      try { return JSON.parse(localStorage.getItem('ecoville_boletos') || '[]'); } catch(e) { return []; }
+    }
+
+    function saveBoletos(list) {
+      localStorage.setItem('ecoville_boletos', JSON.stringify(list));
+      // Also sync to server
+      apiSaveBoletos(list).catch(() => {});
+    }
+
+    async function apiSaveBoletos(boletos) {
+      try {
+        await fetch(API_URL + '/boletos', {
+          method: 'POST',
+          headers: apiHeaders(),
+          body: JSON.stringify({ boletos })
+        });
+      } catch(e) {}
+    }
+
+    async function apiGetBoletos() {
+      try {
+        const r = await fetch(API_URL + '/boletos', { headers: apiHeaders() });
+        if (r.ok) { const d = await r.json(); return d.boletos || []; }
+      } catch(e) {}
+      return null;
+    }
+
+    let _boletoFiltro = 'todos';
+
+    function filtrarBoletos(filtro, el) {
+      _boletoFiltro = filtro;
+      if (el) {
+        el.closest('div').querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
+        el.classList.add('active');
+      }
+      renderBoletos();
+    }
+
+    function getBoletoStatus(b) {
+      if (!b.coraPayment) return 'pendente';
+      const parcelas = b.coraPayment.parcelas || [b.coraPayment];
+      const allPaid = parcelas.every(p => p.coraStatus === 'PAID' || p.coraStatus === 'RECEIVED');
+      if (allPaid) return 'pago';
+      const hasOverdue = parcelas.some(p => {
+        if (p.coraStatus === 'OVERDUE' || p.coraStatus === 'LATE') return true;
+        if (p.dueDate && new Date(p.dueDate) < new Date() && p.coraStatus !== 'PAID' && p.coraStatus !== 'RECEIVED') return true;
+        return false;
+      });
+      if (hasOverdue) return 'atrasado';
+      return 'pendente';
+    }
+
+    function renderBoletos() {
+      // Merge: include boletos avulsos + orcamentos with coraPayment
+      let allBoletos = getBoletos();
+
+      // Also include orcamentos that have coraPayment
+      const orcs = getOrcamentos().filter(o => o.coraPayment);
+      for (const o of orcs) {
+        // Don't duplicate if already in boletos list
+        if (allBoletos.some(b => b.id === o.id)) continue;
+        allBoletos.push({
+          id: o.id,
+          tipo: 'orcamento',
+          cliente: o.cliente || '',
+          clienteDoc: o.clienteDoc || '',
+          descricao: o.numero ? 'Orcamento ' + o.numero : 'Orcamento #' + o.id,
+          total: o.total || 0,
+          coraPayment: o.coraPayment,
+          criadoEm: o.criadoEm || o.data || '',
+          status: getBoletoStatus(o)
+        });
+      }
+
+      // Update statuses
+      allBoletos.forEach(b => { b.status = getBoletoStatus(b); });
+
+      // Sort by date desc
+      allBoletos.sort((a, b) => new Date(b.criadoEm || 0) - new Date(a.criadoEm || 0));
+
+      // Filter
+      let filtered = allBoletos;
+      if (_boletoFiltro !== 'todos') {
+        filtered = allBoletos.filter(b => b.status === _boletoFiltro);
+      }
+
+      // Resumo cards
+      const totalPendente = allBoletos.filter(b => b.status === 'pendente').reduce((s, b) => s + (b.total || 0), 0);
+      const totalAtrasado = allBoletos.filter(b => b.status === 'atrasado').reduce((s, b) => s + (b.total || 0), 0);
+      const totalPago = allBoletos.filter(b => b.status === 'pago').reduce((s, b) => s + (b.total || 0), 0);
+      const countPendente = allBoletos.filter(b => b.status === 'pendente').length;
+      const countAtrasado = allBoletos.filter(b => b.status === 'atrasado').length;
+      const countPago = allBoletos.filter(b => b.status === 'pago').length;
+
+      document.getElementById('boletosResumo').innerHTML = `
+        <div style="flex:1;background:#fef3c7;border-radius:var(--radius);padding:10px;text-align:center">
+          <div style="font-size:11px;font-weight:700;color:#d97706">Pendente (${countPendente})</div>
+          <div style="font-size:14px;font-weight:800;color:#92400e">${formatPrice(totalPendente)}</div>
+        </div>
+        <div style="flex:1;background:#fee2e2;border-radius:var(--radius);padding:10px;text-align:center">
+          <div style="font-size:11px;font-weight:700;color:#dc2626">Atrasado (${countAtrasado})</div>
+          <div style="font-size:14px;font-weight:800;color:#991b1b">${formatPrice(totalAtrasado)}</div>
+        </div>
+        <div style="flex:1;background:#d1fae5;border-radius:var(--radius);padding:10px;text-align:center">
+          <div style="font-size:11px;font-weight:700;color:#059669">Pago (${countPago})</div>
+          <div style="font-size:14px;font-weight:800;color:#065f46">${formatPrice(totalPago)}</div>
+        </div>
+      `;
+
+      // Render list
+      const lista = document.getElementById('boletosLista');
+      const empty = document.getElementById('boletosEmpty');
+
+      if (filtered.length === 0) {
+        lista.innerHTML = '';
+        empty.style.display = '';
+        return;
+      }
+      empty.style.display = 'none';
+
+      lista.innerHTML = filtered.map(b => {
+        const statusColors = {
+          pendente: { bg: '#fef3c7', color: '#d97706', label: 'Pendente' },
+          atrasado: { bg: '#fee2e2', color: '#dc2626', label: 'Atrasado' },
+          pago: { bg: '#d1fae5', color: '#059669', label: 'Pago' }
+        };
+        const st = statusColors[b.status] || statusColors.pendente;
+        const payType = b.coraPayment?.paymentType === 'PIX' ? 'PIX' : 'Boleto';
+        const parcelas = b.coraPayment?.parcelas || [b.coraPayment];
+        const nParcelas = parcelas.length;
+        const tipoLabel = b.tipo === 'boleto_avulso' ? 'Avulso' : 'Orcamento';
+
+        // Parcelas detail
+        let parcelasHtml = '';
+        if (parcelas.length > 0 && parcelas[0]) {
+          parcelasHtml = parcelas.map((p, i) => {
+            if (!p) return '';
+            const pStatus = p.coraStatus === 'PAID' || p.coraStatus === 'RECEIVED' ? 'Pago' :
+                            p.coraStatus === 'OVERDUE' || p.coraStatus === 'LATE' ? 'Atrasado' : 'Pendente';
+            const pColor = pStatus === 'Pago' ? '#059669' : pStatus === 'Atrasado' ? '#dc2626' : '#d97706';
+            const venc = p.dueDate ? new Date(p.dueDate + 'T12:00:00').toLocaleDateString('pt-BR') : '-';
+            return `<div style="font-size:11px;color:var(--gray-500);margin-top:2px">
+              ${nParcelas > 1 ? 'Parc ' + (i+1) + ': ' : ''}Venc: ${venc}
+              <span style="color:${pColor};font-weight:700">${pStatus}</span>
+            </div>`;
+          }).join('');
+        }
+
+        return `<div style="background:var(--white);border:1px solid var(--gray-200);border-radius:var(--radius-lg);padding:14px;margin-bottom:10px;box-shadow:var(--shadow-sm)">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px">
+            <div>
+              <div style="font-size:14px;font-weight:700;color:var(--gray-800)">${b.cliente}</div>
+              <div style="font-size:12px;color:var(--gray-500)">${b.clienteDoc || ''}</div>
+            </div>
+            <div style="display:flex;gap:4px;align-items:center">
+              <span style="background:var(--gray-100);color:var(--gray-500);padding:2px 8px;border-radius:10px;font-size:10px;font-weight:700">${tipoLabel}</span>
+              <span style="background:${st.bg};color:${st.color};padding:2px 8px;border-radius:10px;font-size:10px;font-weight:700">${st.label}</span>
+            </div>
+          </div>
+          <div style="font-size:13px;color:var(--gray-600);margin-bottom:4px">${b.descricao || ''}</div>
+          <div style="display:flex;justify-content:space-between;align-items:center">
+            <div>
+              <span style="font-size:16px;font-weight:800;color:var(--primary)">${formatPrice(b.total)}</span>
+              <span style="font-size:11px;color:var(--gray-400);margin-left:6px">${payType} ${nParcelas > 1 ? nParcelas + 'x' : ''}</span>
+            </div>
+            <div style="font-size:11px;color:var(--gray-400)">${b.criadoEm ? new Date(b.criadoEm).toLocaleDateString('pt-BR') : ''}</div>
+          </div>
+          ${parcelasHtml}
+          <div style="display:flex;gap:6px;margin-top:8px">
+            <button onclick="verBoletoCobr(${b.id},'${b.tipo}')" style="flex:1;background:var(--primary);color:white;border:none;border-radius:8px;padding:8px;font-size:12px;font-weight:700;cursor:pointer">Ver Boleto</button>
+            <button onclick="verificarStatusBoleto(${b.id},'${b.tipo}')" style="flex:1;background:var(--gray-100);color:var(--gray-600);border:none;border-radius:8px;padding:8px;font-size:12px;font-weight:700;cursor:pointer">Atualizar</button>
+          </div>
+        </div>`;
+      }).join('');
+    }
+
+    function verBoletoCobr(id, tipo) {
+      let item;
+      if (tipo === 'boleto_avulso') {
+        item = getBoletos().find(b => b.id === id);
+      } else {
+        item = getOrcamentos().find(o => o.id === id);
+      }
+      if (!item || !item.coraPayment) { showToast('Boleto nao encontrado'); return; }
+      _cobrancaOrc = item;
+      _cobrancaFromPage = 'boletos';
+      const parcelas = item.coraPayment.parcelas || [item.coraPayment];
+      renderCobrancaPage(parcelas, 0);
+      document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+      document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+      document.getElementById('page-cobranca').classList.add('active');
+      window.scrollTo(0, 0);
+    }
+
+    async function verificarStatusBoleto(id, tipo) {
+      let item;
+      if (tipo === 'boleto_avulso') {
+        item = getBoletos().find(b => b.id === id);
+      } else {
+        item = getOrcamentos().find(o => o.id === id);
+      }
+      if (!item || !item.coraPayment) return;
+
+      const parcelas = item.coraPayment.parcelas || [item.coraPayment];
+      let changed = false;
+
+      for (const p of parcelas) {
+        if (!p.coraInvoiceId) continue;
+        if (p.coraStatus === 'PAID' || p.coraStatus === 'RECEIVED') continue;
+        try {
+          const r = await fetch(API_URL + '/cora/cobranca?invoiceId=' + p.coraInvoiceId, { headers: apiHeaders() });
+          if (r.ok) {
+            const data = await r.json();
+            if (data.status && data.status !== p.coraStatus) {
+              p.coraStatus = data.status;
+              changed = true;
+            }
+          }
+        } catch(e) {}
+      }
+
+      if (changed) {
+        if (tipo === 'boleto_avulso') {
+          const boletos = getBoletos();
+          const idx = boletos.findIndex(b => b.id === id);
+          if (idx >= 0) { boletos[idx] = item; saveBoletos(boletos); }
+        } else {
+          const lista = getOrcamentos();
+          const idx = lista.findIndex(o => o.id === id);
+          if (idx >= 0) { lista[idx] = item; saveOrcamentosLocal(lista); }
+        }
+        showToast('Status atualizado!');
+      } else {
+        showToast('Sem alteracoes no status');
+      }
+      renderBoletos();
+    }
+
+    // ========== NAVIGATION UPDATE ==========
+    // Patch showPage to handle new pages
+    const _originalShowPage = showPage;
 
     // Se ja esta instalado como PWA, nao mostra nada
     if (window.matchMedia('(display-mode: standalone)').matches) {
