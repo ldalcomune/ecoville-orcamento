@@ -2924,16 +2924,10 @@
         const remote = await apiGetOrcamentos();
         let lista;
         if (remote) {
-          // Server already filters by user (admin sees all)
           lista = remote;
-          // Update local cache
           saveOrcamentosLocal(lista);
         } else {
-          // Offline fallback
-          const todas = getOrcamentos();
-          const session = JSON.parse(localStorage.getItem('ecoville_session') || '{}');
-          const isAdmin = session.user === 'admin';
-          lista = isAdmin ? todas : todas.filter(o => o.vendedorUser === session.user || o.vendedor === session.name);
+          lista = getOrcamentos();
         }
 
         // Historico shows salvo/enviado/aceito (not entrega/pronto)
@@ -2955,12 +2949,8 @@
         }
       } catch (e) {
         console.error('Erro renderHistorico:', e);
-        // Show local data as fallback
         const todas = getOrcamentos();
-        const session = JSON.parse(localStorage.getItem('ecoville_session') || '{}');
-        const isAdmin = session.user === 'admin';
-        let lista = isAdmin ? todas : todas.filter(o => o.vendedorUser === session.user || o.vendedor === session.name);
-        lista = lista.filter(o => !['entrega', 'pronto', 'agendado', 'entregue'].includes(o.status));
+        let lista = todas.filter(o => !['entrega', 'pronto', 'agendado', 'entregue'].includes(o.status));
         if (lista.length === 0) {
           container.innerHTML = '';
           emptyEl.style.display = '';
@@ -2990,14 +2980,8 @@
         }
       }
 
-      const session = JSON.parse(localStorage.getItem('ecoville_session') || '{}');
-      const isAdmin = session.user === 'admin';
-
-      // Entrega shows items in delivery pipeline
+      // Entrega shows items in delivery pipeline - all users see all
       let lista = todas.filter(o => ['entrega', 'pronto', 'agendado', 'entregue'].includes(o.status));
-      if (!isAdmin) {
-        lista = lista.filter(o => o.vendedorUser === session.user || o.vendedor === session.name);
-      }
 
       if (lista.length === 0) {
         container.innerHTML = '';
@@ -3056,12 +3040,7 @@
         }
         // Re-render cards with updated statuses
         const container = document.getElementById('entregaLista');
-        const session = JSON.parse(localStorage.getItem('ecoville_session') || '{}');
-        const isAdmin = session.user === 'admin';
         let filtered = todasLocal.filter(o => ['entrega', 'pronto', 'agendado', 'entregue'].includes(o.status));
-        if (!isAdmin) {
-          filtered = filtered.filter(o => o.vendedorUser === session.user || o.vendedor === session.name);
-        }
         container.innerHTML = filtered.map(o => renderEntregaCard(o)).join('');
       }
     }
