@@ -4617,11 +4617,13 @@
     function getBoletoStatus(b) {
       if (!b.coraPayment) return 'pendente';
       const parcelas = b.coraPayment.parcelas || [b.coraPayment];
+      const allCancelled = parcelas.every(p => p.coraStatus === 'CANCELLED');
+      if (allCancelled) return 'anulado';
       const allPaid = parcelas.every(p => p.coraStatus === 'PAID' || p.coraStatus === 'RECEIVED');
       if (allPaid) return 'pago';
       const hasOverdue = parcelas.some(p => {
         if (p.coraStatus === 'OVERDUE' || p.coraStatus === 'LATE') return true;
-        if (p.dueDate && new Date(p.dueDate) < new Date() && p.coraStatus !== 'PAID' && p.coraStatus !== 'RECEIVED') return true;
+        if (p.dueDate && new Date(p.dueDate) < new Date() && p.coraStatus !== 'PAID' && p.coraStatus !== 'RECEIVED' && p.coraStatus !== 'CANCELLED') return true;
         return false;
       });
       if (hasOverdue) return 'atrasado';
@@ -4700,7 +4702,8 @@
         const statusColors = {
           pendente: { bg: '#fef3c7', color: '#d97706', label: 'Pendente' },
           atrasado: { bg: '#fee2e2', color: '#dc2626', label: 'Atrasado' },
-          pago: { bg: '#d1fae5', color: '#059669', label: 'Pago' }
+          pago: { bg: '#d1fae5', color: '#059669', label: 'Pago' },
+          anulado: { bg: '#f3f4f6', color: '#6b7280', label: 'Anulado' }
         };
         const st = statusColors[b.status] || statusColors.pendente;
         const payType = b.coraPayment?.paymentType === 'PIX' ? 'PIX' : 'Boleto';
@@ -4747,6 +4750,7 @@
           <div style="display:flex;gap:6px;margin-top:8px">
             <button onclick="verBoletoCobr(${b.id},'${b.tipo}')" style="flex:1;background:var(--primary);color:white;border:none;border-radius:8px;padding:8px;font-size:12px;font-weight:700;cursor:pointer">Ver Boleto</button>
             <button onclick="verificarStatusBoleto(${b.id},'${b.tipo}')" style="flex:1;background:var(--gray-100);color:var(--gray-600);border:none;border-radius:8px;padding:8px;font-size:12px;font-weight:700;cursor:pointer">Atualizar</button>
+            ${(JSON.parse(localStorage.getItem('ecoville_session') || '{}').user === 'admin' && b.status !== 'pago') ? `<button onclick="anularBoleto(${b.id},'${b.tipo}')" style="background:var(--red-light);color:var(--red);border:none;border-radius:8px;padding:8px 10px;font-size:12px;font-weight:700;cursor:pointer">Anular</button>` : ''}
           </div>
         </div>`;
       }).join('');
@@ -4811,6 +4815,57 @@
       } else {
         showToast('Sem alteracoes no status');
       }
+      renderBoletos();
+    }
+
+    async function anularBoleto(id, tipo) {
+      if (!confirm('Tem certeza que deseja anular este boleto? Esta acao nao pode ser desfeita.')) return;
+      let item;
+      if (tipo === 'boleto_avulso') {
+        item = getBoletos().find(b => b.id === id);
+      } else {
+        item = getOrcamentos().find(o => o.id === id);
+      }
+      if (!item || !item.coraPayment) { showToast('Boleto nao encontrado'); return; }
+
+      const parcelas = item.coraPayment.parcelas || [item.coraPayment];
+      let allOk = true;
+
+      for (const p of parcelas) {
+        if (!p.coraInvoiceId) continue;
+        if (p.coraStatus === 'PAID' || p.coraStatus === 'RECEIVED') continue;
+        if (p.coraStatus === 'CANCELLED') continue;
+        try {
+          const r = await fetch(API_URL + '/cora/cobranca?invoiceId=' + p.coraInvoiceId, { method: 'DELETE', headers: apiHeaders() });
+          if (r.ok) {
+            p.coraStatus = 'CANCELLED';
+          } else {
+            const err = await r.json().catch(() => ({}));
+            console.error('Erro anular parcela:', err);
+            allOk = false;
+          }
+        } catch(e) { allOk = false; }
+      }
+
+      // Save updated status
+      if (tipo === 'boleto_avulso') {
+        const boletos = getBoletos();
+        const idx = boletos.findIndex(b => b.id === id);
+        if (idx >= 0) { boletos[idx] = item; saveBoletos(boletos); }
+      } else {
+        const lista = getOrcamentos();
+        const idx = lista.findIndex(o => o.id === id);
+        if (idx >= 0) { lista[idx] = item; saveOrcamentosLocal(lista); }
+        // Also update on server
+        try {
+          await fetch(API_URL + '/orcamentos/' + id, {
+            method: 'PUT', headers: { ...apiHeaders(), 'Content-Type': 'application/json' },
+            body: JSON.stringify(item)
+          });
+        } catch(e) {}
+      }
+
+      showToast(allOk ? 'Boleto anulado com sucesso!' : 'Algumas parcelas nao puderam ser anuladas');
       renderBoletos();
     }
 
