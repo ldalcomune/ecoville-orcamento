@@ -1630,6 +1630,7 @@
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:20px;height:20px"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
         <span id="modalLigTelText"></span>
       </a>
+      <p id="modalLigDuracao" style="display:none;font-size:13px;font-weight:600;text-align:center;margin-bottom:12px;padding:8px;border-radius:var(--radius);background:var(--gray-50)"></p>
       <p style="font-size:13px;font-weight:600;margin-bottom:8px">Resultado da ligacao:</p>
       <div class="prosp-resultado-grid" id="modalLigResultados">
         <button class="prosp-resultado-btn" data-val="atendeu" onclick="selResultado(this)">Atendeu</button>
@@ -5429,24 +5430,62 @@
     }
 
     // Modal: Registrar Ligacao
+    var _callStartTime = null;
+    var _callDuration = 0;
+
     function abrirModalLigacao(prospectId) {
       const p = _prospects.find(x => x.id === prospectId);
       if (!p) return;
       _selectedLigProspect = p;
       _selectedResultado = '';
+      _callStartTime = null;
+      _callDuration = 0;
       document.getElementById('modalLigNome').textContent = p.nome;
       document.getElementById('modalLigInfo').textContent = `${getTipoLabel(p.tipo)} | ${getRegiaoLabel(p.regiao)} | ${p.cidade||''}`;
-      document.getElementById('modalLigTelLink').href = 'tel:' + (p.telefone||'').replace(/\D/g,'');
+      const telNum = (p.telefone||'').replace(/\D/g,'');
+      document.getElementById('modalLigTelLink').href = 'tel:' + telNum;
       document.getElementById('modalLigTelText').textContent = p.telefone;
       document.getElementById('modalLigNotas').value = '';
       document.getElementById('modalLigRetornoDiv').style.display = 'none';
       document.getElementById('btnSalvarLigacao').disabled = true;
+      document.getElementById('modalLigDuracao').textContent = '';
+      document.getElementById('modalLigDuracao').style.display = 'none';
       document.querySelectorAll('.prosp-resultado-btn').forEach(b => b.classList.remove('selected'));
       document.getElementById('modalLigacao').style.display = 'flex';
     }
+
+    // Ao clicar no botao de telefone, registra o inicio da ligacao
+    document.addEventListener('click', function(e) {
+      const telLink = document.getElementById('modalLigTelLink');
+      if (telLink && telLink.contains(e.target)) {
+        _callStartTime = Date.now();
+        // Quando o usuario voltar ao app, calcula duracao
+        function onReturn() {
+          if (_callStartTime) {
+            _callDuration = Math.round((Date.now() - _callStartTime) / 1000);
+            const mins = Math.floor(_callDuration / 60);
+            const secs = _callDuration % 60;
+            const durEl = document.getElementById('modalLigDuracao');
+            if (durEl) {
+              durEl.textContent = `Duracao: ${mins}m${secs.toString().padStart(2,'0')}s` + (_callDuration < 60 ? ' (menos de 1 min - nao sera contabilizada)' : '');
+              durEl.style.display = 'block';
+              durEl.style.color = _callDuration < 60 ? 'var(--red)' : 'var(--green)';
+            }
+          }
+          document.removeEventListener('visibilitychange', visHandler);
+          window.removeEventListener('focus', onReturn);
+        }
+        function visHandler() { if (!document.hidden) onReturn(); }
+        document.addEventListener('visibilitychange', visHandler);
+        window.addEventListener('focus', onReturn);
+      }
+    });
+
     function fecharModalLigacao() {
       document.getElementById('modalLigacao').style.display = 'none';
       _selectedLigProspect = null;
+      _callStartTime = null;
+      _callDuration = 0;
     }
 
     function selResultado(btn) {
@@ -5459,6 +5498,10 @@
 
     async function salvarLigacao() {
       if (!_selectedLigProspect || !_selectedResultado) return;
+      if (_callDuration < 60) {
+        showToast('Ligacao deve durar pelo menos 1 minuto para ser registrada');
+        return;
+      }
       const session = JSON.parse(localStorage.getItem('ecoville_session') || '{}');
 
       const call = {
@@ -5470,6 +5513,7 @@
         resultado: _selectedResultado,
         notas: document.getElementById('modalLigNotas').value.trim(),
         retornarEm: _selectedResultado === 'retornar' ? document.getElementById('modalLigRetornoData').value : '',
+        duracao: _callDuration,
         criadoEm: new Date().toISOString()
       };
 
