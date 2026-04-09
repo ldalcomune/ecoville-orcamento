@@ -926,7 +926,7 @@
       margin-top: 2px;
     }
     .orc-info-item.full { grid-column: 1 / -1; }
-    .orc-table-wrapper { padding: 0; }
+    .orc-table-wrapper { padding: 0; overflow-x: auto; -webkit-overflow-scrolling: touch; }
     .orc-table {
       width: 100%;
       border-collapse: collapse;
@@ -952,12 +952,20 @@
     }
     .orc-table tbody td:last-child,
     .orc-table tbody td:nth-child(4),
-    .orc-table tbody td:nth-child(5) { text-align: right; }
+    .orc-table tbody td:nth-child(5) { text-align: right; white-space: nowrap; }
+    .orc-table thead th:last-child,
+    .orc-table thead th:nth-child(4),
+    .orc-table thead th:nth-child(5) { white-space: nowrap; }
     .orc-table tbody tr:nth-child(even) { background: var(--gray-50); }
     .orc-table tbody td:first-child {
       font-weight: 700;
       color: var(--gray-400);
       width: 30px;
+    }
+    @media (max-width: 480px) {
+      .orc-table { font-size: 10px; min-width: auto; }
+      .orc-table thead th, .orc-table tbody td { padding: 6px 4px; }
+      .orc-table .col-code, .orc-table .col-barcode { display: none; }
     }
     .orc-totals {
       padding: 16px 20px;
@@ -2024,7 +2032,7 @@
 
     // ========== HELPERS ==========
     function formatPrice(cents) {
-      return 'R$ ' + (cents / 100).toFixed(2).replace('.', ',');
+      return 'R$\u00A0' + (cents / 100).toFixed(2).replace('.', ',');
     }
 
     function showToast(msg) {
@@ -2460,8 +2468,8 @@
                 <tr>
                   <th>#</th>
                   <th>Produto</th>
-                  <th>Cod.</th>
-                  <th>Cod. Barras</th>
+                  <th class="col-code">Cod.</th>
+                  <th class="col-barcode">Cod. Barras</th>
                   <th>Qtd</th>
                   <th>Unitario</th>
                   <th>Total</th>
@@ -2472,8 +2480,8 @@
                   <tr>
                     <td>${i + 1}</td>
                     <td style="font-weight:600">${item.description}</td>
-                    <td>${item.code}</td>
-                    <td>${item.barcode || '-'}</td>
+                    <td class="col-code">${item.code}</td>
+                    <td class="col-barcode">${item.barcode || '-'}</td>
                     <td style="text-align:right">${item.qty}</td>
                     <td style="text-align:right">${formatPrice(item.price)}</td>
                     <td style="text-align:right;font-weight:700">${formatPrice(item.price * item.qty)}</td>
@@ -3439,9 +3447,9 @@
           </div>
           <div class="orc-table-wrapper">
             <table class="orc-table">
-              <thead><tr><th>#</th><th>Produto</th><th>Cod.</th><th>Qtd</th><th>Unitario</th><th>Total</th></tr></thead>
+              <thead><tr><th>#</th><th>Produto</th><th class="col-code">Cod.</th><th>Qtd</th><th>Unitario</th><th>Total</th></tr></thead>
               <tbody>
-                ${o.items.map((item, i) => '<tr><td>' + (i+1) + '</td><td style="font-weight:600">' + item.description + '</td><td>' + item.code + '</td><td style="text-align:right">' + item.qty + '</td><td style="text-align:right">' + formatPrice(item.price) + '</td><td style="text-align:right;font-weight:700">' + formatPrice(item.price * item.qty) + '</td></tr>').join('')}
+                ${o.items.map((item, i) => '<tr><td>' + (i+1) + '</td><td style="font-weight:600">' + item.description + '</td><td class="col-code">' + item.code + '</td><td style="text-align:right">' + item.qty + '</td><td style="text-align:right">' + formatPrice(item.price) + '</td><td style="text-align:right;font-weight:700">' + formatPrice(item.price * item.qty) + '</td></tr>').join('')}
               </tbody>
             </table>
           </div>
@@ -4326,9 +4334,9 @@
           </div>
           <div class="orc-table-wrapper">
             <table class="orc-table">
-              <thead><tr><th>#</th><th>Produto</th><th>Cod.</th><th>Qtd</th><th>Unitario</th><th>Total</th></tr></thead>
+              <thead><tr><th>#</th><th>Produto</th><th class="col-code">Cod.</th><th>Qtd</th><th>Unitario</th><th>Total</th></tr></thead>
               <tbody>
-                ${o.items.map((item, i) => '<tr><td>' + (i+1) + '</td><td style="font-weight:600">' + item.description + '</td><td>' + item.code + '</td><td style="text-align:right">' + item.qty + '</td><td style="text-align:right">' + formatPrice(item.price) + '</td><td style="text-align:right;font-weight:700">' + formatPrice(item.price * item.qty) + '</td></tr>').join('')}
+                ${o.items.map((item, i) => '<tr><td>' + (i+1) + '</td><td style="font-weight:600">' + item.description + '</td><td class="col-code">' + item.code + '</td><td style="text-align:right">' + item.qty + '</td><td style="text-align:right">' + formatPrice(item.price) + '</td><td style="text-align:right;font-weight:700">' + formatPrice(item.price * item.qty) + '</td></tr>').join('')}
               </tbody>
             </table>
           </div>
