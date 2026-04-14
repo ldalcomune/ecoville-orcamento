@@ -1160,7 +1160,7 @@
     <div class="login-card">
       <img src="logo.png" alt="Ecoville">
       <div class="login-tagline">Especialista em Limpeza</div>
-      <div class="login-subtitle">Domingos Martins - ES</div>
+      <div class="login-subtitle">Domingos Martins - ES <span id="loginVersion" style="opacity:0.5"></span></div>
       <div class="login-title">Acesso ao Sistema</div>
       <p style="font-size:13px;color:var(--gray-400);margin-bottom:24px">Digite suas credenciais para continuar</p>
       <form onsubmit="doLogin(event)">
@@ -1187,7 +1187,7 @@
       <div class="header-logo">
         <img src="logo.png" alt="Ecoville">
         <div class="header-text">
-          <div class="subtitle">Domingos Martins - ES</div>
+          <div class="subtitle">Domingos Martins - ES <span id="headerVersion" style="opacity:0.5"></span></div>
         </div>
       </div>
       <div class="header-actions">
@@ -1745,7 +1745,7 @@
     <!-- App info -->
     <div class="form-section" style="text-align:center;color:var(--gray-400);font-size:12px">
       <img src="logo.png" alt="Ecoville" style="height:50px;margin-bottom:8px;opacity:0.6"><br>
-      Ecoville - Gerador de Orcamento v2.0<br>
+      Ecoville - Gerador de Orcamento <span id="configVersion"></span><br>
       <span id="productCountConfig"></span> produtos cadastrados
       <span id="productsSource"></span>
     </div>
@@ -1838,6 +1838,10 @@
     })();
 
     // ========== API ==========
+    const APP_VERSION = 'v75';
+    document.getElementById('loginVersion').textContent = APP_VERSION;
+    document.getElementById('headerVersion').textContent = APP_VERSION;
+    document.getElementById('configVersion').textContent = APP_VERSION;
     const API_URL = 'https://ecoville-api.vercel.app/api';
     const PIX_CHAVE_CNPJ = '62.200.700/0001-87';
     let _reenvioOrc = null;
