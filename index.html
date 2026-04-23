@@ -1842,7 +1842,7 @@
     })();
 
     // ========== API ==========
-    const APP_VERSION = 'v76';
+    const APP_VERSION = 'v77';
     document.getElementById('loginVersion').textContent = APP_VERSION;
     document.getElementById('headerVersion').textContent = APP_VERSION;
     document.getElementById('configVersion').textContent = APP_VERSION;
@@ -4803,6 +4803,7 @@
 
     let _boletoFiltro = 'todos';
     let _boletosSincronizando = false;
+    let _boletosDoBanco = []; // invoices vindos direto do Cora
 
     function filtrarBoletos(filtro, el) {
       _boletoFiltro = filtro;
@@ -4825,74 +4826,71 @@
       _boletosSincronizando = true;
       const btn = document.getElementById('btnSyncBoletos');
       if (btn) { btn.disabled = true; btn.style.opacity = '0.6'; }
-      if (!silent) _setBoletosSyncStatus('Sincronizando com o banco...', 'var(--gray-600)');
+      if (!silent) _setBoletosSyncStatus('Buscando boletos do banco...', 'var(--gray-600)');
 
       try {
-        const localBoletos = getBoletos();
-        const orcs = getOrcamentos().filter(o => o.coraPayment);
-
-        const idMap = new Map(); // invoiceId -> [{owner, parcelaRef}]
-        function collectIds(owner, coraPayment) {
-          const parcelas = coraPayment.parcelas || [coraPayment];
-          parcelas.forEach((p, idx) => {
-            if (!p || !p.coraInvoiceId) return;
-            if (p.coraStatus === 'CANCELLED') return;
-            const arr = idMap.get(p.coraInvoiceId) || [];
-            arr.push({ owner, parcelaIndex: idx });
-            idMap.set(p.coraInvoiceId, arr);
-          });
-        }
-        localBoletos.forEach(b => { if (b.coraPayment) collectIds({ type: 'boleto', ref: b }, b.coraPayment); });
-        orcs.forEach(o => collectIds({ type: 'orcamento', ref: o }, o.coraPayment));
-
-        const ids = Array.from(idMap.keys());
-        if (ids.length === 0) {
-          _setBoletosSyncStatus('Nenhum boleto para sincronizar', 'var(--gray-500)');
-          return;
-        }
-
-        // Batch in chunks to keep URL short
-        const CHUNK = 40;
-        let changed = 0, errors = 0;
-        for (let i = 0; i < ids.length; i += CHUNK) {
-          const slice = ids.slice(i, i + CHUNK);
-          const url = API_URL + '/cora/cobranca?invoiceIds=' + encodeURIComponent(slice.join(','));
+        // Lista TODOS os invoices direto do Cora (fonte de verdade)
+        let page = 1;
+        const perPage = 100;
+        const all = [];
+        for (;;) {
+          const url = API_URL + '/cora/invoices?page=' + page + '&per_page=' + perPage;
           const r = await fetch(url, { headers: apiHeaders() });
-          if (!r.ok) { errors += slice.length; continue; }
+          if (!r.ok) {
+            const msg = await r.text().catch(()=>'');
+            throw new Error('HTTP ' + r.status + ' ' + msg.slice(0,120));
+          }
           const data = await r.json();
-          (data.results || []).forEach(res => {
-            if (res.error || !res.status) { errors++; return; }
-            const targets = idMap.get(res.invoiceId) || [];
-            targets.forEach(t => {
-              const cp = t.owner.ref.coraPayment;
-              const parcelas = cp.parcelas || [cp];
-              const p = parcelas[t.parcelaIndex];
-              if (p && p.coraStatus !== res.status) {
-                p.coraStatus = res.status;
-                changed++;
-              }
-            });
+          const arr = data.invoices || [];
+          all.push(...arr);
+          if (arr.length < perPage) break;
+          page++;
+          if (page > 50) break; // guarda contra loop
+        }
+        _boletosDoBanco = all;
+
+        // Atualiza status nos boletos locais para consistencia
+        const byId = new Map(all.map(inv => [inv.id, inv]));
+        const localBoletos = getBoletos();
+        const orcs = getOrcamentos();
+        let changed = 0;
+        function syncParcelas(cp) {
+          if (!cp) return;
+          const parcelas = cp.parcelas || [cp];
+          parcelas.forEach(p => {
+            if (!p || !p.coraInvoiceId) return;
+            const inv = byId.get(p.coraInvoiceId);
+            if (inv && inv.status && inv.status !== p.coraStatus) {
+              p.coraStatus = inv.status;
+              changed++;
+            }
           });
         }
-
+        localBoletos.forEach(b => syncParcelas(b.coraPayment));
+        orcs.forEach(o => syncParcelas(o.coraPayment));
         if (changed > 0) {
           saveBoletos(localBoletos);
-          saveOrcamentosLocal(getOrcamentos().map(o => {
-            const upd = orcs.find(x => x.id === o.id);
-            return upd || o;
-          }));
+          saveOrcamentosLocal(orcs);
         }
 
         const now = new Date();
         const hh = now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
-        _setBoletosSyncStatus(`Sincronizado ${hh}${changed ? ` - ${changed} atualizados` : ''}${errors ? ` - ${errors} com erro` : ''}`, errors ? 'var(--red)' : 'var(--primary)');
+        _setBoletosSyncStatus(`Banco: ${all.length} boletos - ${hh}${changed ? ` (${changed} atualizados)` : ''}`, 'var(--primary)');
+        renderBoletos();
       } catch (e) {
-        _setBoletosSyncStatus('Erro na sincronizacao: ' + (e.message || e), 'var(--red)');
+        _setBoletosSyncStatus('Erro: ' + (e.message || e), 'var(--red)');
       } finally {
         _boletosSincronizando = false;
         const btn = document.getElementById('btnSyncBoletos');
         if (btn) { btn.disabled = false; btn.style.opacity = ''; }
       }
+    }
+
+    function _invoiceStatusToLocal(st) {
+      if (st === 'PAID' || st === 'RECEIVED') return 'pago';
+      if (st === 'CANCELLED') return 'anulado';
+      if (st === 'OVERDUE' || st === 'LATE') return 'atrasado';
+      return 'pendente';
     }
 
     function getBoletoStatus(b) {
@@ -4912,13 +4910,10 @@
     }
 
     function renderBoletos() {
-      // Merge: include boletos avulsos + orcamentos with coraPayment
+      // Base local: boletos avulsos + orcamentos com coraPayment
       let allBoletos = getBoletos();
-
-      // Also include orcamentos that have coraPayment
       const orcs = getOrcamentos().filter(o => o.coraPayment);
       for (const o of orcs) {
-        // Don't duplicate if already in boletos list
         if (allBoletos.some(b => b.id === o.id)) continue;
         allBoletos.push({
           id: o.id,
@@ -4932,9 +4927,44 @@
           status: getBoletoStatus(o)
         });
       }
-
-      // Update statuses
       allBoletos.forEach(b => { b.status = getBoletoStatus(b); });
+
+      // Merge invoices direto do Cora (fonte de verdade) — inclui boletos criados fora do app
+      if (Array.isArray(_boletosDoBanco) && _boletosDoBanco.length > 0) {
+        const localInvoiceIds = new Set();
+        allBoletos.forEach(b => {
+          const cp = b.coraPayment;
+          if (!cp) return;
+          (cp.parcelas || [cp]).forEach(p => { if (p && p.coraInvoiceId) localInvoiceIds.add(p.coraInvoiceId); });
+        });
+        for (const inv of _boletosDoBanco) {
+          if (localInvoiceIds.has(inv.id)) continue;
+          allBoletos.push({
+            id: 'cora_' + inv.id,
+            tipo: 'banco',
+            cliente: inv.customer && inv.customer.name || 'Cliente',
+            clienteDoc: inv.customer && inv.customer.document || '',
+            descricao: inv.code || inv.id,
+            total: (inv.total_amount != null) ? inv.total_amount : 0,
+            coraPayment: {
+              parcelas: [{
+                coraInvoiceId: inv.id,
+                coraStatus: inv.status,
+                totalAmount: inv.total_amount,
+                dueDate: inv.due_date,
+                boletoUrl: inv.payment_options && inv.payment_options.bank_slip && inv.payment_options.bank_slip.url,
+                boletoDigitableLine: inv.payment_options && inv.payment_options.bank_slip && inv.payment_options.bank_slip.digitable_line,
+                pixEmv: inv.pix && inv.pix.emv
+              }],
+              totalAmount: inv.total_amount,
+              numParcelas: 1,
+              createdAt: inv.created_at || ''
+            },
+            criadoEm: inv.created_at || '',
+            status: _invoiceStatusToLocal(inv.status)
+          });
+        }
+      }
 
       // Sort by date desc
       allBoletos.sort((a, b) => new Date(b.criadoEm || 0) - new Date(a.criadoEm || 0));
@@ -4990,7 +5020,7 @@
         const payType = b.coraPayment?.paymentType === 'PIX' ? 'PIX' : 'Boleto';
         const parcelas = b.coraPayment?.parcelas || [b.coraPayment];
         const nParcelas = parcelas.length;
-        const tipoLabel = b.tipo === 'boleto_avulso' ? 'Avulso' : 'Orcamento';
+        const tipoLabel = b.tipo === 'boleto_avulso' ? 'Avulso' : (b.tipo === 'banco' ? 'Banco' : 'Orcamento');
 
         // Parcelas detail
         let parcelasHtml = '';
@@ -5029,9 +5059,9 @@
           </div>
           ${parcelasHtml}
           <div style="display:flex;gap:6px;margin-top:8px">
-            <button onclick="verBoletoCobr(${b.id},'${b.tipo}')" style="flex:1;background:var(--primary);color:white;border:none;border-radius:8px;padding:8px;font-size:12px;font-weight:700;cursor:pointer">Ver Boleto</button>
-            <button onclick="verificarStatusBoleto(${b.id},'${b.tipo}')" style="flex:1;background:var(--gray-100);color:var(--gray-600);border:none;border-radius:8px;padding:8px;font-size:12px;font-weight:700;cursor:pointer">Atualizar</button>
-            ${(JSON.parse(localStorage.getItem('ecoville_session') || '{}').user === 'admin' && b.status !== 'pago') ? `<button onclick="anularBoleto(${b.id},'${b.tipo}')" style="background:var(--red-light);color:var(--red);border:none;border-radius:8px;padding:8px 10px;font-size:12px;font-weight:700;cursor:pointer">Anular</button>` : ''}
+            <button onclick="verBoletoCobr('${b.id}','${b.tipo}')" style="flex:1;background:var(--primary);color:white;border:none;border-radius:8px;padding:8px;font-size:12px;font-weight:700;cursor:pointer">Ver Boleto</button>
+            <button onclick="verificarStatusBoleto('${b.id}','${b.tipo}')" style="flex:1;background:var(--gray-100);color:var(--gray-600);border:none;border-radius:8px;padding:8px;font-size:12px;font-weight:700;cursor:pointer">Atualizar</button>
+            ${(JSON.parse(localStorage.getItem('ecoville_session') || '{}').user === 'admin' && b.status !== 'pago') ? `<button onclick="anularBoleto('${b.id}','${b.tipo}')" style="background:var(--red-light);color:var(--red);border:none;border-radius:8px;padding:8px 10px;font-size:12px;font-weight:700;cursor:pointer">Anular</button>` : ''}
           </div>
         </div>`;
       }).join('');
@@ -5039,10 +5069,32 @@
 
     function verBoletoCobr(id, tipo) {
       let item;
-      if (tipo === 'boleto_avulso') {
-        item = getBoletos().find(b => b.id === id);
+      if (tipo === 'banco') {
+        const invId = String(id).replace(/^cora_/, '');
+        const inv = (_boletosDoBanco || []).find(x => x.id === invId);
+        if (!inv) { showToast('Boleto nao encontrado'); return; }
+        item = {
+          id: 'cora_' + inv.id,
+          cliente: inv.customer && inv.customer.name || 'Cliente',
+          clienteDoc: inv.customer && inv.customer.document || '',
+          numero: inv.code || inv.id,
+          total: inv.total_amount || 0,
+          coraPayment: {
+            parcelas: [{
+              coraInvoiceId: inv.id,
+              coraStatus: inv.status,
+              totalAmount: inv.total_amount,
+              dueDate: inv.due_date,
+              boletoUrl: inv.payment_options && inv.payment_options.bank_slip && inv.payment_options.bank_slip.url,
+              boletoDigitableLine: inv.payment_options && inv.payment_options.bank_slip && inv.payment_options.bank_slip.digitable_line,
+              pixEmv: inv.pix && inv.pix.emv
+            }]
+          }
+        };
+      } else if (tipo === 'boleto_avulso') {
+        item = getBoletos().find(b => String(b.id) === String(id));
       } else {
-        item = getOrcamentos().find(o => o.id === id);
+        item = getOrcamentos().find(o => String(o.id) === String(id));
       }
       if (!item || !item.coraPayment) { showToast('Boleto nao encontrado'); return; }
       _cobrancaOrc = item;
@@ -5056,11 +5108,12 @@
     }
 
     async function verificarStatusBoleto(id, tipo) {
+      if (tipo === 'banco') { await sincronizarBoletosBanco(); return; }
       let item;
       if (tipo === 'boleto_avulso') {
-        item = getBoletos().find(b => b.id === id);
+        item = getBoletos().find(b => String(b.id) === String(id));
       } else {
-        item = getOrcamentos().find(o => o.id === id);
+        item = getOrcamentos().find(o => String(o.id) === String(id));
       }
       if (!item || !item.coraPayment) return;
 
@@ -5102,10 +5155,19 @@
     async function anularBoleto(id, tipo) {
       if (!confirm('Tem certeza que deseja anular este boleto? Esta acao nao pode ser desfeita.')) return;
       let item;
+      if (tipo === 'banco') {
+        const invId = String(id).replace(/^cora_/, '');
+        try {
+          const r = await fetch(API_URL + '/cora/cobranca?invoiceId=' + encodeURIComponent(invId), { method: 'DELETE', headers: apiHeaders() });
+          if (r.ok) { showToast('Boleto anulado!'); await sincronizarBoletosBanco(); }
+          else { const d = await r.json().catch(()=>({})); showToast('Erro: ' + (d.error || r.status)); }
+        } catch(e) { showToast('Erro: ' + e.message); }
+        return;
+      }
       if (tipo === 'boleto_avulso') {
-        item = getBoletos().find(b => b.id === id);
+        item = getBoletos().find(b => String(b.id) === String(id));
       } else {
-        item = getOrcamentos().find(o => o.id === id);
+        item = getOrcamentos().find(o => String(o.id) === String(id));
       }
       if (!item || !item.coraPayment) { showToast('Boleto nao encontrado'); return; }
 
