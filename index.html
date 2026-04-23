@@ -1518,11 +1518,15 @@
       </div>
       <h2>Boletos a Receber</h2>
     </div>
-    <div style="display:flex;gap:8px;margin-bottom:12px">
+    <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap">
       <button class="chip active" onclick="filtrarBoletos('todos',this)">Todos</button>
-      <button class="chip" onclick="filtrarBoletos('pendente',this)">Pendentes</button>
+      <button class="chip" onclick="filtrarBoletos('pendente',this)">Agendados</button>
       <button class="chip" onclick="filtrarBoletos('pago',this)">Pagos</button>
-      <button class="chip" onclick="filtrarBoletos('atrasado',this)">Atrasados</button>
+      <button class="chip" onclick="filtrarBoletos('atrasado',this)">Em Atraso</button>
+    </div>
+    <div style="display:flex;gap:8px;align-items:center;margin-bottom:12px">
+      <button id="btnSyncBoletos" onclick="sincronizarBoletosBanco()" style="background:var(--primary);color:white;border:none;border-radius:8px;padding:8px 14px;font-size:12px;font-weight:700;cursor:pointer">Sincronizar com o banco</button>
+      <span id="boletosSyncStatus" style="font-size:11px;color:var(--gray-500)"></span>
     </div>
     <div id="boletosResumo" style="display:flex;gap:8px;margin-bottom:16px"></div>
     <div id="boletosLista"></div>
@@ -1838,7 +1842,7 @@
     })();
 
     // ========== API ==========
-    const APP_VERSION = 'v75';
+    const APP_VERSION = 'v76';
     document.getElementById('loginVersion').textContent = APP_VERSION;
     document.getElementById('headerVersion').textContent = APP_VERSION;
     document.getElementById('configVersion').textContent = APP_VERSION;
@@ -2081,7 +2085,7 @@
       if (page === 'historico') renderHistorico();
       if (page === 'entrega') renderEntrega();
       if (page === 'gerarboleto') initBoletoPage();
-      if (page === 'boletos') renderBoletos();
+      if (page === 'boletos') { renderBoletos(); sincronizarBoletosBanco(true).then(() => renderBoletos()); }
       if (page === 'prospecao') renderProspecao();
       if (page === 'config') renderUsersList();
       window.scrollTo(0, 0);
@@ -4798,6 +4802,7 @@
     }
 
     let _boletoFiltro = 'todos';
+    let _boletosSincronizando = false;
 
     function filtrarBoletos(filtro, el) {
       _boletoFiltro = filtro;
@@ -4806,6 +4811,88 @@
         el.classList.add('active');
       }
       renderBoletos();
+    }
+
+    function _setBoletosSyncStatus(txt, color) {
+      const el = document.getElementById('boletosSyncStatus');
+      if (!el) return;
+      el.textContent = txt || '';
+      el.style.color = color || 'var(--gray-500)';
+    }
+
+    async function sincronizarBoletosBanco(silent) {
+      if (_boletosSincronizando) return;
+      _boletosSincronizando = true;
+      const btn = document.getElementById('btnSyncBoletos');
+      if (btn) { btn.disabled = true; btn.style.opacity = '0.6'; }
+      if (!silent) _setBoletosSyncStatus('Sincronizando com o banco...', 'var(--gray-600)');
+
+      try {
+        const localBoletos = getBoletos();
+        const orcs = getOrcamentos().filter(o => o.coraPayment);
+
+        const idMap = new Map(); // invoiceId -> [{owner, parcelaRef}]
+        function collectIds(owner, coraPayment) {
+          const parcelas = coraPayment.parcelas || [coraPayment];
+          parcelas.forEach((p, idx) => {
+            if (!p || !p.coraInvoiceId) return;
+            if (p.coraStatus === 'CANCELLED') return;
+            const arr = idMap.get(p.coraInvoiceId) || [];
+            arr.push({ owner, parcelaIndex: idx });
+            idMap.set(p.coraInvoiceId, arr);
+          });
+        }
+        localBoletos.forEach(b => { if (b.coraPayment) collectIds({ type: 'boleto', ref: b }, b.coraPayment); });
+        orcs.forEach(o => collectIds({ type: 'orcamento', ref: o }, o.coraPayment));
+
+        const ids = Array.from(idMap.keys());
+        if (ids.length === 0) {
+          _setBoletosSyncStatus('Nenhum boleto para sincronizar', 'var(--gray-500)');
+          return;
+        }
+
+        // Batch in chunks to keep URL short
+        const CHUNK = 40;
+        let changed = 0, errors = 0;
+        for (let i = 0; i < ids.length; i += CHUNK) {
+          const slice = ids.slice(i, i + CHUNK);
+          const url = API_URL + '/cora/cobranca?invoiceIds=' + encodeURIComponent(slice.join(','));
+          const r = await fetch(url, { headers: apiHeaders() });
+          if (!r.ok) { errors += slice.length; continue; }
+          const data = await r.json();
+          (data.results || []).forEach(res => {
+            if (res.error || !res.status) { errors++; return; }
+            const targets = idMap.get(res.invoiceId) || [];
+            targets.forEach(t => {
+              const cp = t.owner.ref.coraPayment;
+              const parcelas = cp.parcelas || [cp];
+              const p = parcelas[t.parcelaIndex];
+              if (p && p.coraStatus !== res.status) {
+                p.coraStatus = res.status;
+                changed++;
+              }
+            });
+          });
+        }
+
+        if (changed > 0) {
+          saveBoletos(localBoletos);
+          saveOrcamentosLocal(getOrcamentos().map(o => {
+            const upd = orcs.find(x => x.id === o.id);
+            return upd || o;
+          }));
+        }
+
+        const now = new Date();
+        const hh = now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+        _setBoletosSyncStatus(`Sincronizado ${hh}${changed ? ` - ${changed} atualizados` : ''}${errors ? ` - ${errors} com erro` : ''}`, errors ? 'var(--red)' : 'var(--primary)');
+      } catch (e) {
+        _setBoletosSyncStatus('Erro na sincronizacao: ' + (e.message || e), 'var(--red)');
+      } finally {
+        _boletosSincronizando = false;
+        const btn = document.getElementById('btnSyncBoletos');
+        if (btn) { btn.disabled = false; btn.style.opacity = ''; }
+      }
     }
 
     function getBoletoStatus(b) {
