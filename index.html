@@ -4943,10 +4943,11 @@
         for (const inv of _boletosDoBanco) {
           if (localInvoiceIds.has(inv.id)) continue;
           if (inv.status === 'CANCELLED') continue;
+          const custName = (inv.customer && inv.customer.name) || inv.name || 'Cliente';
           allBoletos.push({
             id: 'cora_' + inv.id,
             tipo: 'banco',
-            cliente: inv.customer && inv.customer.name || 'Cliente',
+            cliente: custName,
             clienteDoc: inv.customer && inv.customer.document || '',
             descricao: inv.code || inv.id,
             total: (inv.total_amount != null) ? inv.total_amount : 0,
