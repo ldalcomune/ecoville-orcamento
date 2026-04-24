@@ -4929,6 +4929,9 @@
       }
       allBoletos.forEach(b => { b.status = getBoletoStatus(b); });
 
+      // Oculta boletos anulados do app
+      allBoletos = allBoletos.filter(b => b.status !== 'anulado');
+
       // Merge invoices direto do Cora (fonte de verdade) — inclui boletos criados fora do app
       if (Array.isArray(_boletosDoBanco) && _boletosDoBanco.length > 0) {
         const localInvoiceIds = new Set();
@@ -4939,6 +4942,7 @@
         });
         for (const inv of _boletosDoBanco) {
           if (localInvoiceIds.has(inv.id)) continue;
+          if (inv.status === 'CANCELLED') continue;
           allBoletos.push({
             id: 'cora_' + inv.id,
             tipo: 'banco',
