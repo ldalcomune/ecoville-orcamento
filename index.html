@@ -1848,7 +1848,7 @@
     })();
 
     // ========== API ==========
-    const APP_VERSION = 'v80';
+    const APP_VERSION = 'v81';
     document.getElementById('loginVersion').textContent = APP_VERSION;
     document.getElementById('headerVersion').textContent = APP_VERSION;
     document.getElementById('configVersion').textContent = APP_VERSION;
@@ -5082,6 +5082,7 @@
           </div>
           ${parcelasHtml}
           <div style="display:flex;gap:6px;margin-top:8px">
+            ${b.tipo === 'orcamento' ? `<button onclick="verOrcamento(${b.id})" style="flex:1;background:var(--gray-100);color:var(--gray-700);border:none;border-radius:8px;padding:8px;font-size:12px;font-weight:700;cursor:pointer">Ver Pedido</button>` : ''}
             <button onclick="verBoletoCobr('${b.id}','${b.tipo}')" style="flex:1;background:var(--primary);color:white;border:none;border-radius:8px;padding:8px;font-size:12px;font-weight:700;cursor:pointer">Ver Boleto</button>
             <button onclick="verificarStatusBoleto('${b.id}','${b.tipo}')" style="flex:1;background:var(--gray-100);color:var(--gray-600);border:none;border-radius:8px;padding:8px;font-size:12px;font-weight:700;cursor:pointer">Atualizar</button>
             ${(JSON.parse(localStorage.getItem('ecoville_session') || '{}').user === 'admin' && b.status !== 'pago') ? `<button onclick="anularBoleto('${b.id}','${b.tipo}')" style="background:var(--red-light);color:var(--red);border:none;border-radius:8px;padding:8px 10px;font-size:12px;font-weight:700;cursor:pointer">Anular</button>` : ''}
