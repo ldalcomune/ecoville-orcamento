@@ -1475,6 +1475,10 @@
         <input type="text" id="boletoDescricao" placeholder="Ex: Servico de limpeza, Venda de produtos...">
       </div>
       <div class="form-group">
+        <label>Nº Nota Fiscal (NFC-e) *</label>
+        <input type="text" id="boletoNfc" placeholder="Numero da nota fiscal" inputmode="numeric">
+      </div>
+      <div class="form-group">
         <label>Valor Total (R$) *</label>
         <input type="text" id="boletoValor" placeholder="0,00" oninput="formatBoletoValor(this)">
       </div>
@@ -1848,7 +1852,7 @@
     })();
 
     // ========== API ==========
-    const APP_VERSION = 'v81';
+    const APP_VERSION = 'v82';
     document.getElementById('loginVersion').textContent = APP_VERSION;
     document.getElementById('headerVersion').textContent = APP_VERSION;
     document.getElementById('configVersion').textContent = APP_VERSION;
@@ -3719,10 +3723,14 @@
       const orc = lista.find(o => o.id === id);
       if (!orc) return;
 
+      const nfc = (prompt('Informe o Nº da Nota Fiscal (NFC-e) para aceitar o pedido:', orc.nfc || '') || '').trim();
+      if (!nfc) { showToast('Nota Fiscal (NFC-e) obrigatoria para aceitar'); return; }
+
       orc.status = 'aceito';
       orc.dataAceite = new Date().toLocaleDateString('pt-BR');
+      orc.nfc = nfc;
       saveOrcamentosLocal(lista);
-      apiUpdateOrcamento(orc.id, { status: 'aceito', dataAceite: orc.dataAceite }).catch(() => {});
+      apiUpdateOrcamento(orc.id, { status: 'aceito', dataAceite: orc.dataAceite, nfc: nfc }).catch(() => {});
       renderHistorico();
       showToast('Orcamento aceito!');
 
@@ -4679,6 +4687,7 @@
       const phone = document.getElementById('boletoClientPhone').value.trim();
       const email = document.getElementById('boletoClientEmail').value.trim();
       const descricao = document.getElementById('boletoDescricao').value.trim();
+      const nfc = document.getElementById('boletoNfc').value.trim();
       const valorStr = document.getElementById('boletoValor').value.trim();
       const obs = document.getElementById('boletoObs').value.trim();
       const tipo = document.querySelector('input[name="boletoTipo"]:checked').value;
@@ -4687,6 +4696,7 @@
       if (!nome) { showToast('Preencha o nome do cliente'); document.getElementById('boletoClientName').focus(); return; }
       if (!doc) { showToast('Preencha o CPF/CNPJ'); document.getElementById('boletoClientDoc').focus(); return; }
       if (!descricao) { showToast('Preencha a descricao'); document.getElementById('boletoDescricao').focus(); return; }
+      if (!nfc) { showToast('Preencha o Nº da Nota Fiscal (NFC-e)'); document.getElementById('boletoNfc').focus(); return; }
 
       const totalCents = parseBoletoValor(valorStr);
       if (totalCents <= 0) { showToast('Preencha o valor'); document.getElementById('boletoValor').focus(); return; }
@@ -4741,6 +4751,7 @@
           clientePhone: phone,
           clienteEmail: email,
           descricao: descricao,
+          nfc: nfc,
           observacoes: obs,
           total: totalCents,
           coraPayment: data,
@@ -4762,6 +4773,7 @@
         document.getElementById('boletoClientNumero').value = '';
         document.getElementById('boletoClientComplemento').value = '';
         document.getElementById('boletoDescricao').value = '';
+        document.getElementById('boletoNfc').value = '';
         document.getElementById('boletoValor').value = '';
         document.getElementById('boletoObs').value = '';
 
