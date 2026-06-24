@@ -1852,7 +1852,7 @@
     })();
 
     // ========== API ==========
-    const APP_VERSION = 'v82';
+    const APP_VERSION = 'v83';
     document.getElementById('loginVersion').textContent = APP_VERSION;
     document.getElementById('headerVersion').textContent = APP_VERSION;
     document.getElementById('configVersion').textContent = APP_VERSION;
@@ -3438,6 +3438,7 @@
             </div>
             <div style="font-size:13px;font-weight:600;color:var(--gray-800)">${o.cliente}</div>
             <div style="font-size:11px;color:var(--gray-400);margin-top:2px">${o.data} &bull; ${o.items.length} ${o.items.length === 1 ? 'item' : 'itens'} &bull; Vendedor: ${o.vendedor || ''}</div>
+            ${o.nfc ? `<div style="font-size:11px;color:#7c3aed;font-weight:700;margin-top:2px">NF-e: ${o.nfc}</div>` : ''}
             ${parcelasHtml}
           </div>
           <div style="padding:10px 16px;display:flex;justify-content:space-between;align-items:center">
@@ -3473,6 +3474,7 @@
             <div class="orc-info-item"><div class="label">CNPJ/CPF</div><div class="value">${o.clienteDoc || '-'}</div></div>
             ${o.clientePhone ? '<div class="orc-info-item"><div class="label">Telefone</div><div class="value">' + o.clientePhone + '</div></div>' : ''}
             ${o.clienteAddress ? '<div class="orc-info-item full"><div class="label">Endereco</div><div class="value">' + o.clienteAddress + (o.clienteNumero ? ', ' + o.clienteNumero : '') + (o.clienteComplemento ? ' - ' + o.clienteComplemento : '') + '</div></div>' : ''}
+            ${o.nfc ? '<div class="orc-info-item"><div class="label">Nota Fiscal (NFC-e)</div><div class="value">' + o.nfc + '</div></div>' : ''}
             ${o.formaPagamento ? '<div class="orc-info-item"><div class="label">Pagamento</div><div class="value" style="color:#059669">' + o.formaPagamento + '</div></div>' : ''}
           </div>
           <div class="orc-table-wrapper">
@@ -3693,6 +3695,7 @@
             </div>
             <div style="font-size:13px;font-weight:600;color:var(--gray-800)">${o.cliente}</div>
             <div style="font-size:11px;color:var(--gray-400);margin-top:2px">${o.data} &bull; ${o.items.length} ${o.items.length === 1 ? 'item' : 'itens'} &bull; Vendedor: ${o.vendedor || ''}</div>
+            ${o.nfc ? `<div style="font-size:11px;color:#7c3aed;font-weight:700;margin-top:2px">NF-e: ${o.nfc}</div>` : ''}
             ${o.enviadoPor ? `<div style="font-size:11px;color:var(--gray-500);margin-top:2px">Enviado: ${o.enviadoPor}</div>` : ''}
             ${pagamentoInfo}
           </div>
@@ -4364,6 +4367,7 @@
             ${o.clientePhone ? '<div class="orc-info-item"><div class="label">Telefone</div><div class="value">' + o.clientePhone + '</div></div>' : ''}
             ${o.clienteAddress ? '<div class="orc-info-item full"><div class="label">Endereco</div><div class="value">' + o.clienteAddress + (o.clienteNumero ? ', ' + o.clienteNumero : '') + (o.clienteComplemento ? ' - ' + o.clienteComplemento : '') + '</div></div>' : ''}
             ${o.enviadoPor ? '<div class="orc-info-item"><div class="label">Enviado via</div><div class="value">' + o.enviadoPor + '</div></div>' : ''}
+            ${o.nfc ? '<div class="orc-info-item"><div class="label">Nota Fiscal (NFC-e)</div><div class="value">' + o.nfc + '</div></div>' : ''}
             ${o.formaPagamento ? '<div class="orc-info-item"><div class="label">Forma de Pagamento</div><div class="value" style="color:#059669">' + o.formaPagamento + '</div></div>' : ''}
           </div>
           <div class="orc-table-wrapper">
@@ -4951,6 +4955,7 @@
           cliente: o.cliente || '',
           clienteDoc: o.clienteDoc || '',
           descricao: o.numero ? 'Orcamento ' + o.numero : 'Orcamento #' + o.id,
+          nfc: o.nfc || '',
           total: o.total || 0,
           coraPayment: o.coraPayment,
           criadoEm: o.criadoEm || o.data || '',
@@ -5085,6 +5090,7 @@
             </div>
           </div>
           <div style="font-size:13px;color:var(--gray-600);margin-bottom:4px">${b.descricao || ''}</div>
+          ${b.nfc ? `<div style="font-size:12px;color:#7c3aed;font-weight:700;margin-bottom:4px">NF-e: ${b.nfc}</div>` : ''}
           <div style="display:flex;justify-content:space-between;align-items:center">
             <div>
               <span style="font-size:16px;font-weight:800;color:var(--primary)">${formatPrice(b.total)}</span>
