@@ -1404,6 +1404,12 @@
       </div>
       <h2>Entregas</h2>
     </div>
+    <div class="search-container">
+      <div class="search-bar">
+        <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+        <input type="text" id="entregaSearch" placeholder="Buscar por cliente..." oninput="applyEntregaFilter()">
+      </div>
+    </div>
     <div id="entregaLista"></div>
     <div id="entregaEmpty" style="text-align:center;padding:40px 20px;color:var(--gray-400)">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="width:48px;height:48px;margin-bottom:12px;opacity:0.4"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
@@ -1842,7 +1848,7 @@
     })();
 
     // ========== API ==========
-    const APP_VERSION = 'v77';
+    const APP_VERSION = 'v80';
     document.getElementById('loginVersion').textContent = APP_VERSION;
     document.getElementById('headerVersion').textContent = APP_VERSION;
     document.getElementById('configVersion').textContent = APP_VERSION;
@@ -3188,7 +3194,23 @@
       }
 
       // Entrega shows items in delivery pipeline - all users see all
-      let lista = todas.filter(o => ['entrega', 'pronto', 'agendado', 'entregue'].includes(o.status));
+      _entregaAll = todas.filter(o => ['entrega', 'pronto', 'agendado', 'entregue'].includes(o.status));
+
+      applyEntregaFilter();
+
+      // Auto-check payment status for all orders with cobranca
+      verificarTodosStatus(_entregaAll);
+    }
+
+    // Cache da lista de entrega + filtro por cliente
+    let _entregaAll = [];
+    function applyEntregaFilter() {
+      const container = document.getElementById('entregaLista');
+      const emptyEl = document.getElementById('entregaEmpty');
+      const term = (document.getElementById('entregaSearch').value || '').trim().toLowerCase();
+      const lista = term
+        ? _entregaAll.filter(o => (o.cliente || '').toLowerCase().includes(term))
+        : _entregaAll;
 
       if (lista.length === 0) {
         container.innerHTML = '';
@@ -3197,9 +3219,6 @@
         container.innerHTML = lista.map(o => renderEntregaCard(o)).join('');
         emptyEl.style.display = 'none';
       }
-
-      // Auto-check payment status for all orders with cobranca
-      verificarTodosStatus(lista);
     }
 
     async function verificarTodosStatus(lista) {
@@ -3245,10 +3264,9 @@
             apiUpdateOrcamento(o.id, { coraPayment: o.coraPayment }).catch(() => {});
           }
         }
-        // Re-render cards with updated statuses
-        const container = document.getElementById('entregaLista');
-        let filtered = todasLocal.filter(o => ['entrega', 'pronto', 'agendado', 'entregue'].includes(o.status));
-        container.innerHTML = filtered.map(o => renderEntregaCard(o)).join('');
+        // Re-render cards with updated statuses, preservando o filtro de busca
+        _entregaAll = todasLocal.filter(o => ['entrega', 'pronto', 'agendado', 'entregue'].includes(o.status));
+        applyEntregaFilter();
       }
     }
 
