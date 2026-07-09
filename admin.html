@@ -940,7 +940,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <script>
   // ===== CONFIG =====
-  const APP_VERSION = 'v85';
+  const APP_VERSION = 'v86';
   const API_URL = 'https://ecoville-api.vercel.app/api';
   let allOrcamentos = [];
   let allUsers = [];
@@ -1093,6 +1093,20 @@
         if (page > 50) break; // guarda contra loop
       }
       _boletosDoBanco = all;
+
+      // Atualiza o coraStatus das parcelas com o status AO VIVO do banco (igual ao celular),
+      // para "atrasado"/"a receber" ficarem identicos a versao do celular.
+      const byId = new Map(all.map(inv => [inv.id, inv]));
+      const syncParcelas = (cp) => {
+        if (!cp) return;
+        (cp.parcelas || [cp]).forEach(p => {
+          if (!p || !p.coraInvoiceId) return;
+          const inv = byId.get(p.coraInvoiceId);
+          if (inv && inv.status && inv.status !== p.coraStatus) p.coraStatus = inv.status;
+        });
+      };
+      allBoletos.forEach(b => syncParcelas(b.coraPayment));
+      allOrcamentos.forEach(o => syncParcelas(o.coraPayment));
     } catch(e) {}
 
     // Fetch users
