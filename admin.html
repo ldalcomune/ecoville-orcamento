@@ -538,7 +538,7 @@
   <div class="login-box">
     <img src="logo.png" alt="Ecoville">
     <h2>Painel Administrativo</h2>
-    <p class="subtitle">Acesso restrito ao administrador</p>
+    <p class="subtitle">Acesso restrito ao administrador <span id="loginVersion" style="opacity:0.5"></span></p>
     <input type="text" id="loginUser" placeholder="Usuario" autocomplete="username">
     <input type="password" id="loginPass" placeholder="Senha" autocomplete="current-password">
     <button class="btn-login" onclick="doLogin()">Entrar</button>
@@ -609,6 +609,7 @@
         </div>
       </div>
       <button class="btn-logout" onclick="doLogout()">Sair</button>
+      <div class="app-version" id="adminVersion" style="text-align:center;margin-top:10px;font-size:11px;color:rgba(255,255,255,0.4)"></div>
     </div>
   </aside>
 
@@ -938,6 +939,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <script>
   // ===== CONFIG =====
+  const APP_VERSION = 'v83';
   const API_URL = 'https://ecoville-api.vercel.app/api';
   let allOrcamentos = [];
   let allUsers = [];
@@ -1007,8 +1009,12 @@
     document.getElementById('appLayout').style.display = 'flex';
     document.getElementById('userName').textContent = name;
     document.getElementById('userAvatar').textContent = name.charAt(0).toUpperCase();
+    document.getElementById('adminVersion').textContent = 'Ecoville ' + APP_VERSION;
     refreshData();
   }
+
+  // Mostra versao no login
+  document.getElementById('loginVersion').textContent = APP_VERSION;
 
   // Check session on load
   (function checkSession() {
