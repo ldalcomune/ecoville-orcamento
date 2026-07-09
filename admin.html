@@ -944,6 +944,7 @@
   let allOrcamentos = [];
   let allUsers = [];
   let allBoletos = [];
+  let _boletosDoBanco = []; // invoices vindos direto do Cora (fonte de verdade, igual ao app do celular)
   let allClients = [];
   let currentSection = 'dashboard';
   let vendasPage = 1;
@@ -1068,6 +1069,22 @@
         const data = await r.json();
         allBoletos = data.boletos || [];
       }
+    } catch(e) {}
+
+    // Fetch boletos direto do banco Cora (fonte de verdade, igual ao app do celular)
+    try {
+      let page = 1; const perPage = 100; const all = [];
+      for (;;) {
+        const r = await fetch(API_URL + '/cora/cobranca?action=list&page=' + page + '&per_page=' + perPage, { headers: apiHeaders() });
+        if (!r.ok) break;
+        const data = await r.json();
+        const arr = data.invoices || [];
+        all.push(...arr);
+        if (arr.length < perPage) break;
+        page++;
+        if (page > 50) break; // guarda contra loop
+      }
+      _boletosDoBanco = all;
     } catch(e) {}
 
     // Fetch users
@@ -1836,13 +1853,20 @@
   document.getElementById('modalOrc').addEventListener('click', e => { if (e.target === e.currentTarget) closeModal(); });
 
   // ===== BOLETOS A RECEBER =====
-  function renderBoletos() {
-    // Combine boletos avulsos + orcamento boletos
-    const allBoletoItems = [];
+  // Constroi a lista unificada de boletos (avulsos + orcamentos + banco Cora),
+  // igual ao app do celular: mescla os invoices do Cora e exclui anulados.
+  function buildBoletoItems() {
+    const items = [];
+    const localInvoiceIds = new Set();
+    const addInvoiceIds = (cp) => {
+      if (!cp) return;
+      (cp.parcelas || [cp]).forEach(p => { if (p && p.coraInvoiceId) localInvoiceIds.add(p.coraInvoiceId); });
+    };
 
     // Boletos avulsos
     allBoletos.forEach(b => {
-      allBoletoItems.push({
+      addInvoiceIds(b.coraPayment);
+      items.push({
         cliente: b.cliente || '-',
         doc: b.clienteDoc || '-',
         descricao: b.descricao || 'Boleto Avulso',
@@ -1858,7 +1882,8 @@
     // Orcamento boletos
     allOrcamentos.forEach(o => {
       if (o.coraPayment) {
-        allBoletoItems.push({
+        addInvoiceIds(o.coraPayment);
+        items.push({
           cliente: o.cliente || '-',
           doc: o.clienteDoc || '-',
           descricao: 'Pedido ' + (o.numero || '-'),
@@ -1871,6 +1896,43 @@
         });
       }
     });
+
+    // Merge invoices direto do Cora (fonte de verdade) — inclui boletos criados fora do app
+    if (Array.isArray(_boletosDoBanco) && _boletosDoBanco.length > 0) {
+      for (const inv of _boletosDoBanco) {
+        if (localInvoiceIds.has(inv.id)) continue;
+        if (inv.status === 'CANCELLED') continue;
+        const custName = (inv.customer && inv.customer.name) || inv.name || 'Cliente';
+        items.push({
+          cliente: custName,
+          doc: (inv.customer && inv.customer.document) || '-',
+          descricao: inv.code || inv.id,
+          valor: (inv.total_amount != null) ? inv.total_amount : 0,
+          parcelas: 1,
+          tipo: (inv.payment_options && inv.payment_options.bank_slip) ? 'Boleto' : 'PIX',
+          data: inv.created_at ? new Date(inv.created_at).toLocaleDateString('pt-BR') : '-',
+          source: 'banco',
+          coraPayment: {
+            parcelas: [{
+              coraInvoiceId: inv.id,
+              coraStatus: inv.status,
+              totalAmount: inv.total_amount,
+              dueDate: inv.due_date
+            }],
+            totalAmount: inv.total_amount,
+            numParcelas: 1,
+            createdAt: inv.created_at || ''
+          }
+        });
+      }
+    }
+
+    // Exclui anulados (igual ao app do celular)
+    return items.filter(b => getBoletoItemStatus(b) !== 'anulado');
+  }
+
+  function renderBoletos() {
+    const allBoletoItems = buildBoletoItems();
 
     // KPIs
     let pendente = 0, pendenteVal = 0, pago = 0, pagoVal = 0, atrasado = 0, atrasadoVal = 0;
@@ -1901,12 +1963,14 @@
   function getBoletoItemStatus(b) {
     if (!b.coraPayment) return 'pendente';
     const parc = b.coraPayment.parcelas || [b.coraPayment];
+    const allCancelled = parc.every(p => (p.coraStatus || '').toUpperCase() === 'CANCELLED');
+    if (allCancelled) return 'anulado';
     const allPaid = parc.every(p => { const s = (p.coraStatus || '').toUpperCase(); return s === 'PAID' || s === 'RECEIVED'; });
     if (allPaid) return 'pago';
     const anyLate = parc.some(p => {
       const s = (p.coraStatus || '').toUpperCase();
       if (s === 'OVERDUE' || s === 'LATE') return true;
-      if (s === 'PAID' || s === 'RECEIVED') return false;
+      if (s === 'PAID' || s === 'RECEIVED' || s === 'CANCELLED') return false;
       if (p.dueDate) return new Date(p.dueDate + 'T23:59:59') < new Date();
       return false;
     });
@@ -1918,16 +1982,8 @@
     const filter = document.getElementById('boletosFilter')?.value || '';
     const search = (document.getElementById('boletosSearch')?.value || '').toLowerCase();
 
-    // Rebuild list
-    const items = [];
-    allBoletos.forEach(b => {
-      items.push({ cliente: b.cliente || '-', doc: b.clienteDoc || '-', descricao: b.descricao || 'Boleto Avulso', valor: b.total || 0, parcelas: b.numParcelas || 1, tipo: b.paymentType === 'PIX' ? 'PIX' : 'Boleto', data: b.createdAt ? new Date(b.createdAt).toLocaleDateString('pt-BR') : '-', source: 'avulso', coraPayment: b.coraPayment || null });
-    });
-    allOrcamentos.forEach(o => {
-      if (o.coraPayment) {
-        items.push({ cliente: o.cliente || '-', doc: o.clienteDoc || '-', descricao: 'Pedido ' + (o.numero || '-'), valor: o.coraPayment.totalAmount || o.total || 0, parcelas: o.coraPayment.numParcelas || 1, tipo: getPaymentType(o) === 'BOLETO' ? 'Boleto' : 'PIX', data: o.coraPayment.createdAt ? new Date(o.coraPayment.createdAt).toLocaleDateString('pt-BR') : (o.data || '-'), source: 'orcamento', coraPayment: o.coraPayment });
-      }
-    });
+    // Rebuild list (mesma fonte unificada dos KPIs: avulsos + orcamentos + banco Cora)
+    const items = buildBoletoItems();
 
     let filtered = items;
     if (filter) filtered = filtered.filter(b => getBoletoItemStatus(b) === filter);
@@ -1937,7 +1993,8 @@
       const st = getBoletoItemStatus(b);
       const stLabel = st === 'pago' ? 'Pago' : st === 'atrasado' ? 'Atrasado' : 'Pendente';
       const stColor = st === 'pago' ? 'var(--green)' : st === 'atrasado' ? 'var(--red)' : 'var(--orange)';
-      const badge = b.source === 'avulso' ? '<span style="font-size:10px;background:var(--blue-light);color:var(--blue);padding:2px 6px;border-radius:4px;margin-left:4px;">Avulso</span>' : '';
+      const badge = b.source === 'avulso' ? '<span style="font-size:10px;background:var(--blue-light);color:var(--blue);padding:2px 6px;border-radius:4px;margin-left:4px;">Avulso</span>'
+                  : b.source === 'banco' ? '<span style="font-size:10px;background:var(--orange-light);color:var(--orange);padding:2px 6px;border-radius:4px;margin-left:4px;">Banco</span>' : '';
       return `<tr>
         <td><strong>${b.cliente}</strong>${badge}</td>
         <td>${b.doc}</td>
