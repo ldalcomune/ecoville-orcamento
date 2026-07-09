@@ -752,6 +752,11 @@
             <option value="PRODUTOS ECOVILLE">Ecoville</option>
             <option value="PRODUTOS HOMOLOGADOS">Homologados</option>
           </select>
+          <select class="table-filter" id="prodStockFilter" onchange="renderProdutos()">
+            <option value="">Todo estoque</option>
+            <option value="zero">Sem estoque (zerados)</option>
+            <option value="com">Com estoque</option>
+          </select>
           <span id="prodCount" style="font-size:13px;color:var(--gray-500);"></span>
         </div>
         <div class="table-card">
@@ -940,7 +945,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <script>
   // ===== CONFIG =====
-  const APP_VERSION = 'v87';
+  const APP_VERSION = 'v88';
   const API_URL = 'https://ecoville-api.vercel.app/api';
   let allOrcamentos = [];
   let allUsers = [];
@@ -1569,12 +1574,16 @@
   function renderProdutos() {
     const search = (document.getElementById('prodSearch')?.value || '').toLowerCase();
     const sector = document.getElementById('prodSectorFilter')?.value || '';
+    const stockFilter = document.getElementById('prodStockFilter')?.value || '';
     let filtered = ALL_PRODUCTS.filter(p => {
       if (sector && p.sector !== sector) return false;
+      if (stockFilter === 'zero' && !(p.stock !== undefined && p.stock <= 0)) return false;
+      if (stockFilter === 'com' && !(p.stock !== undefined && p.stock > 0)) return false;
       if (search && !p.description.toLowerCase().includes(search) && !p.code.toLowerCase().includes(search)) return false;
       return true;
     });
-    document.getElementById('prodCount').textContent = filtered.length + ' produtos';
+    const zerados = ALL_PRODUCTS.filter(p => p.stock !== undefined && p.stock <= 0).length;
+    document.getElementById('prodCount').textContent = filtered.length + ' produtos' + (zerados ? ' | ' + zerados + ' sem estoque' : '');
     document.getElementById('prodTableBody').innerHTML = filtered.map(p => {
       const sClass = p.sector === 'GERAL' ? 'geral' : p.sector === 'PRODUTOS ECOVILLE' ? 'ecoville' : 'homologados';
       const sLabel = p.sector === 'GERAL' ? 'Geral' : p.sector === 'PRODUTOS ECOVILLE' ? 'Ecoville' : 'Homologados';
