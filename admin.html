@@ -689,7 +689,7 @@
           </div>
           <div style="overflow-x:auto;">
             <table><thead><tr>
-              <th>Numero</th><th>NF-e</th><th>Data</th><th>Cliente</th><th>Telefone</th><th>Vendedor</th><th>Itens</th><th>Desconto</th><th>Total</th><th>Status</th><th>Pagamento</th>
+              <th>Numero</th><th>NF-e</th><th>Data</th><th>Cliente</th><th>Telefone</th><th>Vendedor</th><th>Itens</th><th>Desconto</th><th>Total</th><th>Status</th><th>Pagamento</th><th>Acoes</th>
             </tr></thead><tbody id="vendasTableBody"></tbody></table>
           </div>
           <div class="table-pagination" id="vendasPagination"></div>
@@ -715,7 +715,7 @@
           </div>
           <div style="overflow-x:auto;">
             <table><thead><tr>
-              <th>Numero</th><th>NF-e</th><th>Cliente</th><th>Telefone</th><th>Endereco</th><th>Vendedor</th><th>Total</th><th>Status</th><th>Data Entrega</th><th>Pagamento</th>
+              <th>Numero</th><th>NF-e</th><th>Cliente</th><th>Telefone</th><th>Endereco</th><th>Vendedor</th><th>Total</th><th>Status</th><th>Data Entrega</th><th>Pagamento</th><th>Acoes</th>
             </tr></thead><tbody id="entregasTableBody"></tbody></table>
           </div>
         </div>
@@ -940,7 +940,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <script>
   // ===== CONFIG =====
-  const APP_VERSION = 'v86';
+  const APP_VERSION = 'v87';
   const API_URL = 'https://ecoville-api.vercel.app/api';
   let allOrcamentos = [];
   let allUsers = [];
@@ -1431,7 +1431,8 @@
       <td><strong>${formatPrice(o.total || 0)}</strong></td>
       <td><span class="status-badge ${o.status}">${statusLabel(o.status)}</span></td>
       <td>${getPaymentStatusBadge(o)}</td>
-    </tr>`).join('') || '<tr><td colspan="11" style="text-align:center;padding:32px;color:var(--gray-400)">Nenhum resultado</td></tr>';
+      <td>${vendasAcoesHtml(o)}</td>
+    </tr>`).join('') || '<tr><td colspan="12" style="text-align:center;padding:32px;color:var(--gray-400)">Nenhum resultado</td></tr>';
 
     // Pagination
     let paginationHtml = `<span>Mostrando ${filtered.length ? start + 1 : 0}-${Math.min(start + VENDAS_PER_PAGE, filtered.length)} de ${filtered.length}</span><div class="page-btns">`;
@@ -1505,8 +1506,9 @@
         <td><span class="status-badge ${o.status}">${statusLabel(o.status)}</span></td>
         <td>${dataEntrega}</td>
         <td>${getPaymentStatusBadge(o)}</td>
+        <td>${entregaAcoesHtml(o)}</td>
       </tr>`;
-    }).join('') || '<tr><td colspan="10" style="text-align:center;padding:32px;color:var(--gray-400)">Nenhuma entrega</td></tr>';
+    }).join('') || '<tr><td colspan="11" style="text-align:center;padding:32px;color:var(--gray-400)">Nenhuma entrega</td></tr>';
   }
 
   // ===== VENDEDORES =====
@@ -1920,6 +1922,148 @@
 
   function closeModal() { document.getElementById('modalOrc').classList.remove('open'); }
   document.getElementById('modalOrc').addEventListener('click', e => { if (e.target === e.currentTarget) closeModal(); });
+
+  // ===== ACOES (operar igual ao app do celular) =====
+  async function apiUpdateOrcamento(id, updates) {
+    try {
+      const r = await fetch(API_URL + '/orcamentos/' + id, { method: 'PUT', headers: apiHeaders(), body: JSON.stringify(updates) });
+      if (r.ok) return await r.json();
+    } catch(e) {}
+    return null;
+  }
+  async function apiDeleteOrcamento(id) {
+    try {
+      const r = await fetch(API_URL + '/orcamentos/' + id, { method: 'DELETE', headers: apiHeaders() });
+      return r.ok;
+    } catch(e) {}
+    return false;
+  }
+  function _nowStamp() {
+    const n = new Date();
+    return n.toLocaleDateString('pt-BR') + ' ' + n.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+  }
+  function _findOrc(id) { return allOrcamentos.find(o => o.id === id); }
+
+  // ENTREGA: "Entrega pronta" -> agenda data/hora -> status 'agendado'
+  function agendarEntrega(id) {
+    const now = new Date();
+    const dateStr = now.toISOString().split('T')[0];
+    document.getElementById('modalTitle').textContent = 'Agendar Entrega';
+    document.getElementById('modalBody').innerHTML = `
+      <div style="margin-bottom:12px">
+        <label style="font-size:12px;font-weight:600;color:var(--gray-600);display:block;margin-bottom:4px">Data da entrega *</label>
+        <input id="entregaDataInput" type="date" value="${dateStr}" style="width:100%;padding:10px 12px;border:2px solid var(--gray-200);border-radius:8px;font-size:14px;font-family:inherit">
+      </div>
+      <div style="margin-bottom:16px">
+        <label style="font-size:12px;font-weight:600;color:var(--gray-600);display:block;margin-bottom:4px">Hora (opcional)</label>
+        <input id="entregaHoraInput" type="time" value="09:00" style="width:100%;padding:10px 12px;border:2px solid var(--gray-200);border-radius:8px;font-size:14px;font-family:inherit">
+      </div>
+      <button onclick="confirmarAgendamento(${id})" style="width:100%;background:#059669;color:white;border:none;border-radius:8px;padding:14px;font-size:15px;font-weight:700;cursor:pointer">Confirmar Agendamento</button>`;
+    document.getElementById('modalOrc').classList.add('open');
+  }
+  async function confirmarAgendamento(id) {
+    const data = document.getElementById('entregaDataInput').value;
+    const hora = document.getElementById('entregaHoraInput').value;
+    if (!data) { alert('Informe a data da entrega'); return; }
+    const orc = _findOrc(id);
+    if (!orc) return;
+    const parts = data.split('-');
+    const dataFormatada = parts[2] + '/' + parts[1] + '/' + parts[0];
+    orc.status = 'agendado';
+    orc.entregaData = dataFormatada;
+    orc.entregaHora = hora || '';
+    await apiUpdateOrcamento(id, { status: 'agendado', entregaData: orc.entregaData, entregaHora: orc.entregaHora });
+    closeModal();
+    renderDashboard(); renderEntregas();
+    alert('Entrega agendada para ' + dataFormatada + (hora ? ' as ' + hora : ''));
+  }
+  async function marcarEntregaFeita(id) {
+    if (!confirm('Confirmar que a entrega foi realizada?')) return;
+    const orc = _findOrc(id);
+    if (!orc) return;
+    orc.status = 'entregue';
+    orc.entregueEm = _nowStamp();
+    await apiUpdateOrcamento(id, { status: 'entregue', entregueEm: orc.entregueEm });
+    renderDashboard(); renderEntregas();
+  }
+  async function marcarDinheiroRecebido(id) {
+    if (!confirm('Confirmar que o dinheiro foi recebido no caixa?')) return;
+    const orc = _findOrc(id);
+    if (!orc) return;
+    orc.dinheiroRecebido = true;
+    orc.dinheiroRecebidoEm = _nowStamp();
+    await apiUpdateOrcamento(id, { dinheiroRecebido: true, dinheiroRecebidoEm: orc.dinheiroRecebidoEm });
+    renderDashboard(); renderEntregas(); renderBoletos();
+  }
+  async function confirmarPixChave(id) {
+    if (!confirm('Confirmar que o PIX foi recebido?')) return;
+    const orc = _findOrc(id);
+    if (!orc) return;
+    orc.pixChaveConfirmado = true;
+    orc.pixChaveConfirmadoEm = _nowStamp();
+    await apiUpdateOrcamento(id, { pixChaveConfirmado: true, pixChaveConfirmadoEm: orc.pixChaveConfirmadoEm });
+    renderDashboard(); renderEntregas(); renderBoletos();
+  }
+  // HISTORICO/VENDAS: aceitar pedido (pede NFC-e, igual ao celular)
+  async function aceitarOrcamento(id) {
+    const orc = _findOrc(id);
+    if (!orc) return;
+    const nfc = (prompt('Informe o No da Nota Fiscal (NFC-e) para aceitar o pedido:', orc.nfc || '') || '').trim();
+    if (!nfc) { alert('Nota Fiscal (NFC-e) obrigatoria para aceitar'); return; }
+    orc.status = 'aceito';
+    orc.dataAceite = new Date().toLocaleDateString('pt-BR');
+    orc.nfc = nfc;
+    await apiUpdateOrcamento(id, { status: 'aceito', dataAceite: orc.dataAceite, nfc: nfc });
+    renderDashboard(); renderVendas();
+    alert('Pedido aceito! Para gerar a cobranca (Boleto/PIX), use o app do celular.');
+  }
+  async function excluirOrcamento(id) {
+    if (!confirm('Excluir este pedido? Esta acao nao pode ser desfeita.')) return;
+    const ok = await apiDeleteOrcamento(id);
+    allOrcamentos = allOrcamentos.filter(o => o.id !== id);
+    renderDashboard(); renderSection(currentSection);
+    if (!ok) alert('Removido da tela, mas houve erro ao remover no servidor. Atualize e verifique.');
+  }
+  // Impede que clique nos botoes de acao dispare o clique da linha (abrir modal)
+  function _stop(e) { if (e) e.stopPropagation(); }
+
+  // Monta os botoes de acao da Entrega, iguais ao app do celular
+  function entregaAcoesHtml(o) {
+    const isDinheiro = o.formaPagamento === 'Dinheiro';
+    const isPixChave = o.formaPagamento === 'PIX Chave';
+    const dinheiroRecebido = isDinheiro && o.dinheiroRecebido;
+    const pixChaveConfirmado = isPixChave && o.pixChaveConfirmado;
+    const tipo = isDinheiro ? 'DINHEIRO' : isPixChave ? 'PIX_CHAVE' : getPaymentType(o);
+    const isBoleto = tipo === 'BOLETO';
+    const pago = dinheiroRecebido || pixChaveConfirmado || isCobrancaPaga(o);
+
+    const btn = (label, color, call) => `<button onclick="event.stopPropagation();${call}" style="background:${color};color:white;border:none;border-radius:6px;padding:6px 10px;font-size:11px;font-weight:700;cursor:pointer;margin:2px">${label}</button>`;
+    const lbl = (label, color, bg) => `<span style="background:${bg};color:${color};border-radius:6px;padding:6px 10px;font-size:11px;font-weight:700;margin:2px;display:inline-block">${label}</span>`;
+
+    let acts = '';
+    if (o.status === 'entregue') acts += lbl('Entregue', '#059669', '#d1fae5');
+    else if (o.status === 'agendado') acts += btn('Entrega feita', '#059669', 'marcarEntregaFeita(' + o.id + ')');
+    else if (o.status === 'pronto') acts += lbl('Pronto', '#059669', '#d1fae5');
+    else if (isDinheiro || isPixChave || isBoleto || pago) acts += btn('Entrega pronta', '#059669', 'agendarEntrega(' + o.id + ')');
+
+    if (isDinheiro && !dinheiroRecebido) acts += btn('Dinheiro em caixa', '#d97706', 'marcarDinheiroRecebido(' + o.id + ')');
+    else if (isPixChave && !pixChaveConfirmado) acts += btn('PIX recebido', '#059669', 'confirmarPixChave(' + o.id + ')');
+
+    acts += `<button onclick="event.stopPropagation();openOrcModal(${o.id})" style="background:var(--gray-100);color:var(--gray-700);border:none;border-radius:6px;padding:6px 10px;font-size:11px;font-weight:700;cursor:pointer;margin:2px">Pedido</button>`;
+    acts += `<button onclick="event.stopPropagation();excluirOrcamento(${o.id})" style="background:var(--red-light);color:var(--red);border:none;border-radius:6px;padding:6px 10px;font-size:11px;font-weight:700;cursor:pointer;margin:2px">Excluir</button>`;
+    return `<div style="display:flex;flex-wrap:wrap;gap:2px;min-width:200px">${acts}</div>`;
+  }
+
+  // Botoes de acao do Historico/Vendas (Aceitar + Excluir); "Cobrar" e "Editar" ficam no app do celular
+  function vendasAcoesHtml(o) {
+    const btn = (label, bg, color, call) => `<button onclick="event.stopPropagation();${call}" style="background:${bg};color:${color};border:none;border-radius:6px;padding:6px 10px;font-size:11px;font-weight:700;cursor:pointer;margin:2px">${label}</button>`;
+    let acts = '';
+    const isAceito = o.status === 'aceito';
+    const inPipeline = ['entrega', 'pronto', 'agendado', 'entregue'].includes(o.status);
+    if (!isAceito && !inPipeline && !o.coraPayment) acts += btn('Aceitar', '#059669', 'white', 'aceitarOrcamento(' + o.id + ')');
+    acts += btn('Excluir', 'var(--red-light)', 'var(--red)', 'excluirOrcamento(' + o.id + ')');
+    return `<div style="display:flex;flex-wrap:wrap;gap:2px;min-width:120px">${acts}</div>`;
+  }
 
   // ===== BOLETOS A RECEBER =====
   // Constroi a lista unificada de boletos (avulsos + orcamentos + banco Cora),
