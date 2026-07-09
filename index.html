@@ -1852,7 +1852,7 @@
     })();
 
     // ========== API ==========
-    const APP_VERSION = 'v84';
+    const APP_VERSION = 'v85';
     document.getElementById('loginVersion').textContent = APP_VERSION;
     document.getElementById('headerVersion').textContent = APP_VERSION;
     document.getElementById('configVersion').textContent = APP_VERSION;
@@ -4936,7 +4936,7 @@
       if (allPaid) return 'pago';
       const hasOverdue = parcelas.some(p => {
         if (p.coraStatus === 'OVERDUE' || p.coraStatus === 'LATE') return true;
-        if (p.dueDate && new Date(p.dueDate + 'T23:59:59') < new Date() && p.coraStatus !== 'PAID' && p.coraStatus !== 'RECEIVED' && p.coraStatus !== 'CANCELLED') return true;
+        if (p.dueDate && new Date(p.dueDate) < new Date() && p.coraStatus !== 'PAID' && p.coraStatus !== 'RECEIVED' && p.coraStatus !== 'CANCELLED') return true;
         return false;
       });
       if (hasOverdue) return 'atrasado';

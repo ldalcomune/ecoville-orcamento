@@ -689,7 +689,7 @@
           </div>
           <div style="overflow-x:auto;">
             <table><thead><tr>
-              <th>Numero</th><th>Data</th><th>Cliente</th><th>Telefone</th><th>Vendedor</th><th>Itens</th><th>Desconto</th><th>Total</th><th>Status</th><th>Pagamento</th>
+              <th>Numero</th><th>NF-e</th><th>Data</th><th>Cliente</th><th>Telefone</th><th>Vendedor</th><th>Itens</th><th>Desconto</th><th>Total</th><th>Status</th><th>Pagamento</th>
             </tr></thead><tbody id="vendasTableBody"></tbody></table>
           </div>
           <div class="table-pagination" id="vendasPagination"></div>
@@ -703,6 +703,7 @@
           <div class="table-header">
             <h3>Pipeline de Entregas</h3>
             <div class="table-actions">
+              <input type="text" class="table-search" id="entregasSearch" placeholder="Buscar cliente, numero..." oninput="renderEntregasTable()">
               <select class="table-filter" id="entregasFilter" onchange="renderEntregasTable()">
                 <option value="">Todos</option>
                 <option value="entrega">Em preparo</option>
@@ -714,7 +715,7 @@
           </div>
           <div style="overflow-x:auto;">
             <table><thead><tr>
-              <th>Numero</th><th>Cliente</th><th>Telefone</th><th>Endereco</th><th>Vendedor</th><th>Total</th><th>Status</th><th>Data Entrega</th><th>Pagamento</th>
+              <th>Numero</th><th>NF-e</th><th>Cliente</th><th>Telefone</th><th>Endereco</th><th>Vendedor</th><th>Total</th><th>Status</th><th>Data Entrega</th><th>Pagamento</th>
             </tr></thead><tbody id="entregasTableBody"></tbody></table>
           </div>
         </div>
@@ -886,7 +887,7 @@
         <div class="table-card">
           <div style="overflow-x:auto;">
             <table><thead><tr>
-              <th>Cliente</th><th>Documento</th><th>Descricao</th><th>Valor</th><th>Parcelas</th><th>Tipo</th><th>Data</th><th>Status</th>
+              <th>Cliente</th><th>Documento</th><th>Descricao</th><th>NF-e</th><th>Valor</th><th>Parcelas</th><th>Tipo</th><th>Data</th><th>Status</th>
             </tr></thead><tbody id="boletosTableBody"></tbody></table>
           </div>
         </div>
@@ -939,7 +940,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <script>
   // ===== CONFIG =====
-  const APP_VERSION = 'v84';
+  const APP_VERSION = 'v85';
   const API_URL = 'https://ecoville-api.vercel.app/api';
   let allOrcamentos = [];
   let allUsers = [];
@@ -1394,6 +1395,7 @@
         (o.cliente || '').toLowerCase().includes(search) ||
         (o.vendedor || '').toLowerCase().includes(search) ||
         (o.numero || '').toLowerCase().includes(search) ||
+        (o.nfc || '').toLowerCase().includes(search) ||
         (o.clientePhone || '').includes(search)
       );
     }
@@ -1405,6 +1407,7 @@
 
     document.getElementById('vendasTableBody').innerHTML = page.map(o => `<tr style="cursor:pointer" onclick="openOrcModal(${o.id})">
       <td><strong>${o.numero || '-'}</strong></td>
+      <td>${o.nfc ? '<span style="color:#7c3aed;font-weight:700;">'+o.nfc+'</span>' : '<span style="color:var(--gray-400);">-</span>'}</td>
       <td>${o.data || '-'}</td>
       <td>${o.cliente || '-'}</td>
       <td>${o.clientePhone || '-'}</td>
@@ -1414,7 +1417,7 @@
       <td><strong>${formatPrice(o.total || 0)}</strong></td>
       <td><span class="status-badge ${o.status}">${statusLabel(o.status)}</span></td>
       <td>${getPaymentStatusBadge(o)}</td>
-    </tr>`).join('') || '<tr><td colspan="10" style="text-align:center;padding:32px;color:var(--gray-400)">Nenhum resultado</td></tr>';
+    </tr>`).join('') || '<tr><td colspan="11" style="text-align:center;padding:32px;color:var(--gray-400)">Nenhum resultado</td></tr>';
 
     // Pagination
     let paginationHtml = `<span>Mostrando ${filtered.length ? start + 1 : 0}-${Math.min(start + VENDAS_PER_PAGE, filtered.length)} de ${filtered.length}</span><div class="page-btns">`;
@@ -1460,8 +1463,15 @@
 
   function renderEntregasTable() {
     const filter = document.getElementById('entregasFilter')?.value || '';
+    const search = (document.getElementById('entregasSearch')?.value || '').toLowerCase();
     let list = allOrcamentos.filter(o => ['entrega', 'pronto', 'agendado', 'entregue'].includes(o.status));
     if (filter) list = list.filter(o => o.status === filter);
+    if (search) list = list.filter(o =>
+      (o.cliente || '').toLowerCase().includes(search) ||
+      (o.numero || '').toLowerCase().includes(search) ||
+      (o.clientePhone || '').includes(search) ||
+      (o.nfc || '').toLowerCase().includes(search)
+    );
 
     document.getElementById('entregasTableBody').innerHTML = list.map(o => {
       let dataEntrega = '-';
@@ -1472,6 +1482,7 @@
 
       return `<tr>
         <td><strong>${o.numero || '-'}</strong></td>
+        <td>${o.nfc ? '<span style="color:#7c3aed;font-weight:700;">'+o.nfc+'</span>' : '<span style="color:var(--gray-400);">-</span>'}</td>
         <td>${o.cliente || '-'}</td>
         <td>${o.clientePhone || '-'}</td>
         <td style="max-width:200px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="${endereco}">${endereco || '-'}</td>
@@ -1481,7 +1492,7 @@
         <td>${dataEntrega}</td>
         <td>${getPaymentStatusBadge(o)}</td>
       </tr>`;
-    }).join('') || '<tr><td colspan="9" style="text-align:center;padding:32px;color:var(--gray-400)">Nenhuma entrega</td></tr>';
+    }).join('') || '<tr><td colspan="10" style="text-align:center;padding:32px;color:var(--gray-400)">Nenhuma entrega</td></tr>';
   }
 
   // ===== VENDEDORES =====
@@ -1876,6 +1887,7 @@
           <div><strong>Data:</strong> ${o.data || '-'}</div>
           <div><strong>Status:</strong> <span class="status-badge ${o.status}">${statusLabel(o.status)}</span></div>
           <div><strong>Pagamento:</strong> ${getPaymentStatusBadge(o)}</div>
+          ${o.nfc ? '<div><strong>Nota Fiscal (NFC-e):</strong> <span style="color:#7c3aed;font-weight:700;">'+o.nfc+'</span></div>' : ''}
         </div>
         <table class="orc-items-table">
           <thead><tr><th>#</th><th>Produto</th><th>Cod.</th><th>Qtd</th><th>Unitario</th><th>Total</th></tr></thead>
@@ -1917,6 +1929,7 @@
         parcelas: b.numParcelas || 1,
         tipo: b.paymentType === 'PIX' ? 'PIX' : 'Boleto',
         data: b.createdAt ? new Date(b.createdAt).toLocaleDateString('pt-BR') : '-',
+        nfc: b.nfc || '',
         source: 'avulso',
         coraPayment: b.coraPayment || null
       });
@@ -1934,6 +1947,7 @@
           parcelas: o.coraPayment.numParcelas || 1,
           tipo: getPaymentType(o) === 'BOLETO' ? 'Boleto' : 'PIX',
           data: o.coraPayment.createdAt ? new Date(o.coraPayment.createdAt).toLocaleDateString('pt-BR') : (o.data || '-'),
+          nfc: o.nfc || '',
           source: 'orcamento',
           coraPayment: o.coraPayment
         });
@@ -1954,6 +1968,7 @@
           parcelas: 1,
           tipo: (inv.payment_options && inv.payment_options.bank_slip) ? 'Boleto' : 'PIX',
           data: inv.created_at ? new Date(inv.created_at).toLocaleDateString('pt-BR') : '-',
+          nfc: '',
           source: 'banco',
           coraPayment: {
             parcelas: [{
@@ -2014,7 +2029,7 @@
       const s = (p.coraStatus || '').toUpperCase();
       if (s === 'OVERDUE' || s === 'LATE') return true;
       if (s === 'PAID' || s === 'RECEIVED' || s === 'CANCELLED') return false;
-      if (p.dueDate) return new Date(p.dueDate + 'T23:59:59') < new Date();
+      if (p.dueDate) return new Date(p.dueDate) < new Date();
       return false;
     });
     if (anyLate) return 'atrasado';
@@ -2030,7 +2045,7 @@
 
     let filtered = items;
     if (filter) filtered = filtered.filter(b => getBoletoItemStatus(b) === filter);
-    if (search) filtered = filtered.filter(b => b.cliente.toLowerCase().includes(search) || b.descricao.toLowerCase().includes(search));
+    if (search) filtered = filtered.filter(b => b.cliente.toLowerCase().includes(search) || b.descricao.toLowerCase().includes(search) || (b.nfc || '').toLowerCase().includes(search));
 
     document.getElementById('boletosTableBody').innerHTML = filtered.map(b => {
       const st = getBoletoItemStatus(b);
@@ -2038,17 +2053,19 @@
       const stColor = st === 'pago' ? 'var(--green)' : st === 'atrasado' ? 'var(--red)' : 'var(--orange)';
       const badge = b.source === 'avulso' ? '<span style="font-size:10px;background:var(--blue-light);color:var(--blue);padding:2px 6px;border-radius:4px;margin-left:4px;">Avulso</span>'
                   : b.source === 'banco' ? '<span style="font-size:10px;background:var(--orange-light);color:var(--orange);padding:2px 6px;border-radius:4px;margin-left:4px;">Banco</span>' : '';
+      const nfCell = b.nfc ? `<span style="color:#7c3aed;font-weight:700;">${b.nfc}</span>` : '<span style="color:var(--gray-400);">-</span>';
       return `<tr>
         <td><strong>${b.cliente}</strong>${badge}</td>
         <td>${b.doc}</td>
         <td>${b.descricao}</td>
+        <td>${nfCell}</td>
         <td><strong>${formatPrice(b.valor)}</strong></td>
         <td>${b.parcelas}x</td>
         <td>${b.tipo}</td>
         <td>${b.data}</td>
         <td><span style="color:${stColor};font-weight:600;">${stLabel}</span></td>
       </tr>`;
-    }).join('') || '<tr><td colspan="8" style="text-align:center;padding:32px;color:var(--gray-400)">Nenhum boleto encontrado</td></tr>';
+    }).join('') || '<tr><td colspan="9" style="text-align:center;padding:32px;color:var(--gray-400)">Nenhum boleto encontrado</td></tr>';
   }
 
   // ===== CLIENTES =====
