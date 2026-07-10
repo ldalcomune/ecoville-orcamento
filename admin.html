@@ -998,8 +998,14 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <script>
   // ===== CONFIG =====
-  const APP_VERSION = 'v93';
+  const APP_VERSION = 'v94';
   const API_URL = 'https://ecoville-api.vercel.app/api';
+  // Permissoes por usuario: null = pagina completa; array = secoes permitidas
+  const USER_SECTIONS = {
+    admin: null,
+    rodrigo: ['produtos', 'fornecedores', 'pedidos']
+  };
+  let currentUser = 'admin';
   let allOrcamentos = [];
   let allUsers = [];
   let allBoletos = [];
@@ -1020,10 +1026,10 @@
     const pass = document.getElementById('loginPass').value;
     if (!user || !pass) return;
 
-    // Only admin can access
-    if (user !== 'admin') {
+    // Apenas usuarios com permissao definida podem acessar o painel
+    if (!(user in USER_SECTIONS)) {
       document.getElementById('loginError').style.display = 'block';
-      document.getElementById('loginError').textContent = 'Acesso restrito ao administrador';
+      document.getElementById('loginError').textContent = 'Acesso restrito';
       return;
     }
 
@@ -1037,7 +1043,7 @@
         const data = await r.json();
         localStorage.setItem('ecoville_api_token', data.token);
         localStorage.setItem('ecoville_session', JSON.stringify({ user: data.user, name: data.name }));
-        enterApp(data.name);
+        enterApp(data.name, data.user);
         return;
       }
     } catch(e) {}
@@ -1049,7 +1055,7 @@
     const found = DEFAULT_USERS.find(u => u.user === user && u.pass === pass);
     if (found) {
       localStorage.setItem('ecoville_session', JSON.stringify({ user: found.user, name: found.name }));
-      enterApp(found.name);
+      enterApp(found.name, found.user);
     } else {
       document.getElementById('loginError').style.display = 'block';
       document.getElementById('loginError').textContent = 'Usuario ou senha incorretos';
@@ -1064,13 +1070,38 @@
     location.reload();
   }
 
-  function enterApp(name) {
+  function enterApp(name, user) {
+    currentUser = user || (JSON.parse(localStorage.getItem('ecoville_session') || '{}').user) || 'admin';
     document.getElementById('loginOverlay').classList.add('hidden');
     document.getElementById('appLayout').style.display = 'flex';
     document.getElementById('userName').textContent = name;
     document.getElementById('userAvatar').textContent = name.charAt(0).toUpperCase();
     document.getElementById('adminVersion').textContent = 'Ecoville ' + APP_VERSION;
+    applyPermissions();
     refreshData();
+  }
+
+  // Mostra/oculta secoes conforme o usuario (admin = tudo; outros = so as permitidas)
+  function applyPermissions() {
+    const allowed = USER_SECTIONS[currentUser]; // null = pagina completa
+    const roleEl = document.querySelector('.sidebar-footer .user-role');
+    if (roleEl) roleEl.textContent = allowed ? 'Catalogo' : 'Administrador';
+    document.querySelectorAll('.sidebar-nav .nav-item').forEach(item => {
+      const m = (item.getAttribute('onclick') || '').match(/showSection\('([^']+)'\)/);
+      const sec = m ? m[1] : null;
+      const ok = !allowed || (sec && allowed.includes(sec));
+      item.style.display = ok ? '' : 'none';
+    });
+    // oculta cabecalhos de grupo (nav-section) que ficaram sem itens visiveis
+    document.querySelectorAll('.sidebar-nav .nav-section').forEach(h => {
+      let el = h.nextElementSibling, temVisivel = false;
+      while (el && !el.classList.contains('nav-section')) {
+        if (el.classList.contains('nav-item') && el.style.display !== 'none') temVisivel = true;
+        el = el.nextElementSibling;
+      }
+      h.style.display = temVisivel ? '' : 'none';
+    });
+    if (allowed) showSection(allowed[0]); // vai direto para a primeira secao permitida
   }
 
   // Mostra versao no login
@@ -1079,8 +1110,8 @@
   // Check session on load
   (function checkSession() {
     const session = JSON.parse(localStorage.getItem('ecoville_session') || 'null');
-    if (session && session.user === 'admin') {
-      enterApp(session.name);
+    if (session && (session.user in USER_SECTIONS)) {
+      enterApp(session.name, session.user);
     }
   })();
 
@@ -1258,11 +1289,15 @@
 
   // ===== NAVIGATION =====
   function showSection(section) {
+    const allowed = USER_SECTIONS[currentUser];
+    if (allowed && !allowed.includes(section)) return; // guarda de permissao
     currentSection = section;
     document.querySelectorAll('.page-section').forEach(p => p.classList.remove('active'));
-    document.getElementById('section-' + section).classList.add('active');
+    const secEl = document.getElementById('section-' + section);
+    if (secEl) secEl.classList.add('active');
     document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
-    event.currentTarget.classList.add('active');
+    const navItem = [...document.querySelectorAll('.nav-item')].find(n => (n.getAttribute('onclick') || '').includes("showSection('" + section + "')"));
+    if (navItem) navItem.classList.add('active');
     const titles = { dashboard: 'Dashboard', vendas: 'Vendas', entregas: 'Entregas', vendedores: 'Vendedores', usuarios: 'Usuarios', produtos: 'Catalogo de Produtos', fornecedores: 'Fornecedores', pedidos: 'Pedidos de Compra', novoOrc: 'Novo Orcamento', boletos: 'Boletos a Receber', clientes: 'Clientes Microvix' };
     document.getElementById('pageTitle').textContent = titles[section] || 'Dashboard';
     renderSection(section);
