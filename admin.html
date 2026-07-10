@@ -580,6 +580,10 @@
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l1-5h16l1 5"/><path d="M4 9v11a1 1 0 001 1h14a1 1 0 001-1V9"/><path d="M9 22V12h6v10"/></svg>
         <span>Fornecedores</span>
       </div>
+      <div class="nav-item" onclick="showSection('pedidos')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>
+        <span>Pedidos</span>
+      </div>
       <div class="nav-item" onclick="showSection('novoOrc')">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="11" x2="12" y2="17"/><line x1="9" y1="14" x2="15" y2="14"/></svg>
         <span>Novo Orcamento</span>
@@ -785,8 +789,34 @@
         <div class="table-card">
           <div style="overflow-x:auto;">
             <table><thead><tr>
-              <th>Fornecedor</th><th>Contato</th><th>Telefone / WhatsApp</th><th>Produtos</th><th>Observacoes</th><th>Acoes</th>
+              <th>Fornecedor</th><th>Contato</th><th>Telefone / WhatsApp</th><th>Produtos</th><th>Pedidos</th><th>Observacoes</th><th>Acoes</th>
             </tr></thead><tbody id="fornTableBody"></tbody></table>
+          </div>
+        </div>
+      </div>
+
+      <!-- ===== PEDIDOS DE COMPRA ===== -->
+      <div id="section-pedidos" class="page-section">
+        <div style="display:grid;grid-template-columns:1fr 340px;gap:16px;align-items:start">
+          <div class="table-card" style="padding:16px">
+            <div style="display:flex;gap:10px;margin-bottom:12px;align-items:center;flex-wrap:wrap">
+              <input type="text" class="table-search" id="pedidoProdSearch" placeholder="Buscar produto por nome ou codigo..." oninput="renderPedidoProdutos()" style="flex:1;min-width:220px">
+              <select class="table-filter" id="pedidoSectorFilter" onchange="renderPedidoProdutos()">
+                <option value="">Todos setores</option>
+                <option value="GERAL">Geral</option>
+                <option value="PRODUTOS ECOVILLE">Ecoville</option>
+                <option value="PRODUTOS HOMOLOGADOS">Homologados</option>
+              </select>
+            </div>
+            <div id="pedidoProdGrid" style="max-height:64vh;overflow-y:auto"></div>
+          </div>
+          <div class="table-card" style="padding:16px">
+            <h3 style="font-size:16px;font-weight:800;color:var(--primary);margin-bottom:6px">Pedido de Compra</h3>
+            <div id="pedidoCartCount" style="font-size:12px;color:var(--gray-500);margin-bottom:10px"></div>
+            <div id="pedidoCartItems" style="max-height:46vh;overflow-y:auto"></div>
+            <div id="pedidoCartEmpty" style="color:var(--gray-400);font-size:13px;padding:12px 0">Nenhum item ainda. Adicione produtos ao lado.</div>
+            <button onclick="concluirPedido()" style="width:100%;background:var(--primary);color:#fff;border:none;border-radius:8px;padding:12px;font-weight:700;cursor:pointer;margin-top:10px">Concluir Pedido</button>
+            <button onclick="limparPedido()" style="width:100%;background:var(--gray-100);color:var(--gray-600);border:none;border-radius:8px;padding:8px;font-weight:600;cursor:pointer;margin-top:6px">Limpar</button>
           </div>
         </div>
       </div>
@@ -968,7 +998,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <script>
   // ===== CONFIG =====
-  const APP_VERSION = 'v90';
+  const APP_VERSION = 'v91';
   const API_URL = 'https://ecoville-api.vercel.app/api';
   let allOrcamentos = [];
   let allUsers = [];
@@ -1233,7 +1263,7 @@
     document.getElementById('section-' + section).classList.add('active');
     document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
     event.currentTarget.classList.add('active');
-    const titles = { dashboard: 'Dashboard', vendas: 'Vendas', entregas: 'Entregas', vendedores: 'Vendedores', usuarios: 'Usuarios', produtos: 'Catalogo de Produtos', fornecedores: 'Fornecedores', novoOrc: 'Novo Orcamento', boletos: 'Boletos a Receber', clientes: 'Clientes Microvix' };
+    const titles = { dashboard: 'Dashboard', vendas: 'Vendas', entregas: 'Entregas', vendedores: 'Vendedores', usuarios: 'Usuarios', produtos: 'Catalogo de Produtos', fornecedores: 'Fornecedores', pedidos: 'Pedidos de Compra', novoOrc: 'Novo Orcamento', boletos: 'Boletos a Receber', clientes: 'Clientes Microvix' };
     document.getElementById('pageTitle').textContent = titles[section] || 'Dashboard';
     renderSection(section);
   }
@@ -1255,6 +1285,7 @@
     if (section === 'boletos') renderBoletos();
     if (section === 'clientes') renderClientes();
     if (section === 'fornecedores') renderFornecedores();
+    if (section === 'pedidos') renderPedidoProdutos();
   }
 
   // ===== BUILTIN PRODUCTS =====
@@ -2375,18 +2406,23 @@
         ? (wa ? `<a href="${wa}" target="_blank" style="color:#059669;font-weight:600;text-decoration:none;">${fmtTelefone(f.telefone)} <span style="font-size:10px;background:#d1fae5;padding:1px 5px;border-radius:4px">WhatsApp</span></a>` : fmtTelefone(f.telefone))
         : '<span style="color:var(--gray-400)">-</span>';
       const nProd = (f.produtos || []).length;
+      const nPed = (f.pedidos || []).length;
+      const pedCell = nPed
+        ? `<button onclick="verPedidosFornecedor(${f.id})" style="background:#ede9fe;color:#7c3aed;border:none;border-radius:6px;padding:6px 10px;font-size:11px;font-weight:700;cursor:pointer">${nPed} pedido(s)</button>`
+        : '<span style="color:var(--gray-400)">-</span>';
       return `<tr>
         <td><strong>${f.nome || '-'}</strong></td>
         <td>${f.contato || '-'}</td>
         <td>${telHtml}</td>
         <td>${nProd ? nProd + ' produto(s)' : '<span style="color:var(--gray-400)">-</span>'}</td>
+        <td>${pedCell}</td>
         <td style="max-width:220px;font-size:12px;color:var(--gray-600)">${f.obs || ''}</td>
         <td>
           <button onclick="editarFornecedor(${f.id})" style="background:rgba(13,43,107,0.08);color:var(--primary);border:none;border-radius:6px;padding:6px 10px;font-size:11px;font-weight:700;cursor:pointer;margin:2px">Editar</button>
           <button onclick="excluirFornecedor(${f.id})" style="background:var(--red-light);color:var(--red);border:none;border-radius:6px;padding:6px 10px;font-size:11px;font-weight:700;cursor:pointer;margin:2px">Excluir</button>
         </td>
       </tr>`;
-    }).join('') || '<tr><td colspan="6" style="text-align:center;padding:32px;color:var(--gray-400)">Nenhum fornecedor</td></tr>';
+    }).join('') || '<tr><td colspan="7" style="text-align:center;padding:32px;color:var(--gray-400)">Nenhum fornecedor</td></tr>';
   }
 
   let _editingFornId = null;
@@ -2462,6 +2498,140 @@
     saveFornecedores();
     renderFornecedores();
     if (currentSection === 'produtos') renderProdutos();
+  }
+
+  // ===== PEDIDOS DE COMPRA =====
+  let pedidoCart = [];
+  function renderPedidoProdutos() {
+    loadFornecedoresIfNeeded();
+    const search = (document.getElementById('pedidoProdSearch')?.value || '').toLowerCase();
+    const sector = document.getElementById('pedidoSectorFilter')?.value || '';
+    let filtered = ALL_PRODUCTS.filter(p => {
+      if (sector && p.sector !== sector) return false;
+      if (search && !p.description.toLowerCase().includes(search) && !(p.code || '').toLowerCase().includes(search)) return false;
+      return true;
+    });
+    const qbtn = 'width:26px;height:26px;border:none;border-radius:6px;background:var(--gray-100);color:var(--gray-700);font-weight:700;cursor:pointer';
+    document.getElementById('pedidoProdGrid').innerHTML = filtered.slice(0, 600).map(p => {
+      const inCart = pedidoCart.find(c => c.productId === p.id);
+      const forn = fornecedorDoProduto(p.id);
+      const right = inCart
+        ? `<div style="display:flex;align-items:center;gap:6px">
+            <button onclick="updatePedidoQty(${p.id},-1)" style="${qbtn}">-</button>
+            <span style="min-width:24px;text-align:center;font-weight:700">${inCart.qty}</span>
+            <button onclick="updatePedidoQty(${p.id},1)" style="${qbtn}">+</button>
+          </div>`
+        : `<button onclick="addPedidoItem(${p.id})" style="background:var(--primary);color:#fff;border:none;border-radius:6px;padding:6px 12px;font-size:12px;font-weight:700;cursor:pointer">Adicionar</button>`;
+      return `<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px;border-bottom:1px solid var(--gray-100)">
+        <div style="font-size:13px"><strong>${p.description}</strong><br>
+          <span style="color:var(--gray-400);font-size:11px">${p.code}</span>${forn ? ' <span style="color:#7c3aed;font-size:11px">&bull; ' + forn.nome + '</span>' : ''}</div>
+        ${right}
+      </div>`;
+    }).join('') || '<div style="color:var(--gray-400);padding:20px;text-align:center">Nenhum produto</div>';
+    renderPedidoCart();
+  }
+  function addPedidoItem(id) {
+    const p = ALL_PRODUCTS.find(x => x.id === id);
+    if (!p) return;
+    const ex = pedidoCart.find(c => c.productId === id);
+    if (ex) ex.qty++; else pedidoCart.push({ productId: id, code: p.code, description: p.description, qty: 1 });
+    renderPedidoProdutos();
+  }
+  function updatePedidoQty(id, delta) {
+    const it = pedidoCart.find(c => c.productId === id);
+    if (!it) return;
+    it.qty += delta;
+    if (it.qty <= 0) pedidoCart = pedidoCart.filter(c => c.productId !== id);
+    renderPedidoProdutos();
+  }
+  function removePedidoItem(id) { pedidoCart = pedidoCart.filter(c => c.productId !== id); renderPedidoProdutos(); }
+  function limparPedido() {
+    if (pedidoCart.length && !confirm('Limpar o pedido?')) return;
+    pedidoCart = [];
+    renderPedidoProdutos();
+  }
+  function renderPedidoCart() {
+    const totalUn = pedidoCart.reduce((s, c) => s + c.qty, 0);
+    const cnt = document.getElementById('pedidoCartCount');
+    const empty = document.getElementById('pedidoCartEmpty');
+    if (cnt) cnt.textContent = pedidoCart.length ? (pedidoCart.length + ' itens &bull; ' + totalUn + ' unidades').replace('&bull;', '•') : '';
+    if (empty) empty.style.display = pedidoCart.length ? 'none' : 'block';
+    const box = document.getElementById('pedidoCartItems');
+    if (box) box.innerHTML = pedidoCart.map(c => `
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:6px;padding:6px 0;border-bottom:1px solid var(--gray-100);font-size:13px">
+        <span style="flex:1">${c.description}</span>
+        <span style="font-weight:700">${c.qty}x</span>
+        <button onclick="removePedidoItem(${c.productId})" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:16px">&times;</button>
+      </div>`).join('');
+  }
+  function concluirPedido() {
+    if (!pedidoCart.length) { alert('Adicione ao menos um produto ao pedido.'); return; }
+    loadFornecedoresIfNeeded();
+    const opts = allFornecedores.slice().sort((a, b) => (a.nome || '').localeCompare(b.nome || '')).map(f => `<option value="${f.id}">${f.nome}</option>`).join('');
+    const totalUn = pedidoCart.reduce((s, c) => s + c.qty, 0);
+    document.getElementById('modalTitle').textContent = 'Concluir Pedido de Compra';
+    document.getElementById('modalBody').innerHTML = `
+      <div style="display:grid;gap:10px">
+        <div style="font-size:13px;color:var(--gray-600)">${pedidoCart.length} itens • ${totalUn} unidades</div>
+        <div><label style="font-size:12px;font-weight:600;color:var(--gray-600)">Fornecedor *</label>
+          <select id="pedidoFornecedor" style="width:100%;padding:10px;border:2px solid var(--gray-200);border-radius:8px;font-size:14px;font-family:inherit">${opts}</select></div>
+        <div><label style="font-size:12px;font-weight:600;color:var(--gray-600)">Observacoes</label>
+          <textarea id="pedidoObsInput" rows="2" style="width:100%;padding:10px;border:2px solid var(--gray-200);border-radius:8px;font-size:14px;font-family:inherit"></textarea></div>
+        <button onclick="salvarPedido()" style="width:100%;background:var(--primary);color:#fff;border:none;border-radius:8px;padding:13px;font-size:15px;font-weight:700;cursor:pointer">Salvar Pedido</button>
+      </div>`;
+    document.getElementById('modalOrc').classList.add('open');
+  }
+  function salvarPedido() {
+    const fid = parseInt(document.getElementById('pedidoFornecedor').value);
+    const forn = allFornecedores.find(f => f.id === fid);
+    if (!forn) { alert('Selecione um fornecedor'); return; }
+    const now = new Date();
+    const pedido = {
+      id: Date.now(),
+      data: now.toLocaleDateString('pt-BR'),
+      dataISO: now.toISOString(),
+      itens: pedidoCart.map(c => ({ productId: c.productId, code: c.code, description: c.description, qty: c.qty })),
+      obs: (document.getElementById('pedidoObsInput').value || '').trim(),
+      totalItens: pedidoCart.length,
+      totalUnidades: pedidoCart.reduce((s, c) => s + c.qty, 0)
+    };
+    if (!forn.pedidos) forn.pedidos = [];
+    forn.pedidos.unshift(pedido);
+    saveFornecedores();
+    closeModal();
+    pedidoCart = [];
+    renderPedidoProdutos();
+    alert('Pedido salvo para ' + forn.nome + '!');
+  }
+  function verPedidosFornecedor(id) {
+    const f = allFornecedores.find(x => x.id === id);
+    if (!f) return;
+    const pedidos = f.pedidos || [];
+    document.getElementById('modalTitle').textContent = 'Pedidos - ' + f.nome;
+    document.getElementById('modalBody').innerHTML = pedidos.length ? pedidos.map(pe => `
+      <div style="border:1px solid var(--gray-200);border-radius:8px;padding:12px;margin-bottom:10px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+          <strong style="color:var(--primary)">${pe.data}</strong>
+          <div>
+            <span style="font-size:12px;color:var(--gray-500)">${pe.totalItens} itens • ${pe.totalUnidades} un</span>
+            <button onclick="excluirPedidoFornecedor(${id},${pe.id})" style="background:var(--red-light);color:var(--red);border:none;border-radius:6px;padding:4px 8px;font-size:11px;font-weight:700;cursor:pointer;margin-left:8px">Excluir</button>
+          </div>
+        </div>
+        ${pe.obs ? '<div style="font-size:12px;color:var(--gray-600);margin-bottom:6px">Obs: ' + pe.obs + '</div>' : ''}
+        <table style="width:100%;font-size:12px"><tbody>
+          ${pe.itens.map(it => `<tr><td style="padding:2px 0">${it.description}</td><td style="text-align:right;font-weight:700;white-space:nowrap">${it.qty}x</td></tr>`).join('')}
+        </tbody></table>
+      </div>`).join('') : '<div style="color:var(--gray-400);padding:20px;text-align:center">Nenhum pedido para este fornecedor</div>';
+    document.getElementById('modalOrc').classList.add('open');
+  }
+  function excluirPedidoFornecedor(fid, pedidoId) {
+    if (!confirm('Excluir este pedido?')) return;
+    const f = allFornecedores.find(x => x.id === fid);
+    if (!f) return;
+    f.pedidos = (f.pedidos || []).filter(p => p.id !== pedidoId);
+    saveFornecedores();
+    renderFornecedores();
+    verPedidosFornecedor(fid);
   }
 
   // ===== CLIENTES =====
