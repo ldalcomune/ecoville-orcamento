@@ -816,7 +816,7 @@
         <div class="table-card">
           <div style="overflow-x:auto;">
             <table><thead><tr>
-              <th>Data</th><th>Fornecedor</th><th>Itens</th><th>Unidades</th><th>Status</th><th>Acoes</th>
+              <th>Data</th><th>Fornecedor</th><th>Contato / WhatsApp</th><th>Itens</th><th>Unidades</th><th>Status</th><th>Acoes</th>
             </tr></thead><tbody id="pedidosTableBody"></tbody></table>
           </div>
         </div>
@@ -1000,7 +1000,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <script>
   // ===== CONFIG =====
-  const APP_VERSION = 'v97';
+  const APP_VERSION = 'v98';
   const API_URL = 'https://ecoville-api.vercel.app/api';
   // Permissoes por usuario: null = pagina completa; array = secoes permitidas
   const USER_SECTIONS = {
@@ -2749,9 +2749,25 @@
       const btnAceito = (!pe.aprovado && isAdmin)
         ? `<button onclick="aprovarPedido(${x.fornId},${pe.id})" style="background:#059669;color:#fff;border:none;border-radius:6px;padding:6px 12px;font-size:11px;font-weight:700;cursor:pointer;margin:2px">Pedido aceito</button>`
         : '';
+      // Contato + WhatsApp do fornecedor (apenas para o admin)
+      let contatoCell = '<span style="color:var(--gray-400)">-</span>';
+      if (isAdmin) {
+        const forn = allFornecedores.find(f => f.id === x.fornId) || {};
+        const contato = forn.contato || '';
+        const tel = forn.telefone || '';
+        if (contato || tel) {
+          const msg = 'Pedido de compra Ecoville' + (pe.data ? ' (' + pe.data + ')' : '') + ':\n' + (pe.itens || []).map(it => '- ' + it.description + ': ' + it.qty).join('\n');
+          const waHref = tel ? waLink(tel) + '?text=' + encodeURIComponent(msg) : '';
+          const nome = contato ? `<div style="font-size:12px">${contato}</div>` : '';
+          const telTxt = tel ? `<div style="font-size:11px;color:var(--gray-500)">${fmtTelefone(tel)}</div>` : '';
+          const btn = tel ? `<a href="${waHref}" target="_blank" style="display:inline-block;margin-top:3px;background:#25D366;color:#fff;border-radius:6px;padding:4px 10px;font-size:11px;font-weight:700;text-decoration:none">WhatsApp</a>` : '';
+          contatoCell = nome + telTxt + btn || '<span style="color:var(--gray-400)">-</span>';
+        }
+      }
       return `<tr>
         <td>${pe.data || '-'}</td>
         <td><strong>${x.fornNome}</strong></td>
+        <td>${contatoCell}</td>
         <td>${pe.totalItens} itens</td>
         <td>${pe.totalUnidades} un</td>
         <td>${statusCell}</td>
@@ -2761,7 +2777,7 @@
           <button onclick="excluirPedidoFornecedor(${x.fornId},${pe.id})" style="background:var(--red-light);color:var(--red);border:none;border-radius:6px;padding:6px 10px;font-size:11px;font-weight:700;cursor:pointer;margin:2px">Excluir</button>
         </td>
       </tr>`;
-    }).join('') || '<tr><td colspan="6" style="text-align:center;padding:32px;color:var(--gray-400)">Nenhum pedido feito ainda. Gere um em Produtos.</td></tr>';
+    }).join('') || '<tr><td colspan="7" style="text-align:center;padding:32px;color:var(--gray-400)">Nenhum pedido feito ainda. Gere um em Produtos.</td></tr>';
   }
   function aprovarPedido(fornId, pedidoId) {
     if (currentUser !== 'admin') { alert('Somente o administrador pode aprovar pedidos.'); return; }
