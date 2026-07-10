@@ -968,7 +968,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <script>
   // ===== CONFIG =====
-  const APP_VERSION = 'v89';
+  const APP_VERSION = 'v90';
   const API_URL = 'https://ecoville-api.vercel.app/api';
   let allOrcamentos = [];
   let allUsers = [];
@@ -1150,6 +1150,9 @@
         { user: 'admin', name: 'Administrador' }
       ];
     }
+
+    // Fornecedores (sincronizados no servidor)
+    await loadFornecedoresFromServer();
 
     btn.classList.remove('loading');
     document.getElementById('lastUpdate').textContent = 'Atualizado ' + new Date().toLocaleTimeString('pt-BR');
@@ -2297,18 +2300,52 @@
     { id: 13, nome: 'Comercial Twist Linha Clean', contato: 'Francielem', telefone: '554788417952', obs: '', produtos: [] }
   ];
   let allFornecedores = [];
-  function loadFornecedores() {
+  // Carrega do cache local ou lista padrao (sincrono, fallback imediato)
+  function loadFornecedoresIfNeeded() {
+    if (allFornecedores.length) return;
     try {
       const saved = JSON.parse(localStorage.getItem('ecoville_fornecedores') || 'null');
       if (Array.isArray(saved) && saved.length) { allFornecedores = saved; return; }
     } catch(e) {}
     allFornecedores = DEFAULT_FORNECEDORES.map(f => ({ ...f }));
-    saveFornecedores();
   }
+  // Salva no cache local E envia para o servidor (sincroniza entre dispositivos)
   function saveFornecedores() {
     try { localStorage.setItem('ecoville_fornecedores', JSON.stringify(allFornecedores)); } catch(e) {}
+    apiSaveFornecedores(allFornecedores);
   }
-  function loadFornecedoresIfNeeded() { if (!allFornecedores.length) loadFornecedores(); }
+  async function apiGetFornecedores() {
+    try {
+      const r = await fetch(API_URL + '/fornecedores', { headers: apiHeaders() });
+      if (r.ok) return await r.json();
+    } catch(e) {}
+    return null;
+  }
+  async function apiSaveFornecedores(list) {
+    try {
+      const r = await fetch(API_URL + '/fornecedores', { method: 'POST', headers: apiHeaders(), body: JSON.stringify({ fornecedores: list }) });
+      return r.ok;
+    } catch(e) {}
+    return false;
+  }
+  // Busca do servidor (fonte de verdade). Se o servidor estiver vazio, semeia com a lista atual.
+  async function loadFornecedoresFromServer() {
+    const data = await apiGetFornecedores();
+    if (data && Array.isArray(data.fornecedores)) {
+      if (data.fornecedores.length > 0) {
+        allFornecedores = data.fornecedores;
+        try { localStorage.setItem('ecoville_fornecedores', JSON.stringify(allFornecedores)); } catch(e) {}
+        return;
+      }
+      // Servidor vazio: semeia com cache local / lista padrao e envia
+      loadFornecedoresIfNeeded();
+      await apiSaveFornecedores(allFornecedores);
+      try { localStorage.setItem('ecoville_fornecedores', JSON.stringify(allFornecedores)); } catch(e) {}
+      return;
+    }
+    // Servidor indisponivel: usa cache local / padrao
+    loadFornecedoresIfNeeded();
+  }
   function fornecedorDoProduto(productId) { return allFornecedores.find(f => (f.produtos || []).includes(productId)); }
   function waLink(tel) { const d = (tel || '').replace(/\D/g, ''); return d ? 'https://wa.me/' + d : ''; }
   function fmtTelefone(tel) {
