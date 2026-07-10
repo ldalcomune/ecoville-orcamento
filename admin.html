@@ -998,7 +998,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <script>
   // ===== CONFIG =====
-  const APP_VERSION = 'v92';
+  const APP_VERSION = 'v93';
   const API_URL = 'https://ecoville-api.vercel.app/api';
   let allOrcamentos = [];
   let allUsers = [];
@@ -1699,6 +1699,7 @@
   }
 
   function renderOrcProdutos() {
+    loadFornecedoresIfNeeded();
     const search = (document.getElementById('orcProdSearch')?.value || '').toLowerCase();
     const sector = document.getElementById('orcSectorFilter')?.value || '';
     let filtered = ALL_PRODUCTS.filter(p => {
@@ -1711,11 +1712,14 @@
       const inCart = orcCart.find(c => c.productId === p.id);
       const stockInfo = p.stock !== undefined ? (p.stock > 0 ? '<span style="color:var(--green);font-size:11px;font-weight:600;"> ('+p.stock+' un)</span>' : '<span style="color:var(--red);font-size:11px;font-weight:600;"> (sem estoque)</span>') : '';
       const maxQty = (p.stock !== undefined && p.stock > 0) ? p.stock : 999;
+      const forn = fornecedorDoProduto(p.id);
+      const fornInfo = forn ? '<div style="font-size:11px;color:#7c3aed;font-weight:600;margin-top:2px">' + forn.nome + '</div>' : '';
       return `<div class="prod-card ${inCart ? 'in-cart' : ''}" onclick="${inCart ? '' : 'addOrcCart(' + p.id + ')'}">
         <div class="prod-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M20.59 13.41l-7.17 7.17a2 2 0 01-2.83 0L2 12V2h10l8.59 8.59a2 2 0 010 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg></div>
         <div class="prod-info">
           <div class="prod-name">${p.description}</div>
           <div class="prod-meta">${p.code}${stockInfo} <span class="sector-badge ${getSectorClass(p.sector)}">${getSectorLabel(p.sector)}</span></div>
+          ${fornInfo}
           ${inCart ? '<div class="prod-qty"><button class="qty-btn" onclick="event.stopPropagation();updateOrcQty('+p.id+',-1)">-</button><span class="qty-val">'+inCart.qty+'</span><button class="qty-btn" onclick="event.stopPropagation();updateOrcQty('+p.id+',1)">+</button></div>' : ''}
         </div>
         <div class="prod-price">${formatPrice(p.price)}</div>
