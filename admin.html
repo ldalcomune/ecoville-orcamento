@@ -972,10 +972,11 @@
         <div class="table-card">
           <div class="table-header">
             <h3>Usuarios Cadastrados</h3>
+            <button class="btn-refresh" onclick="addUsuario()" style="background:var(--primary);color:#fff;">+ Novo Usuario</button>
           </div>
           <div style="overflow-x:auto;">
             <table><thead><tr>
-              <th>Usuario</th><th>Nome</th><th>Orcamentos</th><th>Ultimo Orcamento</th>
+              <th>Usuario</th><th>Nome</th><th>Senha</th><th>Trocar no login</th><th>Orcamentos</th><th>Acoes</th>
             </tr></thead><tbody id="userTable"></tbody></table>
           </div>
         </div>
@@ -999,7 +1000,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <script>
   // ===== CONFIG =====
-  const APP_VERSION = 'v95';
+  const APP_VERSION = 'v96';
   const API_URL = 'https://ecoville-api.vercel.app/api';
   // Permissoes por usuario: null = pagina completa; array = secoes permitidas
   const USER_SECTIONS = {
@@ -1043,6 +1044,11 @@
       if (r.ok) {
         const data = await r.json();
         localStorage.setItem('ecoville_api_token', data.token);
+        if (data.mustChangePassword) {
+          // Precisa trocar a senha antes de entrar (nao grava sessao ainda)
+          forcarTrocaSenha(data.name, data.user);
+          return;
+        }
         localStorage.setItem('ecoville_session', JSON.stringify({ user: data.user, name: data.name }));
         enterApp(data.name, data.user);
         return;
@@ -1199,12 +1205,19 @@
       allOrcamentos.forEach(o => syncParcelas(o.coraPayment));
     } catch(e) {}
 
-    // Fetch users
+    // Fetch users (do backend autenticado; so admin recebe as senhas)
     try {
-      const r = await fetch('./users.json?t=' + Date.now());
-      if (r.ok) allUsers = await r.json();
+      const r = await fetch(API_URL + '/users', { headers: apiHeaders() });
+      if (r.ok) { const d = await r.json(); allUsers = d.users || []; }
+      else throw new Error('sem acesso');
     } catch(e) {
-      try { allUsers = JSON.parse(localStorage.getItem('ecoville_users') || '[]'); } catch(e2) { allUsers = []; }
+      // Fallback: arquivo publico (sem senhas para quem nao e admin) ou cache
+      try {
+        const r = await fetch('./users.json?t=' + Date.now());
+        if (r.ok) allUsers = await r.json();
+      } catch(e2) {
+        try { allUsers = JSON.parse(localStorage.getItem('ecoville_users') || '[]'); } catch(e3) { allUsers = []; }
+      }
     }
     if (!allUsers.length) {
       allUsers = [
@@ -2811,14 +2824,89 @@
 
     document.getElementById('userTable').innerHTML = allUsers.map(u => {
       const count = userOrcCounts[u.user] || userOrcCounts[u.name] || 0;
-      const last = userLastOrc[u.user] || userLastOrc[u.name];
+      const senha = (u.pass != null && u.pass !== '') ? u.pass : '<span style="color:var(--gray-400)">(nao disponivel)</span>';
+      const trocar = u.mustChangePassword
+        ? '<span style="background:var(--orange-light);color:var(--orange);padding:2px 8px;border-radius:10px;font-size:11px;font-weight:700">Sim</span>'
+        : '<span style="color:var(--gray-400)">-</span>';
+      const btnTroca = u.mustChangePassword
+        ? `<button onclick="toggleTrocaSenha('${u.user}')" style="background:var(--gray-100);color:var(--gray-700);border:none;border-radius:6px;padding:6px 10px;font-size:11px;font-weight:700;cursor:pointer;margin:2px">Cancelar troca</button>`
+        : `<button onclick="toggleTrocaSenha('${u.user}')" style="background:var(--orange-light);color:var(--orange);border:none;border-radius:6px;padding:6px 10px;font-size:11px;font-weight:700;cursor:pointer;margin:2px">Obrigar troca</button>`;
+      const btnDel = u.user !== 'admin' ? `<button onclick="removerUsuario('${u.user}')" style="background:var(--red-light);color:var(--red);border:none;border-radius:6px;padding:6px 10px;font-size:11px;font-weight:700;cursor:pointer;margin:2px">Excluir</button>` : '';
       return `<tr>
         <td><strong>${u.user}</strong></td>
-        <td>${u.name}</td>
+        <td>${u.name || ''}</td>
+        <td><code style="background:var(--gray-100);padding:2px 8px;border-radius:6px;font-size:13px">${senha}</code></td>
+        <td>${trocar}</td>
         <td>${count}</td>
-        <td>${last ? (last.data || '-') : '-'}</td>
+        <td>
+          <button onclick="resetarSenha('${u.user}')" style="background:rgba(13,43,107,0.08);color:var(--primary);border:none;border-radius:6px;padding:6px 10px;font-size:11px;font-weight:700;cursor:pointer;margin:2px">Resetar senha</button>
+          ${btnTroca}${btnDel}
+        </td>
       </tr>`;
-    }).join('') || '<tr><td colspan="4" style="text-align:center;padding:32px;color:var(--gray-400)">Nenhum usuario</td></tr>';
+    }).join('') || '<tr><td colspan="6" style="text-align:center;padding:32px;color:var(--gray-400)">Nenhum usuario</td></tr>';
+  }
+
+  async function salvarUsuarios() {
+    try {
+      const r = await fetch(API_URL + '/users', { method: 'POST', headers: apiHeaders(), body: JSON.stringify({ users: allUsers }) });
+      return r.ok;
+    } catch (e) { return false; }
+  }
+  function resetarSenha(user) {
+    const u = allUsers.find(x => x.user === user);
+    if (!u) return;
+    const nova = prompt('Nova senha para "' + user + '":', '');
+    if (nova === null) return;
+    if (!nova.trim()) { alert('A senha nao pode ser vazia.'); return; }
+    u.pass = nova.trim();
+    salvarUsuarios().then(ok => { renderUsuarios(); alert(ok ? 'Senha de ' + user + ' alterada!' : 'Erro ao salvar no servidor.'); });
+  }
+  function toggleTrocaSenha(user) {
+    const u = allUsers.find(x => x.user === user);
+    if (!u) return;
+    u.mustChangePassword = !u.mustChangePassword;
+    salvarUsuarios().then(ok => { renderUsuarios(); if (!ok) alert('Erro ao salvar no servidor.'); });
+  }
+  function removerUsuario(user) {
+    if (user === 'admin') { alert('Nao e possivel remover o administrador.'); return; }
+    if (!confirm('Remover o usuario "' + user + '"?')) return;
+    allUsers = allUsers.filter(x => x.user !== user);
+    salvarUsuarios().then(() => renderUsuarios());
+  }
+  function addUsuario() {
+    const user = (prompt('Novo usuario (login, sem espacos):', '') || '').trim().toLowerCase();
+    if (!user) return;
+    if (allUsers.some(x => x.user === user)) { alert('Ja existe um usuario com esse login.'); return; }
+    const name = (prompt('Nome do usuario:', '') || '').trim();
+    const pass = (prompt('Senha inicial:', '') || '').trim();
+    if (!pass) { alert('A senha inicial e obrigatoria.'); return; }
+    const obrigar = confirm('Obrigar o usuario a trocar a senha no primeiro login?');
+    allUsers.push({ user, name, pass, mustChangePassword: obrigar });
+    salvarUsuarios().then(ok => { renderUsuarios(); alert(ok ? 'Usuario ' + user + ' criado!' : 'Erro ao salvar no servidor.'); });
+  }
+
+  // Fluxo de troca obrigatoria de senha no login
+  async function forcarTrocaSenha(name, user) {
+    const nova = (prompt('Sua senha precisa ser trocada. Defina uma NOVA senha (min. 4 caracteres):', '') || '').trim();
+    if (!nova || nova.length < 4) {
+      if (nova) alert('Senha muito curta.');
+      localStorage.removeItem('ecoville_api_token');
+      return;
+    }
+    try {
+      const r = await fetch(API_URL + '/users', { method: 'POST', headers: apiHeaders(), body: JSON.stringify({ action: 'changeOwn', newPass: nova }) });
+      if (r.ok) {
+        localStorage.setItem('ecoville_session', JSON.stringify({ user, name }));
+        alert('Senha alterada com sucesso!');
+        enterApp(name, user);
+      } else {
+        alert('Erro ao trocar a senha.');
+        localStorage.removeItem('ecoville_api_token');
+      }
+    } catch (e) {
+      alert('Erro de conexao ao trocar a senha.');
+      localStorage.removeItem('ecoville_api_token');
+    }
   }
 </script>
 </body>
