@@ -998,7 +998,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <script>
   // ===== CONFIG =====
-  const APP_VERSION = 'v91';
+  const APP_VERSION = 'v92';
   const API_URL = 'https://ecoville-api.vercel.app/api';
   let allOrcamentos = [];
   let allUsers = [];
@@ -2564,44 +2564,97 @@
         <button onclick="removePedidoItem(${c.productId})" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:16px">&times;</button>
       </div>`).join('');
   }
+  // Agrupa o carrinho por fornecedor de cada produto
+  function agruparPedidoPorFornecedor() {
+    const grupos = new Map(); // fornId -> { forn, itens: [] }
+    const semForn = [];
+    pedidoCart.forEach(c => {
+      const f = fornecedorDoProduto(c.productId);
+      if (f) {
+        if (!grupos.has(f.id)) grupos.set(f.id, { forn: f, itens: [] });
+        grupos.get(f.id).itens.push(c);
+      } else {
+        semForn.push(c);
+      }
+    });
+    return { grupos, semForn };
+  }
+
   function concluirPedido() {
     if (!pedidoCart.length) { alert('Adicione ao menos um produto ao pedido.'); return; }
     loadFornecedoresIfNeeded();
-    const opts = allFornecedores.slice().sort((a, b) => (a.nome || '').localeCompare(b.nome || '')).map(f => `<option value="${f.id}">${f.nome}</option>`).join('');
-    const totalUn = pedidoCart.reduce((s, c) => s + c.qty, 0);
-    document.getElementById('modalTitle').textContent = 'Concluir Pedido de Compra';
-    document.getElementById('modalBody').innerHTML = `
-      <div style="display:grid;gap:10px">
-        <div style="font-size:13px;color:var(--gray-600)">${pedidoCart.length} itens • ${totalUn} unidades</div>
-        <div><label style="font-size:12px;font-weight:600;color:var(--gray-600)">Fornecedor *</label>
-          <select id="pedidoFornecedor" style="width:100%;padding:10px;border:2px solid var(--gray-200);border-radius:8px;font-size:14px;font-family:inherit">${opts}</select></div>
-        <div><label style="font-size:12px;font-weight:600;color:var(--gray-600)">Observacoes</label>
-          <textarea id="pedidoObsInput" rows="2" style="width:100%;padding:10px;border:2px solid var(--gray-200);border-radius:8px;font-size:14px;font-family:inherit"></textarea></div>
-        <button onclick="salvarPedido()" style="width:100%;background:var(--primary);color:#fff;border:none;border-radius:8px;padding:13px;font-size:15px;font-weight:700;cursor:pointer">Salvar Pedido</button>
+    const { grupos, semForn } = agruparPedidoPorFornecedor();
+    const fornOpts = allFornecedores.slice().sort((a, b) => (a.nome || '').localeCompare(b.nome || '')).map(f => `<option value="${f.id}">${f.nome}</option>`).join('');
+
+    let html = '<div style="display:grid;gap:12px">';
+    html += `<div style="font-size:13px;color:var(--gray-600)">Os produtos serao organizados por fornecedor — um pedido para cada:</div>`;
+    [...grupos.values()].sort((a, b) => (a.forn.nome || '').localeCompare(b.forn.nome || '')).forEach(g => {
+      const un = g.itens.reduce((s, c) => s + c.qty, 0);
+      html += `<div style="border:1px solid var(--gray-200);border-radius:8px;padding:10px">
+        <div style="font-weight:700;color:var(--primary);margin-bottom:6px">${g.forn.nome} <span style="color:var(--gray-400);font-weight:400;font-size:12px">(${g.itens.length} itens • ${un} un)</span></div>
+        ${g.itens.map(c => `<div style="display:flex;justify-content:space-between;font-size:13px;padding:2px 0"><span>${c.description}</span><span style="font-weight:700">${c.qty}x</span></div>`).join('')}
       </div>`;
+    });
+    if (semForn.length) {
+      html += `<div style="border:1px dashed var(--orange);border-radius:8px;padding:10px;background:var(--orange-light)">
+        <div style="font-weight:700;color:var(--orange);margin-bottom:6px">Sem fornecedor definido (${semForn.length}) — escolha para incluir:</div>
+        ${semForn.map(c => `<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:13px;padding:3px 0">
+          <span style="flex:1">${c.description} <b>${c.qty}x</b></span>
+          <select id="semForn_${c.productId}" style="padding:4px;border:1px solid var(--gray-300);border-radius:6px;font-size:12px"><option value="">(ignorar)</option>${fornOpts}</select>
+        </div>`).join('')}
+      </div>`;
+    }
+    html += `<div><label style="font-size:12px;font-weight:600;color:var(--gray-600)">Observacoes (aplicada a todos)</label>
+      <textarea id="pedidoObsInput" rows="2" style="width:100%;padding:10px;border:2px solid var(--gray-200);border-radius:8px;font-size:14px;font-family:inherit"></textarea></div>`;
+    html += `<button onclick="salvarPedidos()" style="width:100%;background:var(--primary);color:#fff;border:none;border-radius:8px;padding:13px;font-size:15px;font-weight:700;cursor:pointer">Salvar ${grupos.size || ''} Pedido(s) por Fornecedor</button>`;
+    html += '</div>';
+
+    document.getElementById('modalTitle').textContent = 'Concluir Pedido — por Fornecedor';
+    document.getElementById('modalBody').innerHTML = html;
     document.getElementById('modalOrc').classList.add('open');
   }
-  function salvarPedido() {
-    const fid = parseInt(document.getElementById('pedidoFornecedor').value);
-    const forn = allFornecedores.find(f => f.id === fid);
-    if (!forn) { alert('Selecione um fornecedor'); return; }
+
+  function salvarPedidos() {
+    const obs = (document.getElementById('pedidoObsInput')?.value || '').trim();
     const now = new Date();
-    const pedido = {
-      id: Date.now(),
-      data: now.toLocaleDateString('pt-BR'),
-      dataISO: now.toISOString(),
-      itens: pedidoCart.map(c => ({ productId: c.productId, code: c.code, description: c.description, qty: c.qty })),
-      obs: (document.getElementById('pedidoObsInput').value || '').trim(),
-      totalItens: pedidoCart.length,
-      totalUnidades: pedidoCart.reduce((s, c) => s + c.qty, 0)
-    };
-    if (!forn.pedidos) forn.pedidos = [];
-    forn.pedidos.unshift(pedido);
+    const data = now.toLocaleDateString('pt-BR');
+    const dataISO = now.toISOString();
+
+    // Reagrupa incluindo os "sem fornecedor" atribuidos manualmente no modal
+    const grupos = new Map();
+    pedidoCart.forEach(c => {
+      let f = fornecedorDoProduto(c.productId);
+      if (!f) {
+        const sel = document.getElementById('semForn_' + c.productId);
+        const fid = sel ? parseInt(sel.value) : NaN;
+        if (fid) f = allFornecedores.find(x => x.id === fid);
+      }
+      if (!f) return; // ignorado
+      if (!grupos.has(f.id)) grupos.set(f.id, { forn: f, itens: [] });
+      grupos.get(f.id).itens.push(c);
+    });
+
+    if (!grupos.size) { alert('Nenhum item com fornecedor para salvar.'); return; }
+
+    let n = 0;
+    grupos.forEach(g => {
+      const pedido = {
+        id: Date.now() + (n++),
+        data, dataISO,
+        itens: g.itens.map(c => ({ productId: c.productId, code: c.code, description: c.description, qty: c.qty })),
+        obs,
+        totalItens: g.itens.length,
+        totalUnidades: g.itens.reduce((s, c) => s + c.qty, 0)
+      };
+      if (!g.forn.pedidos) g.forn.pedidos = [];
+      g.forn.pedidos.unshift(pedido);
+    });
+
     saveFornecedores();
     closeModal();
     pedidoCart = [];
     renderPedidoProdutos();
-    alert('Pedido salvo para ' + forn.nome + '!');
+    alert(grupos.size + ' pedido(s) criado(s), organizados por fornecedor!');
   }
   function verPedidosFornecedor(id) {
     const f = allFornecedores.find(x => x.id === id);
