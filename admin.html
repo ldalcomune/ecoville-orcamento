@@ -770,10 +770,17 @@
           </select>
           <span id="prodCount" style="font-size:13px;color:var(--gray-500);"></span>
         </div>
+        <div id="prodPedidoBar" style="display:none;background:var(--primary);color:#fff;border-radius:8px;padding:10px 14px;margin-bottom:12px;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">
+          <span id="prodPedidoResumo" style="font-weight:600"></span>
+          <div style="display:flex;gap:8px">
+            <button onclick="limparPedido()" style="background:rgba(255,255,255,0.2);color:#fff;border:none;border-radius:6px;padding:8px 12px;font-weight:600;cursor:pointer">Limpar</button>
+            <button onclick="concluirPedido()" style="background:#fff;color:var(--primary);border:none;border-radius:6px;padding:8px 16px;font-weight:700;cursor:pointer">Gerar Pedido</button>
+          </div>
+        </div>
         <div class="table-card">
           <div style="overflow-x:auto;">
             <table><thead><tr>
-              <th>Codigo</th><th>Produto</th><th>Referencia</th><th>Setor</th><th>Fornecedor</th><th>Estoque</th><th>Preco</th>
+              <th>Codigo</th><th>Produto</th><th>Setor</th><th>Fornecedor</th><th>Estoque</th><th>Preco</th><th>Pedir</th>
             </tr></thead><tbody id="prodTableBody"></tbody></table>
           </div>
         </div>
@@ -795,28 +802,22 @@
         </div>
       </div>
 
-      <!-- ===== PEDIDOS DE COMPRA ===== -->
+      <!-- ===== PEDIDOS DE COMPRA (lista) ===== -->
       <div id="section-pedidos" class="page-section">
-        <div style="display:grid;grid-template-columns:1fr 340px;gap:16px;align-items:start">
-          <div class="table-card" style="padding:16px">
-            <div style="display:flex;gap:10px;margin-bottom:12px;align-items:center;flex-wrap:wrap">
-              <input type="text" class="table-search" id="pedidoProdSearch" placeholder="Buscar produto por nome ou codigo..." oninput="renderPedidoProdutos()" style="flex:1;min-width:220px">
-              <select class="table-filter" id="pedidoSectorFilter" onchange="renderPedidoProdutos()">
-                <option value="">Todos setores</option>
-                <option value="GERAL">Geral</option>
-                <option value="PRODUTOS ECOVILLE">Ecoville</option>
-                <option value="PRODUTOS HOMOLOGADOS">Homologados</option>
-              </select>
-            </div>
-            <div id="pedidoProdGrid" style="max-height:64vh;overflow-y:auto"></div>
-          </div>
-          <div class="table-card" style="padding:16px">
-            <h3 style="font-size:16px;font-weight:800;color:var(--primary);margin-bottom:6px">Pedido de Compra</h3>
-            <div id="pedidoCartCount" style="font-size:12px;color:var(--gray-500);margin-bottom:10px"></div>
-            <div id="pedidoCartItems" style="max-height:46vh;overflow-y:auto"></div>
-            <div id="pedidoCartEmpty" style="color:var(--gray-400);font-size:13px;padding:12px 0">Nenhum item ainda. Adicione produtos ao lado.</div>
-            <button onclick="concluirPedido()" style="width:100%;background:var(--primary);color:#fff;border:none;border-radius:8px;padding:12px;font-weight:700;cursor:pointer;margin-top:10px">Concluir Pedido</button>
-            <button onclick="limparPedido()" style="width:100%;background:var(--gray-100);color:var(--gray-600);border:none;border-radius:8px;padding:8px;font-weight:600;cursor:pointer;margin-top:6px">Limpar</button>
+        <div style="display:flex;gap:12px;margin-bottom:16px;align-items:center;flex-wrap:wrap;">
+          <input type="text" class="table-search" id="pedidosSearch" placeholder="Buscar por fornecedor ou produto..." oninput="renderPedidosLista()" style="width:320px;">
+          <select class="table-filter" id="pedidosStatusFilter" onchange="renderPedidosLista()">
+            <option value="">Todos os status</option>
+            <option value="pendente">Pendentes</option>
+            <option value="aceito">Aceitos</option>
+          </select>
+          <span id="pedidosCount" style="font-size:13px;color:var(--gray-500);"></span>
+        </div>
+        <div class="table-card">
+          <div style="overflow-x:auto;">
+            <table><thead><tr>
+              <th>Data</th><th>Fornecedor</th><th>Itens</th><th>Unidades</th><th>Status</th><th>Acoes</th>
+            </tr></thead><tbody id="pedidosTableBody"></tbody></table>
           </div>
         </div>
       </div>
@@ -998,7 +999,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <script>
   // ===== CONFIG =====
-  const APP_VERSION = 'v94';
+  const APP_VERSION = 'v95';
   const API_URL = 'https://ecoville-api.vercel.app/api';
   // Permissoes por usuario: null = pagina completa; array = secoes permitidas
   const USER_SECTIONS = {
@@ -1320,7 +1321,7 @@
     if (section === 'boletos') renderBoletos();
     if (section === 'clientes') renderClientes();
     if (section === 'fornecedores') renderFornecedores();
-    if (section === 'pedidos') renderPedidoProdutos();
+    if (section === 'pedidos') renderPedidosLista();
   }
 
   // ===== BUILTIN PRODUCTS =====
@@ -1695,6 +1696,7 @@
     });
     const zerados = ALL_PRODUCTS.filter(p => p.stock !== undefined && p.stock <= 0).length;
     document.getElementById('prodCount').textContent = filtered.length + ' produtos' + (zerados ? ' | ' + zerados + ' sem estoque' : '');
+    const qbtn = 'width:26px;height:26px;border:none;border-radius:6px;background:var(--gray-100);color:var(--gray-700);font-weight:700;cursor:pointer';
     document.getElementById('prodTableBody').innerHTML = filtered.map(p => {
       const sClass = p.sector === 'GERAL' ? 'geral' : p.sector === 'PRODUTOS ECOVILLE' ? 'ecoville' : 'homologados';
       const sLabel = p.sector === 'GERAL' ? 'Geral' : p.sector === 'PRODUTOS ECOVILLE' ? 'Ecoville' : 'Homologados';
@@ -1702,16 +1704,35 @@
       const stockStyle = p.stock !== undefined ? (p.stock > 0 ? 'color:var(--green);font-weight:600;' : 'color:var(--red);font-weight:600;') : '';
       const forn = fornecedorDoProduto(p.id);
       const fornCell = forn ? forn.nome : '<span style="color:var(--gray-400)">-</span>';
+      const inCart = pedidoCart.find(c => c.productId === p.id);
+      const pedirCell = inCart
+        ? `<div style="display:inline-flex;align-items:center;gap:6px">
+             <button onclick="updatePedidoQty(${p.id},-1)" style="${qbtn}">-</button>
+             <span style="min-width:22px;text-align:center;font-weight:700">${inCart.qty}</span>
+             <button onclick="updatePedidoQty(${p.id},1)" style="${qbtn}">+</button>
+           </div>`
+        : `<button onclick="addPedidoItem(${p.id})" style="background:var(--primary);color:#fff;border:none;border-radius:6px;padding:6px 12px;font-size:12px;font-weight:700;cursor:pointer">+ Pedir</button>`;
       return `<tr>
         <td>${p.code}</td>
         <td>${p.description}</td>
-        <td>${p.reference || '-'}</td>
         <td><span class="sector-badge ${sClass}">${sLabel}</span></td>
         <td style="font-size:12px">${fornCell}</td>
         <td style="${stockStyle}">${stock}</td>
         <td><strong>${formatPrice(p.price)}</strong></td>
+        <td>${pedirCell}</td>
       </tr>`;
     }).join('') || '<tr><td colspan="7" style="text-align:center;padding:32px;color:var(--gray-400)">Nenhum produto encontrado</td></tr>';
+    renderProdPedidoBar();
+  }
+
+  function renderProdPedidoBar() {
+    const bar = document.getElementById('prodPedidoBar');
+    if (!bar) return;
+    if (!pedidoCart.length) { bar.style.display = 'none'; return; }
+    const un = pedidoCart.reduce((s, c) => s + c.qty, 0);
+    const nForn = new Set(pedidoCart.map(c => { const f = fornecedorDoProduto(c.productId); return f ? f.id : 'sem'; })).size;
+    document.getElementById('prodPedidoResumo').textContent = pedidoCart.length + ' itens • ' + un + ' unidades • ' + nForn + ' fornecedor(es)';
+    bar.style.display = 'flex';
   }
 
   // ===== NOVO ORCAMENTO =====
@@ -2541,67 +2562,28 @@
 
   // ===== PEDIDOS DE COMPRA =====
   let pedidoCart = [];
-  function renderPedidoProdutos() {
-    loadFornecedoresIfNeeded();
-    const search = (document.getElementById('pedidoProdSearch')?.value || '').toLowerCase();
-    const sector = document.getElementById('pedidoSectorFilter')?.value || '';
-    let filtered = ALL_PRODUCTS.filter(p => {
-      if (sector && p.sector !== sector) return false;
-      if (search && !p.description.toLowerCase().includes(search) && !(p.code || '').toLowerCase().includes(search)) return false;
-      return true;
-    });
-    const qbtn = 'width:26px;height:26px;border:none;border-radius:6px;background:var(--gray-100);color:var(--gray-700);font-weight:700;cursor:pointer';
-    document.getElementById('pedidoProdGrid').innerHTML = filtered.slice(0, 600).map(p => {
-      const inCart = pedidoCart.find(c => c.productId === p.id);
-      const forn = fornecedorDoProduto(p.id);
-      const right = inCart
-        ? `<div style="display:flex;align-items:center;gap:6px">
-            <button onclick="updatePedidoQty(${p.id},-1)" style="${qbtn}">-</button>
-            <span style="min-width:24px;text-align:center;font-weight:700">${inCart.qty}</span>
-            <button onclick="updatePedidoQty(${p.id},1)" style="${qbtn}">+</button>
-          </div>`
-        : `<button onclick="addPedidoItem(${p.id})" style="background:var(--primary);color:#fff;border:none;border-radius:6px;padding:6px 12px;font-size:12px;font-weight:700;cursor:pointer">Adicionar</button>`;
-      return `<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px;border-bottom:1px solid var(--gray-100)">
-        <div style="font-size:13px"><strong>${p.description}</strong><br>
-          <span style="color:var(--gray-400);font-size:11px">${p.code}</span>${forn ? ' <span style="color:#7c3aed;font-size:11px">&bull; ' + forn.nome + '</span>' : ''}</div>
-        ${right}
-      </div>`;
-    }).join('') || '<div style="color:var(--gray-400);padding:20px;text-align:center">Nenhum produto</div>';
-    renderPedidoCart();
-  }
+  // O pedido agora e montado na secao Produtos (coluna "Pedir"). Estas funcoes
+  // manipulam o carrinho e re-renderizam a tabela de Produtos + a barra.
+  function _refreshPedidoUI() { if (document.getElementById('prodTableBody')) renderProdutos(); }
   function addPedidoItem(id) {
     const p = ALL_PRODUCTS.find(x => x.id === id);
     if (!p) return;
     const ex = pedidoCart.find(c => c.productId === id);
     if (ex) ex.qty++; else pedidoCart.push({ productId: id, code: p.code, description: p.description, qty: 1 });
-    renderPedidoProdutos();
+    _refreshPedidoUI();
   }
   function updatePedidoQty(id, delta) {
     const it = pedidoCart.find(c => c.productId === id);
     if (!it) return;
     it.qty += delta;
     if (it.qty <= 0) pedidoCart = pedidoCart.filter(c => c.productId !== id);
-    renderPedidoProdutos();
+    _refreshPedidoUI();
   }
-  function removePedidoItem(id) { pedidoCart = pedidoCart.filter(c => c.productId !== id); renderPedidoProdutos(); }
+  function removePedidoItem(id) { pedidoCart = pedidoCart.filter(c => c.productId !== id); _refreshPedidoUI(); }
   function limparPedido() {
     if (pedidoCart.length && !confirm('Limpar o pedido?')) return;
     pedidoCart = [];
-    renderPedidoProdutos();
-  }
-  function renderPedidoCart() {
-    const totalUn = pedidoCart.reduce((s, c) => s + c.qty, 0);
-    const cnt = document.getElementById('pedidoCartCount');
-    const empty = document.getElementById('pedidoCartEmpty');
-    if (cnt) cnt.textContent = pedidoCart.length ? (pedidoCart.length + ' itens &bull; ' + totalUn + ' unidades').replace('&bull;', '•') : '';
-    if (empty) empty.style.display = pedidoCart.length ? 'none' : 'block';
-    const box = document.getElementById('pedidoCartItems');
-    if (box) box.innerHTML = pedidoCart.map(c => `
-      <div style="display:flex;align-items:center;justify-content:space-between;gap:6px;padding:6px 0;border-bottom:1px solid var(--gray-100);font-size:13px">
-        <span style="flex:1">${c.description}</span>
-        <span style="font-weight:700">${c.qty}x</span>
-        <button onclick="removePedidoItem(${c.productId})" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:16px">&times;</button>
-      </div>`).join('');
+    _refreshPedidoUI();
   }
   // Agrupa o carrinho por fornecedor de cada produto
   function agruparPedidoPorFornecedor() {
@@ -2692,8 +2674,8 @@
     saveFornecedores();
     closeModal();
     pedidoCart = [];
-    renderPedidoProdutos();
-    alert(grupos.size + ' pedido(s) criado(s), organizados por fornecedor!');
+    renderProdutos();
+    alert(grupos.size + ' pedido(s) gerado(s), organizados por fornecedor! Veja em Pedidos.');
   }
   function verPedidosFornecedor(id) {
     const f = allFornecedores.find(x => x.id === id);
@@ -2723,7 +2705,74 @@
     f.pedidos = (f.pedidos || []).filter(p => p.id !== pedidoId);
     saveFornecedores();
     renderFornecedores();
-    verPedidosFornecedor(fid);
+    if (currentSection === 'pedidos') renderPedidosLista(); else verPedidosFornecedor(fid);
+  }
+
+  // ===== LISTA DE PEDIDOS (feitos) + aprovacao =====
+  function _todosPedidos() {
+    const lista = [];
+    loadFornecedoresIfNeeded();
+    allFornecedores.forEach(f => (f.pedidos || []).forEach(pe => lista.push({ fornId: f.id, fornNome: f.nome, pe })));
+    lista.sort((a, b) => new Date(b.pe.dataISO || 0) - new Date(a.pe.dataISO || 0));
+    return lista;
+  }
+  function renderPedidosLista() {
+    const search = (document.getElementById('pedidosSearch')?.value || '').toLowerCase();
+    const status = document.getElementById('pedidosStatusFilter')?.value || '';
+    let lista = _todosPedidos();
+    if (status === 'aceito') lista = lista.filter(x => x.pe.aprovado);
+    if (status === 'pendente') lista = lista.filter(x => !x.pe.aprovado);
+    if (search) lista = lista.filter(x =>
+      (x.fornNome || '').toLowerCase().includes(search) ||
+      (x.pe.itens || []).some(it => (it.description || '').toLowerCase().includes(search))
+    );
+    document.getElementById('pedidosCount').textContent = lista.length + ' pedidos';
+    const isAdmin = currentUser === 'admin';
+    document.getElementById('pedidosTableBody').innerHTML = lista.map(x => {
+      const pe = x.pe;
+      const statusCell = pe.aprovado
+        ? `<span style="background:var(--green-light);color:var(--green);padding:3px 10px;border-radius:12px;font-size:11px;font-weight:700">Aceito${pe.aprovadoEm ? ' • ' + pe.aprovadoEm.split(' ')[0] : ''}</span>`
+        : `<span style="background:var(--orange-light);color:var(--orange);padding:3px 10px;border-radius:12px;font-size:11px;font-weight:700">Pendente</span>`;
+      const btnAceito = (!pe.aprovado && isAdmin)
+        ? `<button onclick="aprovarPedido(${x.fornId},${pe.id})" style="background:#059669;color:#fff;border:none;border-radius:6px;padding:6px 12px;font-size:11px;font-weight:700;cursor:pointer;margin:2px">Pedido aceito</button>`
+        : '';
+      return `<tr>
+        <td>${pe.data || '-'}</td>
+        <td><strong>${x.fornNome}</strong></td>
+        <td>${pe.totalItens} itens</td>
+        <td>${pe.totalUnidades} un</td>
+        <td>${statusCell}</td>
+        <td>
+          <button onclick="verPedido(${x.fornId},${pe.id})" style="background:var(--gray-100);color:var(--gray-700);border:none;border-radius:6px;padding:6px 12px;font-size:11px;font-weight:700;cursor:pointer;margin:2px">Ver</button>
+          ${btnAceito}
+          <button onclick="excluirPedidoFornecedor(${x.fornId},${pe.id})" style="background:var(--red-light);color:var(--red);border:none;border-radius:6px;padding:6px 10px;font-size:11px;font-weight:700;cursor:pointer;margin:2px">Excluir</button>
+        </td>
+      </tr>`;
+    }).join('') || '<tr><td colspan="6" style="text-align:center;padding:32px;color:var(--gray-400)">Nenhum pedido feito ainda. Gere um em Produtos.</td></tr>';
+  }
+  function aprovarPedido(fornId, pedidoId) {
+    if (currentUser !== 'admin') { alert('Somente o administrador pode aprovar pedidos.'); return; }
+    const f = allFornecedores.find(x => x.id === fornId);
+    const pe = f && (f.pedidos || []).find(p => p.id === pedidoId);
+    if (!pe) return;
+    pe.aprovado = true;
+    pe.aprovadoEm = _nowStamp();
+    pe.aprovadoPor = currentUser;
+    saveFornecedores();
+    renderPedidosLista();
+  }
+  function verPedido(fornId, pedidoId) {
+    const f = allFornecedores.find(x => x.id === fornId);
+    const pe = f && (f.pedidos || []).find(p => p.id === pedidoId);
+    if (!pe) return;
+    document.getElementById('modalTitle').textContent = 'Pedido - ' + f.nome;
+    document.getElementById('modalBody').innerHTML = `
+      <div style="font-size:13px;color:var(--gray-600);margin-bottom:8px">${pe.data} • ${pe.totalItens} itens • ${pe.totalUnidades} unidades • ${pe.aprovado ? '<b style="color:var(--green)">Aceito</b>' : '<b style="color:var(--orange)">Pendente</b>'}</div>
+      ${pe.obs ? '<div style="font-size:12px;color:var(--gray-600);margin-bottom:8px">Obs: ' + pe.obs + '</div>' : ''}
+      <table style="width:100%;font-size:13px"><thead><tr><th style="text-align:left">Produto</th><th>Cod.</th><th style="text-align:right">Qtd</th></tr></thead><tbody>
+        ${pe.itens.map(it => `<tr><td style="padding:3px 0">${it.description}</td><td style="text-align:center;color:var(--gray-400)">${it.code || ''}</td><td style="text-align:right;font-weight:700">${it.qty}x</td></tr>`).join('')}
+      </tbody></table>`;
+    document.getElementById('modalOrc').classList.add('open');
   }
 
   // ===== CLIENTES =====
