@@ -1000,7 +1000,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <script>
   // ===== CONFIG =====
-  const APP_VERSION = 'v99';
+  const APP_VERSION = 'v100';
   const API_URL = 'https://ecoville-api.vercel.app/api';
   // Permissoes por usuario: null = pagina completa; array = secoes permitidas
   const USER_SECTIONS = {
@@ -1113,6 +1113,31 @@
 
   // Mostra versao no login
   document.getElementById('loginVersion').textContent = APP_VERSION;
+
+  // ===== VERIFICACAO AUTOMATICA DE VERSAO (evita ficar preso em cache antigo) =====
+  async function checkForUpdate() {
+    try {
+      const r = await fetch('./sw.js?_=' + Date.now(), { cache: 'no-store' });
+      if (!r.ok) return;
+      const txt = await r.text();
+      const m = txt.match(/ecoville-v(\d+)/);
+      if (!m) return;
+      const serverVer = parseInt(m[1], 10);
+      const localVer = parseInt(String(APP_VERSION).replace(/\D/g, ''), 10);
+      if (serverVer > localVer) mostrarBannerAtualizar(serverVer);
+    } catch (e) {}
+  }
+  function mostrarBannerAtualizar(ver) {
+    if (document.getElementById('updateBanner')) return;
+    const b = document.createElement('div');
+    b.id = 'updateBanner';
+    b.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:99999;background:var(--accent);color:var(--primary);padding:11px 16px;text-align:center;font-weight:700;font-size:14px;cursor:pointer;box-shadow:0 2px 10px rgba(0,0,0,0.25)';
+    b.innerHTML = '&#128260; Nova versao disponivel (v' + ver + '). Clique aqui para atualizar.';
+    b.onclick = () => { location.href = location.pathname + '?_v=' + ver; };
+    document.body.appendChild(b);
+  }
+  checkForUpdate();
+  setInterval(checkForUpdate, 60000);
 
   // Check session on load
   (function checkSession() {
