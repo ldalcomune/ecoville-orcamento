@@ -1000,7 +1000,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <script>
   // ===== CONFIG =====
-  const APP_VERSION = 'v98';
+  const APP_VERSION = 'v99';
   const API_URL = 'https://ecoville-api.vercel.app/api';
   // Permissoes por usuario: null = pagina completa; array = secoes permitidas
   const USER_SECTIONS = {
@@ -2648,7 +2648,14 @@
     document.getElementById('modalOrc').classList.add('open');
   }
 
-  function salvarPedidos() {
+  async function apiAddPedido(fornecedorId, pedido) {
+    try {
+      const r = await fetch(API_URL + '/fornecedores', { method: 'POST', headers: apiHeaders(), body: JSON.stringify({ action: 'addPedido', fornecedorId, pedido }) });
+      return r.ok;
+    } catch (e) { return false; }
+  }
+
+  async function salvarPedidos() {
     const obs = (document.getElementById('pedidoObsInput')?.value || '').trim();
     const now = new Date();
     const data = now.toLocaleDateString('pt-BR');
@@ -2670,25 +2677,30 @@
 
     if (!grupos.size) { alert('Nenhum item com fornecedor para salvar.'); return; }
 
-    let n = 0;
-    grupos.forEach(g => {
+    let n = 0, erros = 0;
+    for (const g of grupos.values()) {
       const pedido = {
         id: Date.now() + (n++),
         data, dataISO,
         itens: g.itens.map(c => ({ productId: c.productId, code: c.code, description: c.description, qty: c.qty })),
         obs,
+        criadoPor: currentUser,
         totalItens: g.itens.length,
         totalUnidades: g.itens.reduce((s, c) => s + c.qty, 0)
       };
+      // Atualiza local
       if (!g.forn.pedidos) g.forn.pedidos = [];
       g.forn.pedidos.unshift(pedido);
-    });
+      // Salva no servidor (acao addPedido — funciona para admin E rodrigo)
+      const ok = await apiAddPedido(g.forn.id, pedido);
+      if (!ok) erros++;
+    }
+    try { localStorage.setItem('ecoville_fornecedores', JSON.stringify(allFornecedores)); } catch (e) {}
 
-    saveFornecedores();
     closeModal();
     pedidoCart = [];
     renderProdutos();
-    alert(grupos.size + ' pedido(s) gerado(s), organizados por fornecedor! Veja em Pedidos.');
+    alert(grupos.size + ' pedido(s) gerado(s), organizados por fornecedor!' + (erros ? ' (' + erros + ' nao salvaram no servidor)' : ' Veja em Pedidos.'));
   }
   function verPedidosFornecedor(id) {
     const f = allFornecedores.find(x => x.id === id);
@@ -2774,7 +2786,7 @@
         <td>
           <button onclick="verPedido(${x.fornId},${pe.id})" style="background:var(--gray-100);color:var(--gray-700);border:none;border-radius:6px;padding:6px 12px;font-size:11px;font-weight:700;cursor:pointer;margin:2px">Ver</button>
           ${btnAceito}
-          <button onclick="excluirPedidoFornecedor(${x.fornId},${pe.id})" style="background:var(--red-light);color:var(--red);border:none;border-radius:6px;padding:6px 10px;font-size:11px;font-weight:700;cursor:pointer;margin:2px">Excluir</button>
+          ${isAdmin ? `<button onclick="excluirPedidoFornecedor(${x.fornId},${pe.id})" style="background:var(--red-light);color:var(--red);border:none;border-radius:6px;padding:6px 10px;font-size:11px;font-weight:700;cursor:pointer;margin:2px">Excluir</button>` : ''}
         </td>
       </tr>`;
     }).join('') || '<tr><td colspan="7" style="text-align:center;padding:32px;color:var(--gray-400)">Nenhum pedido feito ainda. Gere um em Produtos.</td></tr>';
