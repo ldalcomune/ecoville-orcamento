@@ -816,7 +816,7 @@
         <div class="table-card">
           <div style="overflow-x:auto;">
             <table><thead><tr>
-              <th>Data</th><th>Fornecedor</th><th>Contato / WhatsApp</th><th>Itens</th><th>Unidades</th><th>Status</th><th>Acoes</th>
+              <th>Data</th><th>Feito por</th><th>Fornecedor</th><th>Contato / WhatsApp</th><th>Itens</th><th>Unidades</th><th>Status</th><th>Acoes</th>
             </tr></thead><tbody id="pedidosTableBody"></tbody></table>
           </div>
         </div>
@@ -1000,7 +1000,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <script>
   // ===== CONFIG =====
-  const APP_VERSION = 'v100';
+  const APP_VERSION = 'v101';
   const API_URL = 'https://ecoville-api.vercel.app/api';
   // Permissoes por usuario: null = pagina completa; array = secoes permitidas
   const USER_SECTIONS = {
@@ -2801,8 +2801,10 @@
           contatoCell = nome + telTxt + btn || '<span style="color:var(--gray-400)">-</span>';
         }
       }
+      const criador = pe.criadoPor ? ((allUsers.find(u => u.user === pe.criadoPor) || {}).name || pe.criadoPor) : '<span style="color:var(--gray-400)">-</span>';
       return `<tr>
         <td>${pe.data || '-'}</td>
+        <td>${criador}</td>
         <td><strong>${x.fornNome}</strong></td>
         <td>${contatoCell}</td>
         <td>${pe.totalItens} itens</td>
@@ -2814,7 +2816,7 @@
           ${isAdmin ? `<button onclick="excluirPedidoFornecedor(${x.fornId},${pe.id})" style="background:var(--red-light);color:var(--red);border:none;border-radius:6px;padding:6px 10px;font-size:11px;font-weight:700;cursor:pointer;margin:2px">Excluir</button>` : ''}
         </td>
       </tr>`;
-    }).join('') || '<tr><td colspan="7" style="text-align:center;padding:32px;color:var(--gray-400)">Nenhum pedido feito ainda. Gere um em Produtos.</td></tr>';
+    }).join('') || '<tr><td colspan="8" style="text-align:center;padding:32px;color:var(--gray-400)">Nenhum pedido feito ainda. Gere um em Produtos.</td></tr>';
   }
   function aprovarPedido(fornId, pedidoId) {
     if (currentUser !== 'admin') { alert('Somente o administrador pode aprovar pedidos.'); return; }
@@ -2831,9 +2833,11 @@
     const f = allFornecedores.find(x => x.id === fornId);
     const pe = f && (f.pedidos || []).find(p => p.id === pedidoId);
     if (!pe) return;
+    const criador = pe.criadoPor ? ((allUsers.find(u => u.user === pe.criadoPor) || {}).name || pe.criadoPor) : '-';
     document.getElementById('modalTitle').textContent = 'Pedido - ' + f.nome;
     document.getElementById('modalBody').innerHTML = `
       <div style="font-size:13px;color:var(--gray-600);margin-bottom:8px">${pe.data} • ${pe.totalItens} itens • ${pe.totalUnidades} unidades • ${pe.aprovado ? '<b style="color:var(--green)">Aceito</b>' : '<b style="color:var(--orange)">Pendente</b>'}</div>
+      <div style="font-size:12px;color:var(--gray-500);margin-bottom:8px">Feito por: <b>${criador}</b>${pe.aprovadoPor ? ' • Aceito por: <b>' + pe.aprovadoPor + '</b>' : ''}</div>
       ${pe.obs ? '<div style="font-size:12px;color:var(--gray-600);margin-bottom:8px">Obs: ' + pe.obs + '</div>' : ''}
       <table style="width:100%;font-size:13px"><thead><tr><th style="text-align:left">Produto</th><th>Cod.</th><th style="text-align:right">Qtd</th></tr></thead><tbody>
         ${pe.itens.map(it => `<tr><td style="padding:3px 0">${it.description}</td><td style="text-align:center;color:var(--gray-400)">${it.code || ''}</td><td style="text-align:right;font-weight:700">${it.qty}x</td></tr>`).join('')}
