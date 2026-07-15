@@ -998,9 +998,10 @@
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <script>
   // ===== CONFIG =====
-  const APP_VERSION = 'v101';
+  const APP_VERSION = 'v102';
   const API_URL = 'https://ecoville-api.vercel.app/api';
   // Permissoes por usuario: null = pagina completa; array = secoes permitidas
   const USER_SECTIONS = {
@@ -2508,14 +2509,17 @@
       const pedCell = nPed
         ? `<button onclick="verPedidosFornecedor(${f.id})" style="background:#ede9fe;color:#7c3aed;border:none;border-radius:6px;padding:6px 10px;font-size:11px;font-weight:700;cursor:pointer">${nPed} pedido(s)</button>`
         : '<span style="color:var(--gray-400)">-</span>';
+      const modeloBadge = f.modeloXlsx ? ' <span title="' + (f.modeloNome || 'Modelo de Excel salvo') + '" style="background:var(--green-light);color:var(--green);padding:1px 6px;border-radius:6px;font-size:10px;font-weight:700;white-space:nowrap">&#128196; modelo</span>' : '';
+      const btnModelo = f.modeloXlsx ? `<button onclick="abrirPedidoModelo(${f.id})" style="background:#dcfce7;color:#047857;border:none;border-radius:6px;padding:6px 10px;font-size:11px;font-weight:700;cursor:pointer;margin:2px">Pedido Excel</button>` : '';
       return `<tr>
-        <td><strong>${f.nome || '-'}</strong></td>
+        <td><strong>${f.nome || '-'}</strong>${modeloBadge}</td>
         <td>${f.contato || '-'}</td>
         <td>${telHtml}</td>
         <td>${nProd ? nProd + ' produto(s)' : '<span style="color:var(--gray-400)">-</span>'}</td>
         <td>${pedCell}</td>
         <td style="max-width:220px;font-size:12px;color:var(--gray-600)">${f.obs || ''}</td>
         <td>
+          ${btnModelo}
           <button onclick="editarFornecedor(${f.id})" style="background:rgba(13,43,107,0.08);color:var(--primary);border:none;border-radius:6px;padding:6px 10px;font-size:11px;font-weight:700;cursor:pointer;margin:2px">Editar</button>
           <button onclick="excluirFornecedor(${f.id})" style="background:var(--red-light);color:var(--red);border:none;border-radius:6px;padding:6px 10px;font-size:11px;font-weight:700;cursor:pointer;margin:2px">Excluir</button>
         </td>
@@ -2530,6 +2534,7 @@
   function abrirModalFornecedor(f) {
     _editingFornId = f ? f.id : null;
     _fornSelectedProds = new Set(f ? (f.produtos || []) : []);
+    _fornModelo = (f && f.modeloXlsx) ? { nome: f.modeloNome || 'modelo.xlsx', base64: f.modeloXlsx, resumo: f.modeloResumo || '' } : null;
     const esc = (s) => (s || '').replace(/"/g, '&quot;');
     document.getElementById('modalTitle').textContent = f ? 'Editar Fornecedor' : 'Novo Fornecedor';
     document.getElementById('modalBody').innerHTML = `
@@ -2547,9 +2552,16 @@
           <input id="fornProdSearch" placeholder="Filtrar produtos por nome ou codigo..." oninput="filtrarProdutosFornecedor()" style="width:100%;padding:8px;border:2px solid var(--gray-200);border-radius:8px;font-size:13px;font-family:inherit;margin:6px 0">
           <div id="fornProdList" style="max-height:220px;overflow-y:auto;border:1px solid var(--gray-200);border-radius:8px;padding:8px"></div>
         </div>
+        <div style="border-top:1px solid var(--gray-200);padding-top:10px">
+          <label style="font-size:12px;font-weight:600;color:var(--gray-600)">Modelo de pedido (Excel oficial do fornecedor)</label>
+          <div style="font-size:11px;color:var(--gray-400);margin:2px 0 6px">Com um modelo salvo, use o botao "Pedido Excel" na lista de fornecedores para gerar o arquivo ja preenchido (coluna QUANT.).</div>
+          <div id="fornModeloStatus" style="margin-bottom:6px"></div>
+          <input type="file" accept=".xlsx" onchange="_onModeloFile(this)" style="width:100%;font-size:13px;color:var(--gray-600)">
+        </div>
         <button onclick="salvarFornecedor()" style="width:100%;background:var(--primary);color:#fff;border:none;border-radius:8px;padding:13px;font-size:15px;font-weight:700;cursor:pointer">Salvar</button>
       </div>`;
     filtrarProdutosFornecedor();
+    _renderModeloStatus();
     document.getElementById('modalOrc').classList.add('open');
   }
   function filtrarProdutosFornecedor() {
@@ -2576,7 +2588,10 @@
       contato: document.getElementById('fornContato').value.trim(),
       telefone: document.getElementById('fornTelefone').value.trim(),
       obs: document.getElementById('fornObs').value.trim(),
-      produtos: Array.from(_fornSelectedProds)
+      produtos: Array.from(_fornSelectedProds),
+      modeloXlsx: _fornModelo ? _fornModelo.base64 : null,
+      modeloNome: _fornModelo ? _fornModelo.nome : null,
+      modeloResumo: _fornModelo ? _fornModelo.resumo : null
     };
     if (_editingFornId) {
       const f = allFornecedores.find(x => x.id === _editingFornId);
@@ -2596,6 +2611,250 @@
     saveFornecedores();
     renderFornecedores();
     if (currentSection === 'produtos') renderProdutos();
+  }
+
+  // ===== MODELO DE PEDIDO (EXCEL) DO FORNECEDOR =====
+  // Preenche a coluna QUANT. de um .xlsx-modelo com as quantidades do pedido,
+  // sem alterar o arquivo original (gera uma copia) e preservando a formatacao.
+  let _fornModelo = null;   // {nome, base64, resumo} durante edicao do fornecedor
+  let _modeloAtual = null;  // {fornId, fornNome, nome, base64, produtos:[...]} durante o pedido
+
+  function _fmtReais(n) { return 'R$ ' + (Number(n) || 0).toFixed(2).replace('.', ','); }
+  function _escHtml(s) { return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
+  function _xmlUnescape(s) {
+    return String(s).replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&apos;/g, "'").replace(/&#(\d+);/g, (m, d) => String.fromCharCode(+d)).replace(/&amp;/g, '&');
+  }
+  function _norm(s) { return String(s || '').toUpperCase().normalize('NFD').replace(/[̀-ͯ]/g, ''); }
+  function _colToIdx(c) { let n = 0; for (const ch of c.toUpperCase()) n = n * 26 + (ch.charCodeAt(0) - 64); return n; }
+  function _getAttr(tag, name) { const m = tag.match(new RegExp('\\b' + name.replace(':', '\\:') + '="([^"]*)"')); return m ? m[1] : null; }
+
+  function _parseSharedStrings(xml) {
+    const arr = []; const re = /<si>([\s\S]*?)<\/si>/g; let m;
+    while ((m = re.exec(xml))) {
+      let s = ''; const tre = /<t[^>]*>([\s\S]*?)<\/t>/g; let t;
+      while ((t = tre.exec(m[1]))) s += t[1];
+      arr.push(_xmlUnescape(s));
+    }
+    return arr;
+  }
+  function _cellValue(tag, shared) {
+    const tm = tag.match(/\bt="([^"]+)"/); const t = tm ? tm[1] : null;
+    if (t === 'inlineStr') { const im = tag.match(/<t[^>]*>([\s\S]*?)<\/t>/); return { text: im ? _xmlUnescape(im[1]) : '', num: null }; }
+    const vm = tag.match(/<v>([\s\S]*?)<\/v>/);
+    if (!vm) return { text: '', num: null };
+    const raw = vm[1];
+    if (t === 's') return { text: shared[parseInt(raw, 10)] || '', num: null };
+    if (t === 'str') return { text: _xmlUnescape(raw), num: null };
+    const num = parseFloat(raw); return { text: '', num: isNaN(num) ? null : num };
+  }
+  // Le um .xlsx (base64) e devolve, por aba, a coluna QUANT. e as linhas de produto detectadas.
+  async function _lerModeloXlsx(base64) {
+    if (typeof JSZip === 'undefined') throw new Error('Biblioteca de Excel nao carregou. Verifique a conexao e recarregue a pagina.');
+    const zip = await JSZip.loadAsync(base64, { base64: true });
+    const relsF = zip.file('xl/_rels/workbook.xml.rels');
+    const rels = {};
+    if (relsF) { const rx = await relsF.async('string'); let rm; const rre = /<Relationship\b[^>]*\/>/g; while ((rm = rre.exec(rx))) { const id = _getAttr(rm[0], 'Id'), tgt = _getAttr(rm[0], 'Target'); if (id && tgt) rels[id] = tgt; } }
+    const wbXml = await zip.file('xl/workbook.xml').async('string');
+    const sheets = []; let sm; const sre = /<sheet\b[^>]*\/>/g;
+    while ((sm = sre.exec(wbXml))) {
+      const name = _getAttr(sm[0], 'name'); const rid = _getAttr(sm[0], 'r:id'); let tgt = rels[rid];
+      if (!tgt) continue;
+      if (!/^xl\//.test(tgt) && !/^\//.test(tgt)) tgt = 'xl/' + tgt;
+      sheets.push({ name, file: tgt.replace(/^\//, '') });
+    }
+    let shared = []; const ss = zip.file('xl/sharedStrings.xml'); if (ss) shared = _parseSharedStrings(await ss.async('string'));
+    const out = [];
+    for (const sh of sheets) {
+      const f = zip.file(sh.file); if (!f) continue;
+      const parsed = _parseSheetProdutos(await f.async('string'), shared);
+      if (parsed && parsed.produtos.length) out.push({ sheet: sh.name, file: sh.file, ...parsed });
+    }
+    return out;
+  }
+  function _parseSheetProdutos(xml, shared) {
+    const rowRe = /<row\b[^>]*\br="(\d+)"[^>]*>([\s\S]*?)<\/row>/g; let rm; const rows = [];
+    while ((rm = rowRe.exec(xml))) {
+      const rnum = parseInt(rm[1], 10); const inner = rm[2]; const cells = {};
+      const cre = /<c\b[^>]*\/>|<c\b[^>]*>[\s\S]*?<\/c>/g; let cm;
+      while ((cm = cre.exec(inner))) { const ref = _getAttr(cm[0], 'r'); if (!ref) continue; const col = (ref.match(/^[A-Z]+/) || [''])[0]; cells[col] = _cellValue(cm[0], shared); }
+      rows.push({ rnum, cells });
+    }
+    // Cabecalho: primeira linha que tenha "QUANT" e "PRECO"
+    let quantCol = null, precoCol = null, headerRnum = null;
+    for (const row of rows) {
+      let q = null, p = null;
+      for (const col in row.cells) { const tx = _norm(row.cells[col].text); if (tx.includes('QUANT')) q = col; if (tx.includes('PRECO')) p = col; }
+      if (q && p) { quantCol = q; precoCol = p; headerRnum = row.rnum; break; }
+    }
+    if (!quantCol || !precoCol || headerRnum == null) return null;
+    const produtos = [];
+    for (const row of rows) {
+      if (row.rnum <= headerRnum) continue;
+      const pc = row.cells[precoCol];
+      if (!pc || pc.num == null || pc.num <= 0) continue; // linha de produto = tem preco numerico
+      const cols = Object.keys(row.cells).filter(c => c !== quantCol && c !== precoCol).sort((a, b) => _colToIdx(a) - _colToIdx(b));
+      const texts = cols.map(c => (row.cells[c].text || '').trim()).filter(Boolean);
+      if (!texts.length) continue;
+      const code = texts[0] || '';
+      const name = texts.slice(1).join(' ') || code;
+      const label = (code && name !== code) ? (code + ' — ' + name) : (name || code);
+      const fm = texts.join(' ').match(/(\d+)\s*[xX]\s*\d/); // ex: "4x5L" -> 4 un por caixa
+      const boxFactor = fm ? parseInt(fm[1], 10) : 1;
+      produtos.push({ rnum: row.rnum, quantRef: quantCol + row.rnum, code, name, label, price: pc.num, boxFactor });
+    }
+    return { quantCol, precoCol, produtos };
+  }
+
+  // ---- Escrita: preenche as celulas QUANT. e forca recalculo, mantendo o resto do arquivo intacto ----
+  function _stripT(attrs) { return attrs.replace(/\s+t="[^"]*"/, ''); }
+  function _setCellNum(xml, ref, num) {
+    const reSelf = new RegExp('<c\\s+r="' + ref + '"([^>]*?)/>');
+    if (reSelf.test(xml)) return xml.replace(reSelf, (m, a) => '<c r="' + ref + '"' + _stripT(a) + '><v>' + num + '</v></c>');
+    const reOpen = new RegExp('<c\\s+r="' + ref + '"([^>]*?)>[\\s\\S]*?</c>');
+    if (reOpen.test(xml)) return xml.replace(reOpen, (m, a) => '<c r="' + ref + '"' + _stripT(a) + '><v>' + num + '</v></c>');
+    return _insertCellNum(xml, ref, num); // fallback: celula nao existe na linha
+  }
+  function _insertCellNum(xml, ref, num) {
+    const col = (ref.match(/^[A-Z]+/) || [''])[0]; const rnum = (ref.match(/\d+$/) || [''])[0];
+    const rowRe = new RegExp('(<row\\b[^>]*\\br="' + rnum + '"[^>]*>)([\\s\\S]*?)(</row>)');
+    return xml.replace(rowRe, function (full, open, inner, close) {
+      const targetIdx = _colToIdx(col); const cre = /<c\b[^>]*?r="([A-Z]+)\d+"[^>]*?(?:\/>|>[\s\S]*?<\/c>)/g; let cm; let pos = inner.length;
+      while ((cm = cre.exec(inner))) { if (_colToIdx(cm[1]) > targetIdx) { pos = cm.index; break; } }
+      return open + inner.slice(0, pos) + '<c r="' + ref + '"><v>' + num + '</v></c>' + inner.slice(pos) + close;
+    });
+  }
+  async function _gerarExcelPreenchido(base64, fills) {
+    const zip = await JSZip.loadAsync(base64, { base64: true });
+    const byFile = {};
+    fills.forEach(f => { (byFile[f.file] = byFile[f.file] || []).push(f); });
+    for (const file in byFile) {
+      let xml = await zip.file(file).async('string');
+      byFile[file].forEach(f => { xml = _setCellNum(xml, f.quantRef, f.caixas); });
+      zip.file(file, xml);
+    }
+    const wbf = zip.file('xl/workbook.xml');
+    if (wbf) {
+      let wb = await wbf.async('string');
+      if (!/<calcPr[^>]*fullCalcOnLoad/.test(wb)) {
+        if (/<calcPr\b[^>]*\/>/.test(wb)) wb = wb.replace(/<calcPr\b([^>]*)\/>/, '<calcPr$1 fullCalcOnLoad="1"/>');
+        else if (/<calcPr\b[^>]*>/.test(wb)) wb = wb.replace(/<calcPr\b([^>]*)>/, '<calcPr$1 fullCalcOnLoad="1">');
+        else wb = wb.replace('</workbook>', '<calcPr fullCalcOnLoad="1"/></workbook>');
+      }
+      zip.file('xl/workbook.xml', wb);
+    }
+    return await zip.generateAsync({ type: 'blob', mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', compression: 'DEFLATE', compressionOptions: { level: 6 } });
+  }
+
+  // ---- UI: upload do modelo no cadastro do fornecedor ----
+  function _renderModeloStatus() {
+    const el = document.getElementById('fornModeloStatus'); if (!el) return;
+    if (_fornModelo) {
+      el.innerHTML = '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">'
+        + '<span style="background:var(--green-light);color:var(--green);padding:3px 10px;border-radius:8px;font-size:12px;font-weight:700">&#128196; ' + _escHtml(_fornModelo.nome) + '</span>'
+        + (_fornModelo.resumo ? '<span style="font-size:12px;color:var(--gray-500)">' + _escHtml(_fornModelo.resumo) + '</span>' : '')
+        + '<button type="button" onclick="_removerModelo()" style="background:var(--red-light);color:var(--red);border:none;border-radius:6px;padding:4px 10px;font-size:11px;font-weight:700;cursor:pointer">Remover</button></div>';
+    } else {
+      el.innerHTML = '<span style="font-size:12px;color:var(--gray-400)">Nenhum modelo salvo</span>';
+    }
+  }
+  function _removerModelo() { _fornModelo = null; _renderModeloStatus(); }
+  function _onModeloFile(input) {
+    const file = input.files && input.files[0]; if (!file) return;
+    const el = document.getElementById('fornModeloStatus'); if (el) el.innerHTML = '<span style="font-size:12px;color:var(--gray-500)">Lendo modelo...</span>';
+    const reader = new FileReader();
+    reader.onload = async () => {
+      try {
+        const b64 = String(reader.result).split(',')[1];
+        const sheets = await _lerModeloXlsx(b64);
+        const total = sheets.reduce((s, sh) => s + sh.produtos.length, 0);
+        if (!total) { alert('Nao encontrei uma coluna "QUANT." com produtos neste Excel. Confira se o arquivo tem os cabecalhos (PRODUTO / PRECO / QUANT.).'); _renderModeloStatus(); input.value = ''; return; }
+        _fornModelo = { nome: file.name, base64: b64, resumo: total + ' produtos' };
+        _renderModeloStatus();
+      } catch (e) { alert('Erro ao ler o Excel: ' + e.message); _renderModeloStatus(); input.value = ''; }
+    };
+    reader.readAsDataURL(file);
+  }
+
+  // ---- UI: fazer o pedido a partir do modelo e baixar o Excel preenchido ----
+  async function abrirPedidoModelo(fornId) {
+    const f = allFornecedores.find(x => x.id === fornId);
+    if (!f || !f.modeloXlsx) { alert('Este fornecedor nao tem um modelo de Excel salvo.'); return; }
+    document.getElementById('modalTitle').textContent = 'Pedido pelo modelo — ' + f.nome;
+    document.getElementById('modalBody').innerHTML = '<div style="padding:28px;text-align:center;color:var(--gray-400)">Lendo modelo...</div>';
+    document.getElementById('modalOrc').classList.add('open');
+    try {
+      const sheets = await _lerModeloXlsx(f.modeloXlsx);
+      const produtos = [];
+      sheets.forEach(sh => sh.produtos.forEach(p => produtos.push({ ...p, file: sh.file, sheet: sh.sheet })));
+      _modeloAtual = { fornId, fornNome: f.nome, nome: f.modeloNome || 'pedido', base64: f.modeloXlsx, produtos };
+      _renderPedidoModelo();
+    } catch (e) {
+      document.getElementById('modalBody').innerHTML = '<div style="padding:20px;color:var(--red);font-size:13px">Erro ao ler o modelo: ' + _escHtml(e.message) + '</div>';
+    }
+  }
+  function _renderPedidoModelo() {
+    const m = _modeloAtual; if (!m) return;
+    const multi = new Set(m.produtos.map(p => p.sheet)).size > 1;
+    const body = m.produtos.map((p, idx) => `
+      <tr data-label="${_norm(p.label + ' ' + p.sheet).replace(/"/g, '')}">
+        <td style="padding:6px 6px;font-size:12px;border-bottom:1px solid var(--gray-100)">${multi ? '<span style="color:var(--gray-400);font-size:10px">' + _escHtml(p.sheet) + '</span><br>' : ''}${_escHtml(p.label)}</td>
+        <td style="text-align:right;font-size:12px;color:var(--gray-500);white-space:nowrap;border-bottom:1px solid var(--gray-100)">${_fmtReais(p.price)}</td>
+        <td style="text-align:center;font-size:11px;color:var(--gray-400);white-space:nowrap;border-bottom:1px solid var(--gray-100)">${p.boxFactor > 1 ? p.boxFactor + ' un/cx' : '—'}</td>
+        <td style="text-align:center;border-bottom:1px solid var(--gray-100)"><input type="number" min="0" inputmode="numeric" id="mun_${idx}" oninput="_modeloUn(${idx})" style="width:58px;padding:5px;border:2px solid var(--gray-200);border-radius:6px;font-size:13px;text-align:center;font-family:inherit"></td>
+        <td style="text-align:center;border-bottom:1px solid var(--gray-100)"><input type="number" min="0" inputmode="numeric" id="mcx_${idx}" oninput="_modeloCx(${idx})" style="width:58px;padding:5px;border:2px solid var(--primary);border-radius:6px;font-size:13px;text-align:center;font-weight:700;font-family:inherit"></td>
+      </tr>`).join('');
+    document.getElementById('modalBody').innerHTML = `
+      <div style="display:grid;gap:10px">
+        <div style="font-size:12px;color:var(--gray-500)">Digite a quantidade em <b>unidades</b> (converte pra caixas automaticamente) ou direto em <b>caixas</b>. So os itens com caixa maior que 0 vao pro Excel.</div>
+        <input type="text" placeholder="Buscar produto..." oninput="_filtrarModelo(this.value)" style="padding:9px;border:2px solid var(--gray-200);border-radius:8px;font-size:13px;font-family:inherit">
+        <div style="max-height:50vh;overflow-y:auto;border:1px solid var(--gray-200);border-radius:8px">
+          <table style="width:100%;border-collapse:collapse">
+            <thead><tr style="position:sticky;top:0;background:var(--gray-50);z-index:1">
+              <th style="text-align:left;padding:8px 6px;font-size:11px;color:var(--gray-500)">Produto</th>
+              <th style="text-align:right;padding:8px 6px;font-size:11px;color:var(--gray-500)">Preço</th>
+              <th style="padding:8px 6px;font-size:11px;color:var(--gray-500)">Emb.</th>
+              <th style="padding:8px 6px;font-size:11px;color:var(--gray-500)">Un</th>
+              <th style="padding:8px 6px;font-size:11px;color:var(--gray-500)">Caixas</th>
+            </tr></thead>
+            <tbody id="mBody">${body}</tbody>
+          </table>
+        </div>
+        <div id="mResumo" style="font-size:13px;font-weight:700;color:var(--primary)">0 item(ns) • 0 caixa(s)</div>
+        <button onclick="baixarExcelModelo()" style="width:100%;background:var(--primary);color:#fff;border:none;border-radius:8px;padding:13px;font-size:15px;font-weight:700;cursor:pointer">&#11015; Baixar Excel preenchido</button>
+      </div>`;
+  }
+  function _filtrarModelo(term) {
+    const t = _norm(term);
+    document.querySelectorAll('#mBody tr').forEach(tr => { tr.style.display = (!t || (tr.getAttribute('data-label') || '').includes(t)) ? '' : 'none'; });
+  }
+  function _modeloUn(idx) {
+    const p = _modeloAtual.produtos[idx];
+    const un = parseInt(document.getElementById('mun_' + idx).value) || 0;
+    const cx = un > 0 ? Math.ceil(un / (p.boxFactor || 1)) : 0;
+    const cxEl = document.getElementById('mcx_' + idx); if (cxEl) cxEl.value = cx > 0 ? cx : '';
+    _modeloResumo();
+  }
+  function _modeloCx(idx) { _modeloResumo(); }
+  function _modeloResumo() {
+    const m = _modeloAtual; if (!m) return; let itens = 0, caixas = 0;
+    m.produtos.forEach((p, idx) => { const el = document.getElementById('mcx_' + idx); const cx = el ? (parseInt(el.value) || 0) : 0; if (cx > 0) { itens++; caixas += cx; } });
+    const r = document.getElementById('mResumo'); if (r) r.textContent = itens + ' item(ns) • ' + caixas + ' caixa(s)';
+  }
+  async function baixarExcelModelo() {
+    const m = _modeloAtual; if (!m) return;
+    const fills = [];
+    m.produtos.forEach((p, idx) => { const el = document.getElementById('mcx_' + idx); const cx = el ? (parseInt(el.value) || 0) : 0; if (cx > 0) fills.push({ file: p.file, quantRef: p.quantRef, caixas: cx }); });
+    if (!fills.length) { alert('Informe a quantidade (caixas) de pelo menos um produto.'); return; }
+    try {
+      const blob = await _gerarExcelPreenchido(m.base64, fills);
+      const d = new Date();
+      const dstr = d.toLocaleDateString('pt-BR').replace(/\//g, '-');
+      const baseNome = (m.nome || 'pedido').replace(/\.xlsx?$/i, '');
+      const fname = baseNome + ' - ' + m.fornNome + ' - ' + dstr + '.xlsx';
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a'); a.href = url; a.download = fname; document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 4000);
+    } catch (e) { alert('Erro ao gerar o Excel: ' + e.message); }
   }
 
   // ===== PEDIDOS DE COMPRA =====
