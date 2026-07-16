@@ -1012,7 +1012,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <script>
   // ===== CONFIG =====
-  const APP_VERSION = 'v107';
+  const APP_VERSION = 'v108';
   const API_URL = 'https://ecoville-api.vercel.app/api';
   // Permissoes por usuario: null = pagina completa; array = secoes permitidas
   const USER_SECTIONS = {
@@ -3322,6 +3322,52 @@
     if (m) return { y: +m[3], mo: +m[2] };
     return { y: 0, mo: 0 };
   }
+  // ---- Alerta de entrega dos pedidos aceitos ----
+  function _diasParaEntrega(iso) {
+    if (!iso) return null;
+    const p = iso.split('-'); if (p.length !== 3) return null;
+    const alvo = new Date(+p[0], +p[1] - 1, +p[2]); alvo.setHours(0, 0, 0, 0);
+    const hoje = new Date(); hoje.setHours(0, 0, 0, 0);
+    return Math.round((alvo - hoje) / 86400000);
+  }
+  function _fmtDataISO(iso) {
+    if (!iso) return '';
+    const p = iso.split('-'); return (p.length === 3) ? (p[2] + '/' + p[1] + '/' + p[0]) : iso;
+  }
+  function _entregaStatus(pe) {
+    if (pe.entregue) return { txt: 'Entregue' + (pe.entregueEm ? ' em ' + pe.entregueEm.split(' ')[0] : ''), cor: 'var(--green)' };
+    const dias = _diasParaEntrega(pe.entregaPrevista);
+    if (dias === null) return { txt: 'Sem data', cor: 'var(--gray-400)' };
+    if (dias < 0) return { txt: 'Atrasado ' + (-dias) + ' dia(s)', cor: 'var(--red)' };
+    if (dias === 0) return { txt: 'Entrega HOJE', cor: 'var(--orange)' };
+    if (dias === 1) return { txt: 'Entrega amanha', cor: 'var(--orange)' };
+    if (dias <= 3) return { txt: 'Faltam ' + dias + ' dias', cor: 'var(--orange)' };
+    return { txt: 'Faltam ' + dias + ' dias', cor: 'var(--gray-500)' };
+  }
+  function _setEntregaPrevista(fornId, pedidoId, value) {
+    const f = allFornecedores.find(x => x.id === fornId);
+    const pe = f && (f.pedidos || []).find(p => p.id === pedidoId);
+    if (!pe) return;
+    if (value) pe.entregaPrevista = value; else delete pe.entregaPrevista;
+    saveFornecedores();
+    renderPedidosAceitos();
+  }
+  function marcarEntregue(fornId, pedidoId) {
+    const f = allFornecedores.find(x => x.id === fornId);
+    const pe = f && (f.pedidos || []).find(p => p.id === pedidoId);
+    if (!pe) return;
+    pe.entregue = true; pe.entregueEm = _nowStamp();
+    saveFornecedores();
+    renderPedidosAceitos();
+  }
+  function desmarcarEntregue(fornId, pedidoId) {
+    const f = allFornecedores.find(x => x.id === fornId);
+    const pe = f && (f.pedidos || []).find(p => p.id === pedidoId);
+    if (!pe) return;
+    pe.entregue = false; delete pe.entregueEm;
+    saveFornecedores();
+    renderPedidosAceitos();
+  }
   function renderPedidosAceitos() {
     loadFornecedoresIfNeeded();
     const search = (document.getElementById('aceitosSearch')?.value || '').toLowerCase();
@@ -3345,7 +3391,16 @@
     const cntEl = document.getElementById('aceitosCount'); if (cntEl) cntEl.textContent = filt.length + ' pedido(s) aceito(s)';
     const cont = document.getElementById('aceitosContainer'); if (!cont) return;
     if (!keys.length) { cont.innerHTML = '<div style="text-align:center;padding:44px;color:var(--gray-400)">Nenhum pedido aceito ainda.</div>'; return; }
-    cont.innerHTML = keys.map(k => {
+    // Banner: entregas atrasadas ou nos proximos 7 dias (nao entregues)
+    const alertas = filt.filter(x => !x.pe.entregue && x.pe.entregaPrevista)
+      .map(x => ({ x, dias: _diasParaEntrega(x.pe.entregaPrevista) }))
+      .filter(o => o.dias !== null && o.dias <= 7)
+      .sort((a, b) => a.dias - b.dias);
+    const bannerHtml = alertas.length ? `<div style="background:var(--orange-light);border:1px solid var(--orange);border-radius:10px;padding:12px 14px;margin-bottom:18px">
+      <div style="font-weight:800;color:var(--orange);font-size:14px;margin-bottom:6px">&#9200; Entregas proximas (${alertas.length})</div>
+      ${alertas.map(o => { const st = _entregaStatus(o.x.pe); return `<div style="display:flex;justify-content:space-between;gap:10px;font-size:12px;padding:3px 0;border-top:1px solid rgba(0,0,0,0.05)"><span><b>${_escHtml(o.x.fornNome)}</b> — entrega ${_fmtDataISO(o.x.pe.entregaPrevista)}</span><span style="font-weight:700;color:${st.cor};white-space:nowrap">${st.txt}</span></div>`; }).join('')}
+    </div>` : '';
+    cont.innerHTML = bannerHtml + keys.map(k => {
       const g = grupos[k];
       const titulo = (g.mo ? _MESES[g.mo] : 'Sem data de aceite') + (g.y ? ' de ' + g.y : '');
       const totItens = g.itens.reduce((s, x) => s + (x.pe.totalItens || 0), 0);
@@ -3355,12 +3410,17 @@
         const btnExcel = temModelo ? `<button onclick="gerarExcelDoPedido(${x.fornId},${pe.id})" style="background:#dcfce7;color:#047857;border:none;border-radius:6px;padding:6px 10px;font-size:11px;font-weight:700;cursor:pointer;margin:2px">&#128196; Excel${pe.planilha ? ' &#10003;' : ''}</button>` : '';
         const btnBaixar = (temModelo && pe.planilha) ? `<button onclick="baixarPlanilhaSalva(${x.fornId},${pe.id})" style="background:#eef2ff;color:#4338ca;border:none;border-radius:6px;padding:6px 10px;font-size:11px;font-weight:700;cursor:pointer;margin:2px">Baixar</button>` : '';
         const btnArq = pe.arquivo ? `<button onclick="baixarArquivoPedido(${x.fornId},${pe.id})" title="Baixar arquivo anexado: ${_escHtml(pe.arquivo.nome)}" style="background:var(--gray-100);color:var(--gray-700);border:none;border-radius:6px;padding:6px 10px;font-size:11px;font-weight:700;cursor:pointer;margin:2px">&#128206;</button>` : '';
+        const st = _entregaStatus(pe);
+        const entregaCell = pe.entregue
+          ? `<div style="font-size:11px;font-weight:700;color:var(--green)">&#10003; ${st.txt}</div><button onclick="desmarcarEntregue(${x.fornId},${pe.id})" style="background:none;border:none;color:var(--gray-400);font-size:10px;cursor:pointer;text-decoration:underline;padding:2px 0">desfazer</button>`
+          : `<input type="date" value="${pe.entregaPrevista || ''}" onchange="_setEntregaPrevista(${x.fornId},${pe.id},this.value)" style="padding:4px;border:2px solid ${pe.entregaPrevista ? st.cor : 'var(--gray-200)'};border-radius:6px;font-size:12px;font-family:inherit">${pe.entregaPrevista ? `<div style="font-size:10px;font-weight:700;color:${st.cor};margin-top:3px">${st.txt}</div><button onclick="marcarEntregue(${x.fornId},${pe.id})" style="background:var(--green-light);color:var(--green);border:none;border-radius:5px;padding:2px 7px;font-size:10px;font-weight:700;cursor:pointer;margin-top:3px">marcar entregue</button>` : ''}`;
         return `<tr>
           <td>${pe.data || '-'}</td>
           <td><strong>${x.fornNome}</strong></td>
           <td>${pe.totalItens} itens</td>
           <td>${pe.totalUnidades} un</td>
           <td style="font-size:12px;color:var(--gray-500)">${pe.aprovadoEm || '-'}</td>
+          <td style="white-space:nowrap">${entregaCell}</td>
           <td>
             <button onclick="verPedido(${x.fornId},${pe.id})" style="background:var(--gray-100);color:var(--gray-700);border:none;border-radius:6px;padding:6px 10px;font-size:11px;font-weight:700;cursor:pointer;margin:2px">Ver</button>
             ${btnExcel}${btnBaixar}${btnArq}
@@ -3373,7 +3433,7 @@
           <span style="font-size:12px;color:var(--gray-500)">${g.itens.length} pedido(s) • ${totItens} itens</span>
         </div>
         <div class="table-card"><div style="overflow-x:auto"><table><thead><tr>
-          <th>Data pedido</th><th>Fornecedor</th><th>Itens</th><th>Unidades</th><th>Aceito em</th><th>Acoes</th>
+          <th>Data pedido</th><th>Fornecedor</th><th>Itens</th><th>Unidades</th><th>Aceito em</th><th>Entrega</th><th>Acoes</th>
         </tr></thead><tbody>${rows}</tbody></table></div></div>
       </div>`;
     }).join('');
