@@ -810,11 +810,6 @@
       <div id="section-pedidos" class="page-section">
         <div style="display:flex;gap:12px;margin-bottom:16px;align-items:center;flex-wrap:wrap;">
           <input type="text" class="table-search" id="pedidosSearch" placeholder="Buscar por fornecedor ou produto..." oninput="renderPedidosLista()" style="width:320px;">
-          <select class="table-filter" id="pedidosStatusFilter" onchange="renderPedidosLista()">
-            <option value="">Todos os status</option>
-            <option value="pendente">Pendentes</option>
-            <option value="aceito">Aceitos</option>
-          </select>
           <span id="pedidosCount" style="font-size:13px;color:var(--gray-500);"></span>
         </div>
         <div class="table-card">
@@ -1014,7 +1009,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <script>
   // ===== CONFIG =====
-  const APP_VERSION = 'v104';
+  const APP_VERSION = 'v105';
   const API_URL = 'https://ecoville-api.vercel.app/api';
   // Permissoes por usuario: null = pagina completa; array = secoes permitidas
   const USER_SECTIONS = {
@@ -3165,15 +3160,13 @@
   }
   function renderPedidosLista() {
     const search = (document.getElementById('pedidosSearch')?.value || '').toLowerCase();
-    const status = document.getElementById('pedidosStatusFilter')?.value || '';
-    let lista = _todosPedidos();
-    if (status === 'aceito') lista = lista.filter(x => x.pe.aprovado);
-    if (status === 'pendente') lista = lista.filter(x => !x.pe.aprovado);
+    // Os pedidos aceitos saem daqui e passam a viver no submenu "Pedidos Aceitos"
+    let lista = _todosPedidos().filter(x => !x.pe.aprovado);
     if (search) lista = lista.filter(x =>
       (x.fornNome || '').toLowerCase().includes(search) ||
       (x.pe.itens || []).some(it => (it.description || '').toLowerCase().includes(search))
     );
-    document.getElementById('pedidosCount').textContent = lista.length + ' pedidos';
+    document.getElementById('pedidosCount').textContent = lista.length + ' pedido(s) pendente(s)';
     const isAdmin = currentUser === 'admin';
     document.getElementById('pedidosTableBody').innerHTML = lista.map(x => {
       const pe = x.pe;
