@@ -1012,7 +1012,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <script>
   // ===== CONFIG =====
-  const APP_VERSION = 'v109';
+  const APP_VERSION = 'v110';
   const API_URL = 'https://ecoville-api.vercel.app/api';
   // Permissoes por usuario: null = pagina completa; array = secoes permitidas
   const USER_SECTIONS = {
@@ -2820,6 +2820,7 @@
 
   // ---- UI: gerar o Excel a partir de um PEDIDO ja existente (aba Pedidos) ----
   async function gerarExcelDoPedido(fornId, pedidoId) {
+    if (currentUser !== 'admin') { alert('Somente o administrador tem acesso ao Excel do fornecedor.'); return; }
     const f = allFornecedores.find(x => x.id === fornId);
     if (!f || !f.modeloXlsx) { alert('Este fornecedor nao tem um modelo de Excel salvo. Suba o modelo em Fornecedores > Editar.'); return; }
     const pe = (f.pedidos || []).find(p => p.id === pedidoId);
@@ -2978,6 +2979,7 @@
   }
   // Baixa a planilha ja salva num pedido (regenera a partir do modelo do fornecedor)
   async function baixarPlanilhaSalva(fornId, pedidoId) {
+    if (currentUser !== 'admin') { alert('Somente o administrador tem acesso ao Excel do fornecedor.'); return; }
     const f = allFornecedores.find(x => x.id === fornId);
     const pe = f && (f.pedidos || []).find(p => p.id === pedidoId);
     if (!f || !pe || !pe.planilha) { alert('Este pedido nao tem planilha salva.'); return; }
@@ -3241,10 +3243,10 @@
       }
       const criador = pe.criadoPor ? ((allUsers.find(u => u.user === pe.criadoPor) || {}).name || pe.criadoPor) : '<span style="color:var(--gray-400)">-</span>';
       const fornObj = allFornecedores.find(ff => ff.id === x.fornId);
-      const btnExcel = (fornObj && fornObj.modeloXlsx)
+      const btnExcel = (isAdmin && fornObj && fornObj.modeloXlsx)
         ? `<button onclick="gerarExcelDoPedido(${x.fornId},${pe.id})" title="Gerar o Excel do fornecedor preenchido com este pedido" style="background:#dcfce7;color:#047857;border:none;border-radius:6px;padding:6px 12px;font-size:11px;font-weight:700;cursor:pointer;margin:2px">&#128196; Excel${pe.planilha ? ' &#10003;' : ''}</button>`
         : '';
-      const btnBaixarPlan = (fornObj && fornObj.modeloXlsx && pe.planilha)
+      const btnBaixarPlan = (isAdmin && fornObj && fornObj.modeloXlsx && pe.planilha)
         ? `<button onclick="baixarPlanilhaSalva(${x.fornId},${pe.id})" title="Baixar a planilha salva neste pedido" style="background:#eef2ff;color:#4338ca;border:none;border-radius:6px;padding:6px 10px;font-size:11px;font-weight:700;cursor:pointer;margin:2px">Baixar</button>`
         : '';
       return `<tr>
@@ -3281,7 +3283,7 @@
     const pe = f && (f.pedidos || []).find(p => p.id === pedidoId);
     if (!pe) return;
     const criador = pe.criadoPor ? ((allUsers.find(u => u.user === pe.criadoPor) || {}).name || pe.criadoPor) : '-';
-    const temModelo = !!f.modeloXlsx;
+    const temModelo = !!f.modeloXlsx && currentUser === 'admin';
     document.getElementById('modalTitle').textContent = 'Pedido - ' + f.nome;
     document.getElementById('modalBody').innerHTML = `
       <div style="font-size:13px;color:var(--gray-600);margin-bottom:8px">${pe.data} • ${pe.totalItens} itens • ${pe.totalUnidades} unidades • ${pe.aprovado ? '<b style="color:var(--green)">Aceito</b>' : '<b style="color:var(--orange)">Pendente</b>'}</div>
@@ -3290,7 +3292,7 @@
       <table style="width:100%;font-size:13px"><thead><tr><th style="text-align:left">Produto</th><th>Cod.</th><th style="text-align:right">Qtd</th></tr></thead><tbody>
         ${pe.itens.map(it => `<tr><td style="padding:3px 0">${it.description}</td><td style="text-align:center;color:var(--gray-400)">${it.code || ''}</td><td style="text-align:right;font-weight:700">${it.qty}x</td></tr>`).join('')}
       </tbody></table>
-      ${pe.planilha ? `<div style="margin-top:12px;font-size:12px;color:var(--green);background:var(--green-light);padding:8px 10px;border-radius:8px">&#128190; Planilha salva neste pedido${pe.planilha.geradoEm ? ' em ' + pe.planilha.geradoEm : ''}.</div>` : ''}
+      ${(pe.planilha && temModelo) ? `<div style="margin-top:12px;font-size:12px;color:var(--green);background:var(--green-light);padding:8px 10px;border-radius:8px">&#128190; Planilha salva neste pedido${pe.planilha.geradoEm ? ' em ' + pe.planilha.geradoEm : ''}.</div>` : ''}
       ${temModelo ? `<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px">
         ${pe.planilha ? `<button onclick="baixarPlanilhaSalva(${fornId},${pedidoId})" style="flex:1;min-width:150px;background:#4338ca;color:#fff;border:none;border-radius:8px;padding:12px;font-size:14px;font-weight:700;cursor:pointer">&#11015; Baixar planilha salva</button>` : ''}
         <button onclick="gerarExcelDoPedido(${fornId},${pedidoId})" style="flex:1;min-width:150px;background:#047857;color:#fff;border:none;border-radius:8px;padding:12px;font-size:14px;font-weight:700;cursor:pointer">&#128196; ${pe.planilha ? 'Editar / atualizar planilha' : 'Gerar planilha do fornecedor'}</button>
@@ -3411,8 +3413,8 @@
       const rows = g.itens.slice().sort((a, b) => (b.pe.aprovadoEm || '').localeCompare(a.pe.aprovadoEm || '')).map(x => {
         const pe = x.pe; const forn = allFornecedores.find(f => f.id === x.fornId) || {};
         const temModelo = !!forn.modeloXlsx;
-        const btnExcel = temModelo ? `<button onclick="gerarExcelDoPedido(${x.fornId},${pe.id})" style="background:#dcfce7;color:#047857;border:none;border-radius:6px;padding:6px 10px;font-size:11px;font-weight:700;cursor:pointer;margin:2px">&#128196; Excel${pe.planilha ? ' &#10003;' : ''}</button>` : '';
-        const btnBaixar = (temModelo && pe.planilha) ? `<button onclick="baixarPlanilhaSalva(${x.fornId},${pe.id})" style="background:#eef2ff;color:#4338ca;border:none;border-radius:6px;padding:6px 10px;font-size:11px;font-weight:700;cursor:pointer;margin:2px">Baixar</button>` : '';
+        const btnExcel = (isAdmin && temModelo) ? `<button onclick="gerarExcelDoPedido(${x.fornId},${pe.id})" style="background:#dcfce7;color:#047857;border:none;border-radius:6px;padding:6px 10px;font-size:11px;font-weight:700;cursor:pointer;margin:2px">&#128196; Excel${pe.planilha ? ' &#10003;' : ''}</button>` : '';
+        const btnBaixar = (isAdmin && temModelo && pe.planilha) ? `<button onclick="baixarPlanilhaSalva(${x.fornId},${pe.id})" style="background:#eef2ff;color:#4338ca;border:none;border-radius:6px;padding:6px 10px;font-size:11px;font-weight:700;cursor:pointer;margin:2px">Baixar</button>` : '';
         const btnArq = pe.arquivo ? `<button onclick="baixarArquivoPedido(${x.fornId},${pe.id})" title="Baixar arquivo anexado: ${_escHtml(pe.arquivo.nome)}" style="background:var(--gray-100);color:var(--gray-700);border:none;border-radius:6px;padding:6px 10px;font-size:11px;font-weight:700;cursor:pointer;margin:2px">&#128206;</button>` : '';
         const st = _entregaStatus(pe);
         let entregaCell;
