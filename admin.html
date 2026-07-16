@@ -825,6 +825,9 @@
       <div id="section-pedidosAceitos" class="page-section">
         <div style="display:flex;gap:12px;margin-bottom:16px;align-items:center;flex-wrap:wrap;">
           <input type="text" class="table-search" id="aceitosSearch" placeholder="Buscar por fornecedor ou produto..." oninput="renderPedidosAceitos()" style="width:320px;">
+          <select class="table-filter" id="aceitosAnoFilter" onchange="renderPedidosAceitos()">
+            <option value="">Todos os anos</option>
+          </select>
           <span id="aceitosCount" style="font-size:13px;color:var(--gray-500);"></span>
         </div>
         <div id="aceitosContainer"></div>
@@ -1009,7 +1012,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <script>
   // ===== CONFIG =====
-  const APP_VERSION = 'v105';
+  const APP_VERSION = 'v106';
   const API_URL = 'https://ecoville-api.vercel.app/api';
   // Permissoes por usuario: null = pagina completa; array = secoes permitidas
   const USER_SECTIONS = {
@@ -3266,7 +3269,17 @@
     const search = (document.getElementById('aceitosSearch')?.value || '').toLowerCase();
     const lista = [];
     allFornecedores.forEach(f => (f.pedidos || []).forEach(pe => { if (pe.aprovado) lista.push({ fornId: f.id, fornNome: f.nome, pe }); }));
+    // Popula o filtro de ano com os anos disponiveis, preservando a selecao atual
+    const anoSel = document.getElementById('aceitosAnoFilter');
+    const anos = [...new Set(lista.map(x => _mesAnoAceite(x.pe).y).filter(Boolean))].sort((a, b) => b - a);
+    if (anoSel) {
+      const cur = anoSel.value;
+      anoSel.innerHTML = '<option value="">Todos os anos</option>' + anos.map(a => `<option value="${a}">${a}</option>`).join('');
+      anoSel.value = anos.map(String).includes(cur) ? cur : '';
+    }
+    const anoAtivo = anoSel ? anoSel.value : '';
     let filt = lista;
+    if (anoAtivo) filt = filt.filter(x => String(_mesAnoAceite(x.pe).y) === anoAtivo);
     if (search) filt = filt.filter(x => (x.fornNome || '').toLowerCase().includes(search) || (x.pe.itens || []).some(it => (it.description || '').toLowerCase().includes(search)));
     const grupos = {};
     filt.forEach(x => { const { y, mo } = _mesAnoAceite(x.pe); const key = y * 100 + mo; (grupos[key] = grupos[key] || { y, mo, itens: [] }).itens.push(x); });
