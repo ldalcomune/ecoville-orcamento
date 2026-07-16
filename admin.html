@@ -1012,7 +1012,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <script>
   // ===== CONFIG =====
-  const APP_VERSION = 'v106';
+  const APP_VERSION = 'v107';
   const API_URL = 'https://ecoville-api.vercel.app/api';
   // Permissoes por usuario: null = pagina completa; array = secoes permitidas
   const USER_SECTIONS = {
@@ -2993,6 +2993,51 @@
     } catch (e) { alert('Erro ao gerar a planilha: ' + e.message); }
   }
 
+  // ---- Arquivo anexado ao pedido (upload livre: .xlsx, .pdf, imagem, etc.) ----
+  function _b64ToBlob(b64, tipo) {
+    const bin = atob(b64); const len = bin.length; const bytes = new Uint8Array(len);
+    for (let i = 0; i < len; i++) bytes[i] = bin.charCodeAt(i);
+    return new Blob([bytes], { type: tipo || 'application/octet-stream' });
+  }
+  function _onArquivoPedido(input, fornId, pedidoId) {
+    const file = input.files && input.files[0]; if (!file) return;
+    if (file.size > 3 * 1024 * 1024) { alert('Arquivo muito grande (maximo 3 MB).'); input.value = ''; return; }
+    const reader = new FileReader();
+    reader.onload = () => {
+      const b64 = String(reader.result).split(',')[1];
+      const f = allFornecedores.find(x => x.id === fornId);
+      const pe = f && (f.pedidos || []).find(p => p.id === pedidoId);
+      if (!pe) { alert('Pedido nao encontrado.'); return; }
+      const prev = pe.arquivo;
+      pe.arquivo = { nome: file.name, base64: b64, tipo: file.type || 'application/octet-stream', enviadoEm: _nowStamp(), enviadoPor: currentUser };
+      // Trava: o cadastro de fornecedores e enviado inteiro ao backend (limite ~4,5 MB)
+      if (JSON.stringify(allFornecedores).length > 4000000) {
+        if (prev) pe.arquivo = prev; else delete pe.arquivo;
+        alert('Nao foi possivel anexar: o total de arquivos ficaria acima do limite de sincronizacao (~4 MB). Remova algum anexo antigo ou use um arquivo menor.');
+        input.value = ''; return;
+      }
+      saveFornecedores();
+      verPedido(fornId, pedidoId);
+    };
+    reader.readAsDataURL(file);
+  }
+  function baixarArquivoPedido(fornId, pedidoId) {
+    const f = allFornecedores.find(x => x.id === fornId);
+    const pe = f && (f.pedidos || []).find(p => p.id === pedidoId);
+    if (!pe || !pe.arquivo) { alert('Este pedido nao tem arquivo anexado.'); return; }
+    try { _baixarBlob(_b64ToBlob(pe.arquivo.base64, pe.arquivo.tipo), pe.arquivo.nome || 'arquivo'); }
+    catch (e) { alert('Erro ao baixar o arquivo: ' + e.message); }
+  }
+  function removerArquivoPedido(fornId, pedidoId) {
+    if (!confirm('Remover o arquivo anexado a este pedido?')) return;
+    const f = allFornecedores.find(x => x.id === fornId);
+    const pe = f && (f.pedidos || []).find(p => p.id === pedidoId);
+    if (!pe) return;
+    delete pe.arquivo;
+    saveFornecedores();
+    verPedido(fornId, pedidoId);
+  }
+
   // ===== PEDIDOS DE COMPRA =====
   let pedidoCart = [];
   // O pedido agora e montado na secao Produtos (coluna "Pedir"). Estas funcoes
@@ -3249,7 +3294,20 @@
       ${temModelo ? `<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px">
         ${pe.planilha ? `<button onclick="baixarPlanilhaSalva(${fornId},${pedidoId})" style="flex:1;min-width:150px;background:#4338ca;color:#fff;border:none;border-radius:8px;padding:12px;font-size:14px;font-weight:700;cursor:pointer">&#11015; Baixar planilha salva</button>` : ''}
         <button onclick="gerarExcelDoPedido(${fornId},${pedidoId})" style="flex:1;min-width:150px;background:#047857;color:#fff;border:none;border-radius:8px;padding:12px;font-size:14px;font-weight:700;cursor:pointer">&#128196; ${pe.planilha ? 'Editar / atualizar planilha' : 'Gerar planilha do fornecedor'}</button>
-      </div>` : ''}`;
+      </div>` : ''}
+      <div style="border-top:1px solid var(--gray-200);margin-top:14px;padding-top:12px">
+        <div style="font-size:12px;font-weight:700;color:var(--gray-700);margin-bottom:6px">Arquivo do pedido</div>
+        ${pe.arquivo ? `<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px">
+          <span style="background:var(--gray-100);padding:4px 10px;border-radius:8px;font-size:12px;font-weight:600">&#128206; ${_escHtml(pe.arquivo.nome)}</span>
+          <span style="font-size:11px;color:var(--gray-400)">${pe.arquivo.enviadoEm || ''}${pe.arquivo.enviadoPor ? ' • ' + _escHtml(pe.arquivo.enviadoPor) : ''}</span>
+          <button onclick="baixarArquivoPedido(${fornId},${pedidoId})" style="background:#4338ca;color:#fff;border:none;border-radius:6px;padding:5px 10px;font-size:11px;font-weight:700;cursor:pointer">Baixar</button>
+          <button onclick="removerArquivoPedido(${fornId},${pedidoId})" style="background:var(--red-light);color:var(--red);border:none;border-radius:6px;padding:5px 10px;font-size:11px;font-weight:700;cursor:pointer">Remover</button>
+        </div>` : ''}
+        <label style="display:inline-block;font-size:13px;color:#fff;background:var(--primary);border-radius:8px;padding:9px 14px;font-weight:700;cursor:pointer">
+          ${pe.arquivo ? '&#128260; Substituir arquivo' : '&#11014; Enviar arquivo do pedido'}
+          <input type="file" onchange="_onArquivoPedido(this, ${fornId}, ${pedidoId})" style="display:none">
+        </label>
+      </div>`;
     document.getElementById('modalOrc').classList.add('open');
   }
 
@@ -3296,6 +3354,7 @@
         const temModelo = !!forn.modeloXlsx;
         const btnExcel = temModelo ? `<button onclick="gerarExcelDoPedido(${x.fornId},${pe.id})" style="background:#dcfce7;color:#047857;border:none;border-radius:6px;padding:6px 10px;font-size:11px;font-weight:700;cursor:pointer;margin:2px">&#128196; Excel${pe.planilha ? ' &#10003;' : ''}</button>` : '';
         const btnBaixar = (temModelo && pe.planilha) ? `<button onclick="baixarPlanilhaSalva(${x.fornId},${pe.id})" style="background:#eef2ff;color:#4338ca;border:none;border-radius:6px;padding:6px 10px;font-size:11px;font-weight:700;cursor:pointer;margin:2px">Baixar</button>` : '';
+        const btnArq = pe.arquivo ? `<button onclick="baixarArquivoPedido(${x.fornId},${pe.id})" title="Baixar arquivo anexado: ${_escHtml(pe.arquivo.nome)}" style="background:var(--gray-100);color:var(--gray-700);border:none;border-radius:6px;padding:6px 10px;font-size:11px;font-weight:700;cursor:pointer;margin:2px">&#128206;</button>` : '';
         return `<tr>
           <td>${pe.data || '-'}</td>
           <td><strong>${x.fornNome}</strong></td>
@@ -3304,7 +3363,7 @@
           <td style="font-size:12px;color:var(--gray-500)">${pe.aprovadoEm || '-'}</td>
           <td>
             <button onclick="verPedido(${x.fornId},${pe.id})" style="background:var(--gray-100);color:var(--gray-700);border:none;border-radius:6px;padding:6px 10px;font-size:11px;font-weight:700;cursor:pointer;margin:2px">Ver</button>
-            ${btnExcel}${btnBaixar}
+            ${btnExcel}${btnBaixar}${btnArq}
           </td>
         </tr>`;
       }).join('');
