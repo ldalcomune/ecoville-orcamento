@@ -584,6 +584,10 @@
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>
         <span>Pedidos</span>
       </div>
+      <div class="nav-item" onclick="showSection('pedidosAceitos')" style="padding-left:34px">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+        <span>Pedidos Aceitos</span>
+      </div>
       <div class="nav-item" onclick="showSection('novoOrc')">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="11" x2="12" y2="17"/><line x1="9" y1="14" x2="15" y2="14"/></svg>
         <span>Novo Orcamento</span>
@@ -822,6 +826,15 @@
         </div>
       </div>
 
+      <!-- ===== PEDIDOS ACEITOS (agrupados por mes/ano do aceite) ===== -->
+      <div id="section-pedidosAceitos" class="page-section">
+        <div style="display:flex;gap:12px;margin-bottom:16px;align-items:center;flex-wrap:wrap;">
+          <input type="text" class="table-search" id="aceitosSearch" placeholder="Buscar por fornecedor ou produto..." oninput="renderPedidosAceitos()" style="width:320px;">
+          <span id="aceitosCount" style="font-size:13px;color:var(--gray-500);"></span>
+        </div>
+        <div id="aceitosContainer"></div>
+      </div>
+
       <!-- ===== NOVO ORCAMENTO ===== -->
       <div id="section-novoOrc" class="page-section">
         <div class="steps">
@@ -1001,7 +1014,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <script>
   // ===== CONFIG =====
-  const APP_VERSION = 'v103';
+  const APP_VERSION = 'v104';
   const API_URL = 'https://ecoville-api.vercel.app/api';
   // Permissoes por usuario: null = pagina completa; array = secoes permitidas
   const USER_SECTIONS = {
@@ -1338,7 +1351,7 @@
     document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
     const navItem = [...document.querySelectorAll('.nav-item')].find(n => (n.getAttribute('onclick') || '').includes("showSection('" + section + "')"));
     if (navItem) navItem.classList.add('active');
-    const titles = { dashboard: 'Dashboard', vendas: 'Vendas', entregas: 'Entregas', vendedores: 'Vendedores', usuarios: 'Usuarios', produtos: 'Catalogo de Produtos', fornecedores: 'Fornecedores', pedidos: 'Pedidos de Compra', novoOrc: 'Novo Orcamento', boletos: 'Boletos a Receber', clientes: 'Clientes Microvix' };
+    const titles = { dashboard: 'Dashboard', vendas: 'Vendas', entregas: 'Entregas', vendedores: 'Vendedores', usuarios: 'Usuarios', produtos: 'Catalogo de Produtos', fornecedores: 'Fornecedores', pedidos: 'Pedidos de Compra', pedidosAceitos: 'Pedidos Aceitos', novoOrc: 'Novo Orcamento', boletos: 'Boletos a Receber', clientes: 'Clientes Microvix' };
     document.getElementById('pageTitle').textContent = titles[section] || 'Dashboard';
     renderSection(section);
   }
@@ -1361,6 +1374,7 @@
     if (section === 'clientes') renderClientes();
     if (section === 'fornecedores') renderFornecedores();
     if (section === 'pedidos') renderPedidosLista();
+    if (section === 'pedidosAceitos') renderPedidosAceitos();
   }
 
   // ===== BUILTIN PRODUCTS =====
@@ -2776,24 +2790,34 @@
   // ---- Correspondencia item-do-pedido -> linha-do-modelo (codigo, nome, ou vinculo salvo) ----
   function _normNome(s) { return _norm(s).replace(/[^A-Z0-9]+/g, ' ').trim(); }
   function _itemKey(it) { return String((it && (it.productId != null ? it.productId : it.code)) || ''); }
+  // Correspondencia SO com alta confianca (evita match errado). O que nao casar
+  // fica para o usuario vincular manualmente uma vez — e o vinculo fica salvo.
   function _matchTemplateRow(item, produtos, links) {
     const key = _itemKey(item);
+    // 1) vinculo ja escolhido antes para este item
     if (links && links[key]) { const p = produtos.find(x => x.quantRef === links[key]); if (p) return { p, how: 'salvo' }; }
+    // 2) codigo do item igual ao codigo da linha do modelo
     const ic = _norm(item.code || '');
     if (ic) { const p = produtos.find(x => _norm(x.code) === ic); if (p) return { p, how: 'codigo' }; }
-    const words = new Set(_normNome(item.description).split(' ').filter(Boolean));
-    if (words.size) {
-      let best = null, bestScore = 0;
-      produtos.forEach(x => {
-        const pt = new Set(_normNome(x.name).split(' ').filter(Boolean));
-        if (!pt.size) return;
-        let inter = 0; words.forEach(w => { if (pt.has(w)) inter++; });
-        const score = inter / Math.max(words.size, pt.size);
-        if (score > bestScore) { bestScore = score; best = x; }
-      });
-      if (best && bestScore >= 0.6) return { p: best, how: 'nome' };
-    }
+    // 3) "referencia" do produto no catalogo = codigo do fornecedor (ex: ECO0001)
+    const prod = ALL_PRODUCTS.find(x => x.id === item.productId);
+    const ref = prod ? _norm(prod.reference || '') : '';
+    if (ref) { const p = produtos.find(x => _norm(x.code) === ref); if (p) return { p, how: 'referencia' }; }
     return { p: null, how: null };
+  }
+  // Sugestao (nao vinculante) por nome, so para ordenar/destacar no seletor manual
+  function _sugestaoPorNome(item, produtos) {
+    const words = new Set(_normNome(item.description).split(' ').filter(Boolean));
+    if (!words.size) return null;
+    let best = null, bestScore = 0;
+    produtos.forEach(x => {
+      const pt = new Set(_normNome(x.name).split(' ').filter(Boolean));
+      if (!pt.size) return;
+      let inter = 0; words.forEach(w => { if (pt.has(w)) inter++; });
+      const score = inter / Math.max(words.size, pt.size);
+      if (score > bestScore) { bestScore = score; best = x; }
+    });
+    return (best && bestScore >= 0.5) ? best : null;
   }
 
   // ---- UI: gerar o Excel a partir de um PEDIDO ja existente (aba Pedidos) ----
@@ -2815,9 +2839,18 @@
         const un = it.qty || 0;
         const factor = p ? (p.boxFactor || 1) : 1;
         const cx = p ? Math.max(1, Math.ceil(un / factor)) : 0;
-        return { item: it, un, quantRef: p ? p.quantRef : '', match: p || null, how, cx };
+        const sugestao = p ? null : _sugestaoPorNome(it, produtos);
+        return { item: it, un, quantRef: p ? p.quantRef : '', match: p || null, how, cx, sugestao };
       });
-      _modeloAtual = { fornId, fornNome: f.nome, nome: f.modeloNome || 'pedido', base64: f.modeloXlsx, produtos, linhas, pedidoData: pe.data };
+      // Se ja existe uma planilha salva no pedido, restaura os vinculos/caixas escolhidos antes
+      if (pe.planilha && Array.isArray(pe.planilha.itens)) {
+        const byKey = {}; pe.planilha.itens.forEach(i => { byKey[i.key] = i; });
+        linhas.forEach(l => {
+          const s = byKey[_itemKey(l.item)];
+          if (s) { l.quantRef = s.quantRef || ''; l.cx = s.caixas || 0; l.match = produtos.find(x => x.quantRef === l.quantRef) || null; l.how = l.match ? 'salvo' : null; }
+        });
+      }
+      _modeloAtual = { fornId, pedidoId: pe.id, fornNome: f.nome, nome: f.modeloNome || 'pedido', base64: f.modeloXlsx, produtos, linhas, pedidoData: pe.data, jaSalva: !!pe.planilha };
       _renderExcelDoPedido();
     } catch (e) {
       document.getElementById('modalBody').innerHTML = '<div style="padding:20px;color:var(--red);font-size:13px">Erro ao ler o modelo: ' + _escHtml(e.message) + '</div>';
@@ -2846,8 +2879,11 @@
       const badge = l.how
         ? '<span style="font-size:9px;background:var(--gray-100);color:var(--gray-500);padding:1px 5px;border-radius:5px;margin-left:4px">' + l.how + '</span>'
         : '<span style="font-size:9px;background:var(--orange-light);color:var(--orange);padding:1px 5px;border-radius:5px;margin-left:4px">sem correspondencia</span>';
+      const sugHtml = (!l.match && l.sugestao)
+        ? `<br><span style="font-size:10px;color:var(--gray-500)">sugestao: ${_escHtml(l.sugestao.label.slice(0, 40))} (escolha ao lado)</span>`
+        : '';
       return `<tr>
-        <td style="padding:6px 6px;font-size:12px;border-bottom:1px solid var(--gray-100)">${_escHtml(l.item.description)}<br><span style="color:var(--gray-400);font-size:11px">${l.un} un${badge}</span></td>
+        <td style="padding:6px 6px;font-size:12px;border-bottom:1px solid var(--gray-100)">${_escHtml(l.item.description)}<br><span style="color:var(--gray-400);font-size:11px">${l.un} un${badge}</span>${sugHtml}</td>
         <td style="padding:6px 6px;border-bottom:1px solid var(--gray-100)"><select id="pl_${idx}" onchange="_pedLinkChange(${idx})" style="width:100%;min-width:180px;max-width:280px;padding:5px;border:2px solid ${l.match ? 'var(--gray-200)' : 'var(--orange)'};border-radius:6px;font-size:12px;font-family:inherit">${_optsModelo(m.produtos, l.quantRef)}</select></td>
         <td style="text-align:center;border-bottom:1px solid var(--gray-100)"><input type="number" min="0" inputmode="numeric" id="pc_${idx}" value="${l.cx || ''}" oninput="_pedCxChange(${idx})" style="width:56px;padding:5px;border:2px solid var(--primary);border-radius:6px;font-size:13px;text-align:center;font-weight:700;font-family:inherit"></td>
       </tr>`;
@@ -2866,7 +2902,10 @@
             <tbody>${rows}</tbody>
           </table>
         </div>
-        <button onclick="baixarExcelDoPedido()" style="width:100%;background:var(--primary);color:#fff;border:none;border-radius:8px;padding:13px;font-size:15px;font-weight:700;cursor:pointer">&#11015; Baixar Excel preenchido</button>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button onclick="salvarPlanilhaPedido()" style="flex:1;min-width:180px;background:#047857;color:#fff;border:none;border-radius:8px;padding:13px;font-size:15px;font-weight:700;cursor:pointer">&#128190; Salvar planilha ${m.jaSalva ? '(atualizar)' : 'no pedido'}</button>
+          <button onclick="baixarExcelDoPedido()" style="flex:1;min-width:160px;background:var(--primary);color:#fff;border:none;border-radius:8px;padding:13px;font-size:15px;font-weight:700;cursor:pointer">&#11015; Baixar</button>
+        </div>
       </div>`;
   }
   function _pedLinkChange(idx) {
@@ -2881,31 +2920,79 @@
     const cxEl = document.getElementById('pc_' + idx); if (cxEl) cxEl.value = cx > 0 ? cx : '';
   }
   function _pedCxChange(idx) { _modeloAtual.linhas[idx].cx = parseInt(document.getElementById('pc_' + idx).value) || 0; }
+  // Le o estado atual da tela (vinculos + caixas por item)
+  function _coletarLinhas() {
+    const m = _modeloAtual; const out = [];
+    m.linhas.forEach((l, idx) => {
+      const qr = (document.getElementById('pl_' + idx) || {}).value || l.quantRef || '';
+      const cx = parseInt((document.getElementById('pc_' + idx) || {}).value) || 0;
+      out.push({ key: _itemKey(l.item), quantRef: qr, caixas: cx });
+    });
+    return out;
+  }
+  function _fillsFromLinhas(linhas, produtos) {
+    const fills = [];
+    linhas.forEach(l => { if (l.quantRef && l.caixas > 0) { const p = produtos.find(x => x.quantRef === l.quantRef); if (p) fills.push({ file: p.file, quantRef: l.quantRef, caixas: l.caixas }); } });
+    return fills;
+  }
+  function _baixarBlob(blob, fname) {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a'); a.href = url; a.download = fname; document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 4000);
+  }
+  function _nomeArquivoPlanilha(nome, fornNome, dataStr) {
+    const baseNome = (nome || 'pedido').replace(/\.xlsx?$/i, '');
+    return baseNome + ' - ' + fornNome + ' - ' + ((dataStr || '').replace(/\//g, '-') || 'pedido') + '.xlsx';
+  }
+  // Grava os vinculos escolhidos no fornecedor (memoriza para os proximos pedidos)
+  function _memorizarVinculos(fornId, linhas) {
+    const f = allFornecedores.find(x => x.id === fornId); if (!f) return;
+    const links = {}; linhas.forEach(l => { if (l.quantRef && l.key) links[l.key] = l.quantRef; });
+    f.modeloLinks = Object.assign({}, f.modeloLinks || {}, links);
+  }
   async function baixarExcelDoPedido() {
     const m = _modeloAtual; if (!m) return;
-    const fills = []; const links = {};
-    m.linhas.forEach((l, idx) => {
-      const qr = (document.getElementById('pl_' + idx) || {}).value || l.quantRef;
-      const cx = parseInt((document.getElementById('pc_' + idx) || {}).value) || 0;
-      if (qr) {
-        const key = _itemKey(l.item); if (key) links[key] = qr;
-        if (cx > 0) { const p = m.produtos.find(x => x.quantRef === qr); if (p) fills.push({ file: p.file, quantRef: qr, caixas: cx }); }
-      }
-    });
+    const linhas = _coletarLinhas();
+    const fills = _fillsFromLinhas(linhas, m.produtos);
     if (!fills.length) { alert('Nenhum item vinculado a uma linha do modelo com caixa maior que 0.'); return; }
-    // Salva os vinculos escolhidos para automatizar os proximos pedidos deste fornecedor
-    const f = allFornecedores.find(x => x.id === m.fornId);
-    if (f) { f.modeloLinks = Object.assign({}, f.modeloLinks || {}, links); saveFornecedores(); }
+    _memorizarVinculos(m.fornId, linhas); saveFornecedores();
     try {
       const blob = await _gerarExcelPreenchido(m.base64, fills);
-      const d = new Date();
-      const dstr = d.toLocaleDateString('pt-BR').replace(/\//g, '-');
-      const baseNome = (m.nome || 'pedido').replace(/\.xlsx?$/i, '');
-      const fname = baseNome + ' - ' + m.fornNome + ' - ' + dstr + '.xlsx';
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a'); a.href = url; a.download = fname; document.body.appendChild(a); a.click(); a.remove();
-      setTimeout(() => URL.revokeObjectURL(url), 4000);
+      _baixarBlob(blob, _nomeArquivoPlanilha(m.nome, m.fornNome, m.pedidoData));
     } catch (e) { alert('Erro ao gerar o Excel: ' + e.message); }
+  }
+  // Salva a planilha atrelada ao pedido (compacta: guarda os vinculos+caixas; regenera on-demand)
+  async function salvarPlanilhaPedido() {
+    const m = _modeloAtual; if (!m) return;
+    const linhas = _coletarLinhas();
+    const fills = _fillsFromLinhas(linhas, m.produtos);
+    if (!fills.length) { alert('Vincule ao menos um item a uma linha do modelo (com caixa maior que 0) antes de salvar.'); return; }
+    const f = allFornecedores.find(x => x.id === m.fornId);
+    const pe = f && (f.pedidos || []).find(p => p.id === m.pedidoId);
+    if (!pe) { alert('Pedido nao encontrado.'); return; }
+    _memorizarVinculos(m.fornId, linhas);
+    pe.planilha = { geradoEm: _nowStamp(), geradoPor: currentUser, nome: (m.nome || 'pedido'), itens: linhas.filter(l => l.quantRef && l.caixas > 0) };
+    saveFornecedores();
+    m.jaSalva = true;
+    alert('Planilha salva e atrelada ao pedido!');
+    closeModal();
+    if (currentSection === 'pedidos') renderPedidosLista();
+  }
+  // Baixa a planilha ja salva num pedido (regenera a partir do modelo do fornecedor)
+  async function baixarPlanilhaSalva(fornId, pedidoId) {
+    const f = allFornecedores.find(x => x.id === fornId);
+    const pe = f && (f.pedidos || []).find(p => p.id === pedidoId);
+    if (!f || !pe || !pe.planilha) { alert('Este pedido nao tem planilha salva.'); return; }
+    if (!f.modeloXlsx) { alert('O modelo de Excel deste fornecedor nao esta mais disponivel.'); return; }
+    try {
+      const sheets = await _lerModeloXlsx(f.modeloXlsx);
+      const produtos = [];
+      sheets.forEach(sh => sh.produtos.forEach(p => produtos.push({ ...p, file: sh.file, sheet: sh.sheet })));
+      const fills = _fillsFromLinhas(pe.planilha.itens || [], produtos);
+      if (!fills.length) { alert('A planilha salva nao tem itens validos.'); return; }
+      const blob = await _gerarExcelPreenchido(f.modeloXlsx, fills);
+      _baixarBlob(blob, _nomeArquivoPlanilha(pe.planilha.nome || f.modeloNome, f.nome, pe.data));
+    } catch (e) { alert('Erro ao gerar a planilha: ' + e.message); }
   }
 
   // ===== PEDIDOS DE COMPRA =====
@@ -3114,7 +3201,10 @@
       const criador = pe.criadoPor ? ((allUsers.find(u => u.user === pe.criadoPor) || {}).name || pe.criadoPor) : '<span style="color:var(--gray-400)">-</span>';
       const fornObj = allFornecedores.find(ff => ff.id === x.fornId);
       const btnExcel = (fornObj && fornObj.modeloXlsx)
-        ? `<button onclick="gerarExcelDoPedido(${x.fornId},${pe.id})" title="Gerar o Excel do fornecedor preenchido com este pedido" style="background:#dcfce7;color:#047857;border:none;border-radius:6px;padding:6px 12px;font-size:11px;font-weight:700;cursor:pointer;margin:2px">&#128196; Excel</button>`
+        ? `<button onclick="gerarExcelDoPedido(${x.fornId},${pe.id})" title="Gerar o Excel do fornecedor preenchido com este pedido" style="background:#dcfce7;color:#047857;border:none;border-radius:6px;padding:6px 12px;font-size:11px;font-weight:700;cursor:pointer;margin:2px">&#128196; Excel${pe.planilha ? ' &#10003;' : ''}</button>`
+        : '';
+      const btnBaixarPlan = (fornObj && fornObj.modeloXlsx && pe.planilha)
+        ? `<button onclick="baixarPlanilhaSalva(${x.fornId},${pe.id})" title="Baixar a planilha salva neste pedido" style="background:#eef2ff;color:#4338ca;border:none;border-radius:6px;padding:6px 10px;font-size:11px;font-weight:700;cursor:pointer;margin:2px">Baixar</button>`
         : '';
       return `<tr>
         <td>${pe.data || '-'}</td>
@@ -3127,6 +3217,7 @@
         <td>
           <button onclick="verPedido(${x.fornId},${pe.id})" style="background:var(--gray-100);color:var(--gray-700);border:none;border-radius:6px;padding:6px 12px;font-size:11px;font-weight:700;cursor:pointer;margin:2px">Ver</button>
           ${btnExcel}
+          ${btnBaixarPlan}
           ${btnAceito}
           ${isAdmin ? `<button onclick="excluirPedidoFornecedor(${x.fornId},${pe.id})" style="background:var(--red-light);color:var(--red);border:none;border-radius:6px;padding:6px 10px;font-size:11px;font-weight:700;cursor:pointer;margin:2px">Excluir</button>` : ''}
         </td>
@@ -3158,8 +3249,69 @@
       <table style="width:100%;font-size:13px"><thead><tr><th style="text-align:left">Produto</th><th>Cod.</th><th style="text-align:right">Qtd</th></tr></thead><tbody>
         ${pe.itens.map(it => `<tr><td style="padding:3px 0">${it.description}</td><td style="text-align:center;color:var(--gray-400)">${it.code || ''}</td><td style="text-align:right;font-weight:700">${it.qty}x</td></tr>`).join('')}
       </tbody></table>
-      ${temModelo ? `<button onclick="gerarExcelDoPedido(${fornId},${pedidoId})" style="width:100%;margin-top:12px;background:#047857;color:#fff;border:none;border-radius:8px;padding:12px;font-size:14px;font-weight:700;cursor:pointer">&#128196; Baixar Excel do fornecedor preenchido</button>` : ''}`;
+      ${pe.planilha ? `<div style="margin-top:12px;font-size:12px;color:var(--green);background:var(--green-light);padding:8px 10px;border-radius:8px">&#128190; Planilha salva neste pedido${pe.planilha.geradoEm ? ' em ' + pe.planilha.geradoEm : ''}.</div>` : ''}
+      ${temModelo ? `<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px">
+        ${pe.planilha ? `<button onclick="baixarPlanilhaSalva(${fornId},${pedidoId})" style="flex:1;min-width:150px;background:#4338ca;color:#fff;border:none;border-radius:8px;padding:12px;font-size:14px;font-weight:700;cursor:pointer">&#11015; Baixar planilha salva</button>` : ''}
+        <button onclick="gerarExcelDoPedido(${fornId},${pedidoId})" style="flex:1;min-width:150px;background:#047857;color:#fff;border:none;border-radius:8px;padding:12px;font-size:14px;font-weight:700;cursor:pointer">&#128196; ${pe.planilha ? 'Editar / atualizar planilha' : 'Gerar planilha do fornecedor'}</button>
+      </div>` : ''}`;
     document.getElementById('modalOrc').classList.add('open');
+  }
+
+  // ===== PEDIDOS ACEITOS (agrupados por mes/ano do aceite) =====
+  const _MESES = ['', 'Janeiro', 'Fevereiro', 'Marco', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
+  function _mesAnoAceite(pe) {
+    const src = (pe.aprovadoEm || '').split(' ')[0];
+    let m = src.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+    if (m) return { y: +m[3], mo: +m[2] };
+    if (pe.dataISO) { const dt = new Date(pe.dataISO); if (!isNaN(dt)) return { y: dt.getFullYear(), mo: dt.getMonth() + 1 }; }
+    m = (pe.data || '').match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+    if (m) return { y: +m[3], mo: +m[2] };
+    return { y: 0, mo: 0 };
+  }
+  function renderPedidosAceitos() {
+    loadFornecedoresIfNeeded();
+    const search = (document.getElementById('aceitosSearch')?.value || '').toLowerCase();
+    const lista = [];
+    allFornecedores.forEach(f => (f.pedidos || []).forEach(pe => { if (pe.aprovado) lista.push({ fornId: f.id, fornNome: f.nome, pe }); }));
+    let filt = lista;
+    if (search) filt = filt.filter(x => (x.fornNome || '').toLowerCase().includes(search) || (x.pe.itens || []).some(it => (it.description || '').toLowerCase().includes(search)));
+    const grupos = {};
+    filt.forEach(x => { const { y, mo } = _mesAnoAceite(x.pe); const key = y * 100 + mo; (grupos[key] = grupos[key] || { y, mo, itens: [] }).itens.push(x); });
+    const keys = Object.keys(grupos).map(Number).sort((a, b) => b - a);
+    const cntEl = document.getElementById('aceitosCount'); if (cntEl) cntEl.textContent = filt.length + ' pedido(s) aceito(s)';
+    const cont = document.getElementById('aceitosContainer'); if (!cont) return;
+    if (!keys.length) { cont.innerHTML = '<div style="text-align:center;padding:44px;color:var(--gray-400)">Nenhum pedido aceito ainda.</div>'; return; }
+    cont.innerHTML = keys.map(k => {
+      const g = grupos[k];
+      const titulo = (g.mo ? _MESES[g.mo] : 'Sem data de aceite') + (g.y ? ' de ' + g.y : '');
+      const totItens = g.itens.reduce((s, x) => s + (x.pe.totalItens || 0), 0);
+      const rows = g.itens.slice().sort((a, b) => (b.pe.aprovadoEm || '').localeCompare(a.pe.aprovadoEm || '')).map(x => {
+        const pe = x.pe; const forn = allFornecedores.find(f => f.id === x.fornId) || {};
+        const temModelo = !!forn.modeloXlsx;
+        const btnExcel = temModelo ? `<button onclick="gerarExcelDoPedido(${x.fornId},${pe.id})" style="background:#dcfce7;color:#047857;border:none;border-radius:6px;padding:6px 10px;font-size:11px;font-weight:700;cursor:pointer;margin:2px">&#128196; Excel${pe.planilha ? ' &#10003;' : ''}</button>` : '';
+        const btnBaixar = (temModelo && pe.planilha) ? `<button onclick="baixarPlanilhaSalva(${x.fornId},${pe.id})" style="background:#eef2ff;color:#4338ca;border:none;border-radius:6px;padding:6px 10px;font-size:11px;font-weight:700;cursor:pointer;margin:2px">Baixar</button>` : '';
+        return `<tr>
+          <td>${pe.data || '-'}</td>
+          <td><strong>${x.fornNome}</strong></td>
+          <td>${pe.totalItens} itens</td>
+          <td>${pe.totalUnidades} un</td>
+          <td style="font-size:12px;color:var(--gray-500)">${pe.aprovadoEm || '-'}</td>
+          <td>
+            <button onclick="verPedido(${x.fornId},${pe.id})" style="background:var(--gray-100);color:var(--gray-700);border:none;border-radius:6px;padding:6px 10px;font-size:11px;font-weight:700;cursor:pointer;margin:2px">Ver</button>
+            ${btnExcel}${btnBaixar}
+          </td>
+        </tr>`;
+      }).join('');
+      return `<div style="margin-bottom:22px">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
+          <h3 style="font-size:15px;color:var(--primary);text-transform:capitalize;margin:0">${titulo}</h3>
+          <span style="font-size:12px;color:var(--gray-500)">${g.itens.length} pedido(s) • ${totItens} itens</span>
+        </div>
+        <div class="table-card"><div style="overflow-x:auto"><table><thead><tr>
+          <th>Data pedido</th><th>Fornecedor</th><th>Itens</th><th>Unidades</th><th>Aceito em</th><th>Acoes</th>
+        </tr></thead><tbody>${rows}</tbody></table></div></div>
+      </div>`;
+    }).join('');
   }
 
   // ===== CLIENTES =====
