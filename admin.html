@@ -644,6 +644,16 @@
       <div id="section-dashboard" class="page-section active">
         <div class="kpi-grid" id="kpiGrid"></div>
         <div class="chart-grid">
+          <div class="chart-card full-width">
+            <h3>Vendas Ano x Ano <span class="badge">Microvix</span> <button onclick="loadMicrovixStats(true)" title="Atualizar" style="margin-left:auto;background:var(--gray-100);border:none;border-radius:8px;padding:5px 10px;font-size:12px;font-weight:600;cursor:pointer;color:var(--gray-600)">&#8635; Atualizar</button></h3>
+            <div id="mvxYoyChart"></div>
+          </div>
+          <div class="chart-card full-width">
+            <h3>Faturamento por Dia da Semana <span class="badge">Microvix</span></h3>
+            <div id="mvxDowChart"></div>
+          </div>
+        </div>
+        <div class="chart-grid">
           <div class="chart-card">
             <h3>Vendas por Mes <span class="badge" id="chartYear"></span></h3>
             <div class="bar-chart" id="barChartMensal"></div>
@@ -1016,7 +1026,7 @@
 </script>
 <script>
   // ===== CONFIG =====
-  const APP_VERSION = 'v114';
+  const APP_VERSION = 'v115';
   const API_URL = 'https://ecoville-api.vercel.app/api';
   // Permissoes por usuario: null = pagina completa; array = secoes permitidas
   const USER_SECTIONS = {
@@ -1508,6 +1518,67 @@
       <td><span class="status-badge ${o.status}">${statusLabel(o.status)}</span></td>
       <td>${getPaymentStatusBadge(o)}</td>
     </tr>`).join('') || '<tr><td colspan="7" style="text-align:center;padding:32px;color:var(--gray-400)">Nenhum orcamento</td></tr>';
+
+    loadMicrovixStats();
+  }
+
+  // ===== GRAFICOS MICROVIX (vendas Ano x Ano + faturamento por dia da semana) =====
+  let _mvxStats = null, _mvxLoading = false, _mvxFetchedAt = 0;
+  function _fmtR(v) { return (Number(v) || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 }); }
+  async function loadMicrovixStats(force) {
+    const now = Date.now();
+    if (!force && _mvxStats && (now - _mvxFetchedAt) < 5 * 60 * 1000) { renderMicrovixCharts(_mvxStats); return; }
+    if (_mvxLoading) return;
+    _mvxLoading = true;
+    const yoyEl = document.getElementById('mvxYoyChart');
+    if (yoyEl && !_mvxStats) yoyEl.innerHTML = '<div style="padding:34px;text-align:center;color:var(--gray-400)">Carregando dados da Microvix...</div>';
+    try {
+      const r = await fetch(API_URL + '/microvix' + (force ? '?force=1' : ''), { headers: apiHeaders() });
+      if (r.ok) { _mvxStats = await r.json(); _mvxFetchedAt = now; renderMicrovixCharts(_mvxStats); }
+      else if (yoyEl) yoyEl.innerHTML = '<div style="padding:24px;text-align:center;color:var(--gray-400)">Nao foi possivel carregar os dados da Microvix.</div>';
+    } catch (e) {
+      if (yoyEl) yoyEl.innerHTML = '<div style="padding:24px;text-align:center;color:var(--gray-400)">Erro ao carregar Microvix.</div>';
+    } finally { _mvxLoading = false; }
+  }
+  function renderMicrovixCharts(d) {
+    if (!d || !d.yoy) return;
+    const meses = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
+    const atual = d.yoy.atual || [], anterior = d.yoy.anterior || [];
+    const maxV = Math.max(1, ...atual, ...anterior);
+    const yoyEl = document.getElementById('mvxYoyChart');
+    if (yoyEl) {
+      const atualizado = d.computedAt ? new Date(d.computedAt).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : '';
+      yoyEl.innerHTML =
+        '<div style="display:flex;gap:16px;flex-wrap:wrap;align-items:center;margin-bottom:14px;font-size:12px">'
+        + '<span style="display:flex;align-items:center;gap:6px"><span style="width:12px;height:12px;border-radius:3px;background:var(--primary)"></span> ' + d.anoAtual + ' <b style="color:var(--primary)">' + _fmtR(d.totalAtual) + '</b></span>'
+        + '<span style="display:flex;align-items:center;gap:6px"><span style="width:12px;height:12px;border-radius:3px;background:var(--accent)"></span> ' + d.anoAnterior + ' <b>' + _fmtR(d.totalAnterior) + '</b></span>'
+        + '<span style="margin-left:auto;color:var(--gray-400);font-size:11px">atualizado ' + atualizado + (d.cache ? ' • cache' : '') + '</span>'
+        + '</div>'
+        + '<div style="display:flex;align-items:flex-end;gap:6px;height:190px">'
+        + meses.map((m, i) =>
+          '<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:5px">'
+          + '<div style="width:100%;flex:1;display:flex;align-items:flex-end;justify-content:center;gap:3px">'
+          + '<div title="' + d.anoAtual + ': ' + _fmtR(atual[i]) + '" style="width:45%;border-radius:4px 4px 0 0;background:linear-gradient(180deg,var(--primary-light),var(--primary));height:' + ((atual[i] || 0) / maxV * 100) + '%;min-height:' + (atual[i] > 0 ? 2 : 0) + 'px"></div>'
+          + '<div title="' + d.anoAnterior + ': ' + _fmtR(anterior[i]) + '" style="width:45%;border-radius:4px 4px 0 0;background:var(--accent);height:' + ((anterior[i] || 0) / maxV * 100) + '%;min-height:' + (anterior[i] > 0 ? 2 : 0) + 'px"></div>'
+          + '</div><div style="font-size:10px;color:var(--gray-500);font-weight:500">' + m + '</div></div>'
+        ).join('')
+        + '</div>';
+    }
+    const dowEl = document.getElementById('mvxDowChart');
+    if (dowEl && d.weekday) {
+      const dows = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sab', 'Dom'];
+      const vals = d.weekday.valores || []; const maxD = Math.max(1, ...vals);
+      dowEl.innerHTML =
+        '<div style="font-size:11px;color:var(--gray-400);margin-bottom:12px">Faturamento por dia da semana em ' + d.weekday.ano + '</div>'
+        + '<div style="display:flex;align-items:flex-end;gap:10px;height:190px">'
+        + dows.map((dn, i) =>
+          '<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:5px">'
+          + '<div style="font-size:10px;font-weight:600;color:var(--gray-600)">' + (vals[i] > 0 ? _fmtR(vals[i]) : '') + '</div>'
+          + '<div style="width:100%;flex:1;display:flex;align-items:flex-end"><div style="width:100%;border-radius:6px 6px 0 0;background:linear-gradient(180deg,#34d399,#059669);height:' + ((vals[i] || 0) / maxD * 100) + '%;min-height:' + (vals[i] > 0 ? 2 : 0) + 'px"></div></div>'
+          + '<div style="font-size:11px;color:var(--gray-500);font-weight:500">' + dn + '</div></div>'
+        ).join('')
+        + '</div>';
+    }
   }
 
   function getPaymentStatusBadge(o) {
