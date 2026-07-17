@@ -1012,7 +1012,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <script>
   // ===== CONFIG =====
-  const APP_VERSION = 'v112';
+  const APP_VERSION = 'v113';
   const API_URL = 'https://ecoville-api.vercel.app/api';
   // Permissoes por usuario: null = pagina completa; array = secoes permitidas
   const USER_SECTIONS = {
@@ -2681,12 +2681,68 @@
     }
     return out;
   }
-  // Le um .xlsx (base64) e soma PRECO x QUANT de todas as linhas de produto (= valor do pedido)
+  // Le um .xlsx (base64) e soma PRECO x QUANT de todas as linhas de produto (fallback)
   async function _valorDoXlsx(base64) {
     const sheets = await _lerModeloXlsx(base64);
     let total = 0;
     sheets.forEach(sh => sh.produtos.forEach(p => { total += (Number(p.price) || 0) * (Number(p.quant) || 0); }));
     return Math.round(total * 100) / 100;
+  }
+  // Le TODAS as celulas do xlsx, por aba (para achar o campo de total)
+  async function _lerXlsxCells(base64) {
+    if (typeof JSZip === 'undefined') throw new Error('Biblioteca de Excel nao carregou.');
+    const zip = await JSZip.loadAsync(base64, { base64: true });
+    const relsF = zip.file('xl/_rels/workbook.xml.rels');
+    const rels = {};
+    if (relsF) { const rx = await relsF.async('string'); let rm; const rre = /<Relationship\b[^>]*\/>/g; while ((rm = rre.exec(rx))) { const id = _getAttr(rm[0], 'Id'), tgt = _getAttr(rm[0], 'Target'); if (id && tgt) rels[id] = tgt; } }
+    const wbXml = await zip.file('xl/workbook.xml').async('string');
+    const sheets = []; let sm; const sre = /<sheet\b[^>]*\/>/g;
+    while ((sm = sre.exec(wbXml))) { const name = _getAttr(sm[0], 'name'); const rid = _getAttr(sm[0], 'r:id'); let tgt = rels[rid]; if (!tgt) continue; if (!/^xl\//.test(tgt) && !/^\//.test(tgt)) tgt = 'xl/' + tgt; sheets.push({ name, file: tgt.replace(/^\//, '') }); }
+    let shared = []; const ss = zip.file('xl/sharedStrings.xml'); if (ss) shared = _parseSharedStrings(await ss.async('string'));
+    const out = [];
+    for (const sh of sheets) {
+      const f = zip.file(sh.file); if (!f) continue;
+      const xml = await f.async('string'); const rows = [];
+      const rowRe = /<row\b[^>]*\br="(\d+)"[^>]*>([\s\S]*?)<\/row>/g; let rm;
+      while ((rm = rowRe.exec(xml))) {
+        const cells = {}; const cre = /<c\b[^>]*\/>|<c\b[^>]*>[\s\S]*?<\/c>/g; let cm;
+        while ((cm = cre.exec(rm[2]))) { const ref = _getAttr(cm[0], 'r'); if (!ref) continue; cells[(ref.match(/^[A-Z]+/) || [''])[0]] = _cellValue(cm[0], shared); }
+        rows.push({ rnum: +rm[1], cells });
+      }
+      out.push({ sheet: sh.name, rows });
+    }
+    return out;
+  }
+  const _LABELS_TOTAL = ['VALOR DO PEDIDO', 'VALOR PEDIDO', 'VALOR TOTAL', 'TOTAL DO PEDIDO', 'TOTAL GERAL', 'TOTAL A PAGAR', 'TOTAL DA NOTA', 'TOTAL DA COMPRA', 'VALOR DA COMPRA', 'VLR TOTAL', 'VL TOTAL'];
+  function _maxNumNaRow(row) { let mx = null; for (const c in row.cells) { const n = row.cells[c].num; if (n != null && (mx == null || n > mx)) mx = n; } return mx; }
+  // Acha o campo "VALOR DO PEDIDO / TOTAL" no xlsx e le o valor (funciona p/ qualquer fornecedor)
+  async function _valorTotalDoXlsx(base64) {
+    const sheets = await _lerXlsxCells(base64);
+    let fileTotal = 0;
+    for (const sh of sheets) {
+      let sheetTotal = 0;
+      // 1) rotulo forte de total geral (ex: "VALOR DO PEDIDO:")
+      for (const row of sh.rows) {
+        const temLabel = Object.values(row.cells).some(cl => cl.text && _LABELS_TOTAL.some(L => _norm(cl.text).includes(L)));
+        if (temLabel) { const v = _maxNumNaRow(row); if (v != null && v > sheetTotal) sheetTotal = v; }
+      }
+      // 2) fallback: qualquer linha com "TOTAL" e um numero
+      if (!sheetTotal) {
+        for (const row of sh.rows) {
+          const temTotal = Object.values(row.cells).some(cl => cl.text && _norm(cl.text).includes('TOTAL'));
+          if (temTotal) { const v = _maxNumNaRow(row); if (v != null && v > sheetTotal) sheetTotal = v; }
+        }
+      }
+      fileTotal += sheetTotal;
+    }
+    return Math.round(fileTotal * 100) / 100;
+  }
+  // Valor do anexo: 1o tenta o campo de total do arquivo; se nao achar, soma PRECO x QUANT
+  async function _valorDoAnexoXlsx(base64) {
+    let v = 0;
+    try { v = await _valorTotalDoXlsx(base64); } catch (e) { }
+    if (!(v > 0)) { try { v = await _valorDoXlsx(base64); } catch (e) { } }
+    return v;
   }
   function _parseSheetProdutos(xml, shared) {
     const rowRe = /<row\b[^>]*\br="(\d+)"[^>]*>([\s\S]*?)<\/row>/g; let rm; const rows = [];
@@ -3028,7 +3084,7 @@
       }
       // Se o anexo for uma planilha .xlsx, calcula o valor do pedido (PRECO x QUANT) automaticamente
       if (/\.xlsx$/i.test(file.name)) {
-        try { const v = await _valorDoXlsx(b64); if (v > 0) pe.valor = v; } catch (e) { /* ignora: mantem valor manual */ }
+        try { const v = await _valorDoAnexoXlsx(b64); if (v > 0) pe.valor = v; } catch (e) { /* ignora: mantem valor manual */ }
       }
       saveFornecedores();
       verPedido(fornId, pedidoId);
@@ -3056,8 +3112,8 @@
     if (!pe || !pe.arquivo) { alert('Este pedido nao tem arquivo anexado.'); return; }
     if (!/\.xlsx$/i.test(pe.arquivo.nome || '')) { alert('O calculo automatico do valor so funciona com anexo .xlsx (planilha).'); return; }
     try {
-      const v = await _valorDoXlsx(pe.arquivo.base64);
-      if (!(v > 0)) { alert('Nao encontrei valores (PRECO x QUANT) preenchidos no anexo.'); return; }
+      const v = await _valorDoAnexoXlsx(pe.arquivo.base64);
+      if (!(v > 0)) { alert('Nao encontrei o valor total no anexo (procuro por "VALOR DO PEDIDO / TOTAL"). Verifique se o total esta preenchido.'); return; }
       pe.valor = v; saveFornecedores(); verPedido(fornId, pedidoId);
       alert('Valor calculado do anexo: ' + _fmtValor(v));
     } catch (e) { alert('Nao consegui ler o valor do anexo: ' + e.message); }
@@ -3513,7 +3569,7 @@
     if (pend.length) {
       Promise.all(pend.map(async x => {
         _valorCalcTentado.add(x.pe.id);
-        try { const v = await _valorDoXlsx(x.pe.arquivo.base64); if (v > 0) { x.pe.valor = v; return true; } } catch (e) { }
+        try { const v = await _valorDoAnexoXlsx(x.pe.arquivo.base64); if (v > 0) { x.pe.valor = v; return true; } } catch (e) { }
         return false;
       })).then(res => { if (res.some(Boolean)) { if (isAdmin) saveFornecedores(); renderPedidosAceitos(); } });
     }
