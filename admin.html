@@ -1022,7 +1022,7 @@
 </script>
 <script>
   // ===== CONFIG =====
-  const APP_VERSION = 'v117';
+  const APP_VERSION = 'v118';
   const API_URL = 'https://ecoville-api.vercel.app/api';
   // Permissoes por usuario: null = pagina completa; array = secoes permitidas
   const USER_SECTIONS = {
@@ -1518,9 +1518,14 @@
     loadMicrovixStats();
   }
 
-  // ===== GRAFICOS MICROVIX (vendas Ano x Ano + faturamento por dia da semana) =====
-  let _mvxStats = null, _mvxLoading = false, _mvxFetchedAt = 0;
+  // ===== MICROVIX (faturamento: por dia da semana estilo widget do ERP + Ano x Ano) =====
+  let _mvxStats = null, _mvxLoading = false, _mvxFetchedAt = 0, _mvxWeekOffset = 0;
   function _fmtR(v) { return (Number(v) || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 }); }
+  function _fmtR2(v) { return (Number(v) || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }); }
+  function _ymd(dt) { return dt.getFullYear() + '-' + String(dt.getMonth() + 1).padStart(2, '0') + '-' + String(dt.getDate()).padStart(2, '0'); }
+  function _mondayOf(dt) { const x = new Date(dt.getFullYear(), dt.getMonth(), dt.getDate()); const wd = (x.getDay() + 6) % 7; x.setDate(x.getDate() - wd); return x; }
+  function _isoWeek(dt) { const x = new Date(Date.UTC(dt.getFullYear(), dt.getMonth(), dt.getDate())); const day = (x.getUTCDay() + 6) % 7; x.setUTCDate(x.getUTCDate() - day + 3); const y0 = new Date(Date.UTC(x.getUTCFullYear(), 0, 4)); const d0 = (y0.getUTCDay() + 6) % 7; y0.setUTCDate(y0.getUTCDate() - d0 + 3); return 1 + Math.round((x - y0) / 604800000); }
+  function mvxSemana(delta) { _mvxWeekOffset += delta; if (_mvxStats) renderMicrovixBlock(_mvxStats); }
   async function loadMicrovixStats(force) {
     const now = Date.now();
     if (!force && _mvxStats && (now - _mvxFetchedAt) < 5 * 60 * 1000) { renderMicrovixBlock(_mvxStats); return; }
@@ -1539,42 +1544,92 @@
   function renderMicrovixBlock(d) {
     const el = document.getElementById('mvxBlock');
     if (!el || !d || !d.yoy) return;
-    const meses = ['Janeiro', 'Fevereiro', 'Marco', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
-    const mAbrev = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
+    const meses = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
+    const mesFull = ['Janeiro', 'Fevereiro', 'Marco', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
+    const dias = d.dias || {};
     const atual = d.yoy.atual || [], anterior = d.yoy.anterior || [];
-    const mi = new Date().getMonth();
+    const now = new Date(); const mi = now.getMonth();
     const valMes = atual[mi] || 0;
-    const anteriorNome = mi > 0 ? meses[mi - 1] : (meses[11] + '/' + d.anoAnterior);
+    const anteriorNome = mi > 0 ? mesFull[mi - 1] : (mesFull[11] + '/' + d.anoAnterior);
     const valMesAnt = mi > 0 ? (atual[mi - 1] || 0) : (anterior[11] || 0);
-    const dowFull = ['Segunda', 'Terca', 'Quarta', 'Quinta', 'Sexta', 'Sabado', 'Domingo'];
-    const dows = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sab', 'Dom'];
-    const wv = (d.weekday && d.weekday.media) || [];
-    const wdias = (d.weekday && d.weekday.dias) || [];
-    // melhor dia = maior media com amostra minima (>=4 dias); evita outlier de 1 dia
-    let bestI = -1; wv.forEach((v, i) => { if ((wdias[i] || 0) >= 4 && (bestI < 0 || v > wv[bestI])) bestI = i; });
-    if (bestI < 0) { bestI = 0; wv.forEach((v, i) => { if (v > (wv[bestI] || 0)) bestI = i; }); }
     const atualizado = d.computedAt ? new Date(d.computedAt).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : '';
+
     const tile = (label, val, sub) =>
-      '<div style="flex:1;min-width:160px;background:var(--gray-50);border-radius:12px;padding:14px 16px">'
+      '<div style="flex:1;min-width:150px;background:var(--gray-50);border-radius:12px;padding:14px 16px">'
       + '<div style="font-size:12px;color:var(--gray-500);font-weight:600">' + label + '</div>'
-      + '<div style="font-size:24px;font-weight:800;color:var(--primary);margin-top:2px">' + _fmtR(val) + '</div>'
+      + '<div style="font-size:23px;font-weight:800;color:var(--primary);margin-top:2px">' + _fmtR(val) + '</div>'
       + (sub ? '<div style="font-size:11px;color:var(--gray-400);margin-top:2px">' + sub + '</div>' : '') + '</div>';
-    el.innerHTML =
-      '<div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:18px">'
-      + tile(meses[mi] + ' (mes atual)', valMes, 'parcial - mes em andamento')
+    const kpis = '<div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:20px">'
+      + tile(mesFull[mi] + ' (mes atual)', valMes, 'parcial')
       + tile(anteriorNome + ' (mes anterior)', valMesAnt, '')
       + tile('Total ' + d.anoAtual, d.totalAtual, (d.nVendasAno || 0) + ' vendas')
-      + '</div>'
-      + '<div style="margin-bottom:14px;font-size:13px">'
-      + '<b>Faturamento medio por dia da semana (' + d.weekday.ano + ')</b> — melhor: <b style="color:var(--primary)">' + dowFull[bestI] + '</b>'
-      + '<div style="color:var(--gray-600);margin-top:5px;line-height:1.9">' + dows.map((dn, i) => dn + ' <b>' + _fmtR(wv[i]) + '</b>' + ((wdias[i]) ? ' <span style="color:var(--gray-400);font-size:11px">(' + wdias[i] + 'd)</span>' : '')).join(' &nbsp;·&nbsp; ') + '</div>'
-      + '<div style="font-size:11px;color:var(--gray-400);margin-top:3px">media por dia (soma do dia / nº de dias com venda)</div>'
-      + '</div>'
-      + '<div style="font-size:13px">'
-      + '<b>Faturamento por mes (' + d.anoAtual + ')</b>'
-      + '<div style="color:var(--gray-600);margin-top:5px;line-height:1.9">' + mAbrev.map((mn, i) => atual[i] > 0 ? (mn + ' <b>' + _fmtR(atual[i]) + '</b>') : null).filter(Boolean).join(' &nbsp;·&nbsp; ') + '</div>'
-      + '</div>'
-      + '<div style="margin-top:14px;font-size:11px;color:var(--gray-400)">Fonte: Microvix • atualizado ' + atualizado + (d.cache ? ' (cache)' : '') + '</div>';
+      + '</div>';
+
+    // ---- Widget: faturamento por dia da semana (semana a semana, ano atual vs anterior) ----
+    const monday = _mondayOf(now); monday.setDate(monday.getDate() + _mvxWeekOffset * 7);
+    const semana = _isoWeek(monday);
+    const dowN = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sab', 'Dom'];
+    const dd = (x) => String(x.getDate()).padStart(2, '0') + '/' + String(x.getMonth() + 1).padStart(2, '0');
+    let totA = 0, totB = 0;
+    const wrows = dowN.map((dn, i) => {
+      const dA = new Date(monday); dA.setDate(monday.getDate() + i);
+      const dB = new Date(monday); dB.setDate(monday.getDate() + i - 364);
+      const vA = dias[_ymd(dA)] || 0, vB = dias[_ymd(dB)] || 0; totA += vA; totB += vB;
+      const up = vA > 0 ? ' <span style="color:#16a34a;font-size:10px">&#9650;</span>' : '';
+      return '<tr style="border-top:1px solid var(--gray-100)">'
+        + '<td style="padding:7px 10px;font-weight:600;color:var(--gray-700)">' + dn + '</td>'
+        + '<td style="padding:7px 4px;font-size:11px;color:var(--gray-400)">' + dd(dA) + '</td>'
+        + '<td style="padding:7px 10px;text-align:right;font-weight:700;' + (vA > 0 ? 'color:var(--primary)' : 'color:var(--gray-400)') + '">' + _fmtR2(vA) + up + '</td>'
+        + '<td style="padding:7px 4px;font-size:11px;color:var(--gray-400)">' + dd(dB) + '</td>'
+        + '<td style="padding:7px 10px;text-align:right;' + (vB > 0 ? 'font-weight:700' : 'color:var(--gray-400)') + '">' + _fmtR2(vB) + '</td>'
+        + '</tr>';
+    }).join('');
+    const semanaWidget =
+      '<div style="border:1px solid var(--gray-200);border-radius:12px;overflow:hidden;margin-bottom:20px">'
+      + '<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:var(--gray-50);border-bottom:1px solid var(--gray-200)">'
+      + '<b style="font-size:14px">Faturamento por Dia da Semana</b>'
+      + '<span style="display:flex;align-items:center;gap:8px;font-size:13px;font-weight:700;color:var(--primary)">'
+      + '<button onclick="mvxSemana(-1)" title="Semana anterior" style="background:none;border:none;cursor:pointer;font-size:15px;color:var(--primary);padding:2px 6px">&#9664;</button>'
+      + 'Semana ' + semana
+      + '<button onclick="mvxSemana(1)" title="Proxima semana" style="background:none;border:none;cursor:pointer;font-size:15px;color:var(--primary);padding:2px 6px">&#9654;</button>'
+      + (_mvxWeekOffset !== 0 ? '<button onclick="mvxSemana(' + (-_mvxWeekOffset) + ')" style="background:var(--gray-100);border:none;border-radius:6px;padding:3px 8px;font-size:11px;cursor:pointer;color:var(--gray-600)">hoje</button>' : '')
+      + '</span></div>'
+      + '<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:13px">'
+      + '<thead><tr style="font-size:12px;color:#fff">'
+      + '<th style="padding:6px 10px;background:var(--gray-400)"></th>'
+      + '<th colspan="2" style="padding:6px 10px;background:var(--primary)">' + d.anoAtual + '</th>'
+      + '<th colspan="2" style="padding:6px 10px;background:var(--orange)">' + d.anoAnterior + '</th>'
+      + '</tr></thead><tbody>' + wrows + '</tbody>'
+      + '<tfoot><tr style="border-top:2px solid var(--gray-200);font-weight:800;background:var(--gray-50)">'
+      + '<td colspan="2" style="padding:8px 10px">Total da semana</td>'
+      + '<td style="padding:8px 10px;text-align:right;color:var(--primary)">' + _fmtR2(totA) + '</td>'
+      + '<td></td><td style="padding:8px 10px;text-align:right">' + _fmtR2(totB) + '</td>'
+      + '</tr></tfoot></table></div></div>';
+
+    // ---- Vendas Ano a Ano (por mes) ----
+    const mrows = meses.map((mn, i) => {
+      if (!(atual[i] > 0) && !(anterior[i] > 0)) return null;
+      return '<tr style="border-top:1px solid var(--gray-100)">'
+        + '<td style="padding:6px 10px;font-weight:600">' + mn + '</td>'
+        + '<td style="padding:6px 10px;text-align:right;font-weight:700;color:var(--primary)">' + (atual[i] > 0 ? _fmtR(atual[i]) : '-') + '</td>'
+        + '<td style="padding:6px 10px;text-align:right;color:var(--gray-500)">' + (anterior[i] > 0 ? _fmtR(anterior[i]) : '-') + '</td></tr>';
+    }).filter(Boolean).join('');
+    const anoWidget =
+      '<div style="border:1px solid var(--gray-200);border-radius:12px;overflow:hidden"><div style="overflow-x:auto">'
+      + '<table style="width:100%;border-collapse:collapse;font-size:13px">'
+      + '<thead><tr style="font-size:12px;color:#fff">'
+      + '<th style="padding:6px 10px;background:var(--gray-400);text-align:left">Vendas Ano a Ano</th>'
+      + '<th style="padding:6px 10px;background:var(--primary);text-align:right">' + d.anoAtual + '</th>'
+      + '<th style="padding:6px 10px;background:var(--orange);text-align:right">' + d.anoAnterior + '</th>'
+      + '</tr></thead><tbody>' + mrows + '</tbody>'
+      + '<tfoot><tr style="border-top:2px solid var(--gray-200);font-weight:800;background:var(--gray-50)">'
+      + '<td style="padding:8px 10px">Total</td>'
+      + '<td style="padding:8px 10px;text-align:right;color:var(--primary)">' + _fmtR(d.totalAtual) + '</td>'
+      + '<td style="padding:8px 10px;text-align:right">' + _fmtR(d.totalAnterior) + '</td>'
+      + '</tr></tfoot></table></div></div>';
+
+    el.innerHTML = kpis + semanaWidget + anoWidget
+      + '<div style="margin-top:12px;font-size:11px;color:var(--gray-400)">Fonte: Microvix • atualizado ' + atualizado + (d.cache ? ' (cache)' : '') + '</div>';
   }
 
   function getPaymentStatusBadge(o) {
