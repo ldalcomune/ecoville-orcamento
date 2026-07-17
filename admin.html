@@ -1022,7 +1022,7 @@
 </script>
 <script>
   // ===== CONFIG =====
-  const APP_VERSION = 'v116';
+  const APP_VERSION = 'v117';
   const API_URL = 'https://ecoville-api.vercel.app/api';
   // Permissoes por usuario: null = pagina completa; array = secoes permitidas
   const USER_SECTIONS = {
@@ -1548,8 +1548,11 @@
     const valMesAnt = mi > 0 ? (atual[mi - 1] || 0) : (anterior[11] || 0);
     const dowFull = ['Segunda', 'Terca', 'Quarta', 'Quinta', 'Sexta', 'Sabado', 'Domingo'];
     const dows = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sab', 'Dom'];
-    const wv = (d.weekday && d.weekday.valores) || [];
-    let bestI = 0; wv.forEach((v, i) => { if (v > (wv[bestI] || 0)) bestI = i; });
+    const wv = (d.weekday && d.weekday.media) || [];
+    const wdias = (d.weekday && d.weekday.dias) || [];
+    // melhor dia = maior media com amostra minima (>=4 dias); evita outlier de 1 dia
+    let bestI = -1; wv.forEach((v, i) => { if ((wdias[i] || 0) >= 4 && (bestI < 0 || v > wv[bestI])) bestI = i; });
+    if (bestI < 0) { bestI = 0; wv.forEach((v, i) => { if (v > (wv[bestI] || 0)) bestI = i; }); }
     const atualizado = d.computedAt ? new Date(d.computedAt).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : '';
     const tile = (label, val, sub) =>
       '<div style="flex:1;min-width:160px;background:var(--gray-50);border-radius:12px;padding:14px 16px">'
@@ -1563,8 +1566,9 @@
       + tile('Total ' + d.anoAtual, d.totalAtual, (d.nVendasAno || 0) + ' vendas')
       + '</div>'
       + '<div style="margin-bottom:14px;font-size:13px">'
-      + '<b>Faturamento por dia da semana (' + d.weekday.ano + ')</b> — melhor: <b style="color:var(--primary)">' + dowFull[bestI] + '</b>'
-      + '<div style="color:var(--gray-600);margin-top:5px;line-height:1.9">' + dows.map((dn, i) => dn + ' <b>' + _fmtR(wv[i]) + '</b>').join(' &nbsp;·&nbsp; ') + '</div>'
+      + '<b>Faturamento medio por dia da semana (' + d.weekday.ano + ')</b> — melhor: <b style="color:var(--primary)">' + dowFull[bestI] + '</b>'
+      + '<div style="color:var(--gray-600);margin-top:5px;line-height:1.9">' + dows.map((dn, i) => dn + ' <b>' + _fmtR(wv[i]) + '</b>' + ((wdias[i]) ? ' <span style="color:var(--gray-400);font-size:11px">(' + wdias[i] + 'd)</span>' : '')).join(' &nbsp;·&nbsp; ') + '</div>'
+      + '<div style="font-size:11px;color:var(--gray-400);margin-top:3px">media por dia (soma do dia / nº de dias com venda)</div>'
       + '</div>'
       + '<div style="font-size:13px">'
       + '<b>Faturamento por mes (' + d.anoAtual + ')</b>'
