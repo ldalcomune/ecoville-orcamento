@@ -1010,9 +1010,13 @@
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script>
+  if (typeof pdfjsLib !== 'undefined') { pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js'; }
+</script>
 <script>
   // ===== CONFIG =====
-  const APP_VERSION = 'v113';
+  const APP_VERSION = 'v114';
   const API_URL = 'https://ecoville-api.vercel.app/api';
   // Permissoes por usuario: null = pagina completa; array = secoes permitidas
   const USER_SECTIONS = {
@@ -2744,6 +2748,36 @@
     if (!(v > 0)) { try { v = await _valorDoXlsx(base64); } catch (e) { } }
     return v;
   }
+  function _b64ToBytes(b64) { const bin = atob(b64); const len = bin.length; const bytes = new Uint8Array(len); for (let i = 0; i < len; i++) bytes[i] = bin.charCodeAt(i); return bytes; }
+  async function _textoDoPdf(base64) {
+    if (typeof pdfjsLib === 'undefined') throw new Error('Leitor de PDF nao carregou. Verifique a conexao.');
+    const pdf = await pdfjsLib.getDocument({ data: _b64ToBytes(base64) }).promise;
+    let txt = '';
+    for (let i = 1; i <= pdf.numPages; i++) {
+      const page = await pdf.getPage(i);
+      const content = await page.getTextContent();
+      txt += content.items.map(it => it.str).join(' ') + '\n';
+    }
+    return txt;
+  }
+  // Le o valor do PDF: o total geral e quase sempre o maior valor em R$ do documento
+  async function _valorDoPdf(base64) {
+    let txt = await _textoDoPdf(base64);
+    txt = txt.replace(/(\d)\s+([.,])/g, '$1$2').replace(/([.,])\s+(\d)/g, '$1$2'); // corrige valores quebrados
+    const re = /\d{1,3}(?:\.\d{3})*,\d{2}/g; let m, mx = 0;
+    while ((m = re.exec(txt))) { const v = parseFloat(m[0].replace(/\./g, '').replace(',', '.')); if (v > mx) mx = v; }
+    return Math.round(mx * 100) / 100;
+  }
+  // Valor do anexo conforme o tipo (xlsx: campo TOTAL; pdf: maior valor em R$)
+  async function _valorDoArquivoAnexo(arquivo) {
+    if (!arquivo || !arquivo.base64) return 0;
+    const nome = (arquivo.nome || '').toLowerCase(); const tipo = arquivo.tipo || '';
+    try {
+      if (/\.xlsx$/.test(nome) || /spreadsheet/.test(tipo)) return await _valorDoAnexoXlsx(arquivo.base64);
+      if (/\.pdf$/.test(nome) || /pdf/.test(tipo)) return await _valorDoPdf(arquivo.base64);
+    } catch (e) { }
+    return 0;
+  }
   function _parseSheetProdutos(xml, shared) {
     const rowRe = /<row\b[^>]*\br="(\d+)"[^>]*>([\s\S]*?)<\/row>/g; let rm; const rows = [];
     while ((rm = rowRe.exec(xml))) {
@@ -3082,10 +3116,8 @@
         alert('Nao foi possivel anexar: o total de arquivos ficaria acima do limite de sincronizacao (~4 MB). Remova algum anexo antigo ou use um arquivo menor.');
         input.value = ''; return;
       }
-      // Se o anexo for uma planilha .xlsx, calcula o valor do pedido (PRECO x QUANT) automaticamente
-      if (/\.xlsx$/i.test(file.name)) {
-        try { const v = await _valorDoAnexoXlsx(b64); if (v > 0) pe.valor = v; } catch (e) { /* ignora: mantem valor manual */ }
-      }
+      // Le o valor do anexo automaticamente (xlsx: campo TOTAL; pdf: maior valor em R$)
+      try { const v = await _valorDoArquivoAnexo(pe.arquivo); if (v > 0) pe.valor = v; } catch (e) { /* ignora: mantem valor manual */ }
       saveFornecedores();
       verPedido(fornId, pedidoId);
     };
@@ -3110,10 +3142,10 @@
     const f = allFornecedores.find(x => x.id === fornId);
     const pe = f && (f.pedidos || []).find(p => p.id === pedidoId);
     if (!pe || !pe.arquivo) { alert('Este pedido nao tem arquivo anexado.'); return; }
-    if (!/\.xlsx$/i.test(pe.arquivo.nome || '')) { alert('O calculo automatico do valor so funciona com anexo .xlsx (planilha).'); return; }
+    if (!/\.(xlsx|pdf)$/i.test(pe.arquivo.nome || '')) { alert('O calculo automatico do valor so funciona com anexo .xlsx ou .pdf.'); return; }
     try {
-      const v = await _valorDoAnexoXlsx(pe.arquivo.base64);
-      if (!(v > 0)) { alert('Nao encontrei o valor total no anexo (procuro por "VALOR DO PEDIDO / TOTAL"). Verifique se o total esta preenchido.'); return; }
+      const v = await _valorDoArquivoAnexo(pe.arquivo);
+      if (!(v > 0)) { alert('Nao consegui ler o valor no anexo. Se for PDF escaneado (imagem), nao da para ler o texto - digite o valor manualmente.'); return; }
       pe.valor = v; saveFornecedores(); verPedido(fornId, pedidoId);
       alert('Valor calculado do anexo: ' + _fmtValor(v));
     } catch (e) { alert('Nao consegui ler o valor do anexo: ' + e.message); }
@@ -3384,7 +3416,7 @@
       <div style="margin-top:12px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">
         <span style="font-size:13px;font-weight:700;color:var(--gray-700)">Valor do pedido:</span>
         ${isAdmin
-          ? `<input type="number" step="0.01" min="0" value="${pe.valor != null ? pe.valor : ''}" placeholder="0,00" onchange="_setValorPedido(${fornId},${pedidoId},this.value)" style="width:130px;padding:7px;border:2px solid var(--gray-200);border-radius:6px;font-size:14px;font-family:inherit;text-align:right">${(pe.arquivo && /\.xlsx$/i.test(pe.arquivo.nome || '')) ? `<button onclick="recalcularValorAnexo(${fornId},${pedidoId})" style="background:#0ea5e9;color:#fff;border:none;border-radius:6px;padding:7px 10px;font-size:12px;font-weight:700;cursor:pointer">&#128209; Calcular pelo anexo</button>` : '<span style="font-size:11px;color:var(--gray-400)">(anexe uma planilha .xlsx para calcular)</span>'}`
+          ? `<input type="number" step="0.01" min="0" value="${pe.valor != null ? pe.valor : ''}" placeholder="0,00" onchange="_setValorPedido(${fornId},${pedidoId},this.value)" style="width:130px;padding:7px;border:2px solid var(--gray-200);border-radius:6px;font-size:14px;font-family:inherit;text-align:right">${(pe.arquivo && /\.(xlsx|pdf)$/i.test(pe.arquivo.nome || '')) ? `<button onclick="recalcularValorAnexo(${fornId},${pedidoId})" style="background:#0ea5e9;color:#fff;border:none;border-radius:6px;padding:7px 10px;font-size:12px;font-weight:700;cursor:pointer">&#128209; Ler valor do anexo</button>` : '<span style="font-size:11px;color:var(--gray-400)">(anexe o orcamento .xlsx ou .pdf)</span>'}`
           : `<span style="font-size:15px;font-weight:800;color:var(--primary)">${pe.valor != null ? _fmtValor(pe.valor) : '-'}</span>`}
       </div>
       ${(pe.planilha && temModelo) ? `<div style="margin-top:12px;font-size:12px;color:var(--green);background:var(--green-light);padding:8px 10px;border-radius:8px">&#128190; Planilha salva neste pedido${pe.planilha.geradoEm ? ' em ' + pe.planilha.geradoEm : ''}.</div>` : ''}
@@ -3565,11 +3597,11 @@
       </div>`;
     }).join('');
     // Calcula (uma vez) o valor a partir de anexos .xlsx que ainda nao tem valor, e re-renderiza
-    const pend = filt.filter(x => x.pe.arquivo && /\.xlsx$/i.test(x.pe.arquivo.nome || '') && x.pe.valor == null && !_valorCalcTentado.has(x.pe.id));
+    const pend = filt.filter(x => x.pe.arquivo && /\.(xlsx|pdf)$/i.test(x.pe.arquivo.nome || '') && x.pe.valor == null && !_valorCalcTentado.has(x.pe.id));
     if (pend.length) {
       Promise.all(pend.map(async x => {
         _valorCalcTentado.add(x.pe.id);
-        try { const v = await _valorDoAnexoXlsx(x.pe.arquivo.base64); if (v > 0) { x.pe.valor = v; return true; } } catch (e) { }
+        try { const v = await _valorDoArquivoAnexo(x.pe.arquivo); if (v > 0) { x.pe.valor = v; return true; } } catch (e) { }
         return false;
       })).then(res => { if (res.some(Boolean)) { if (isAdmin) saveFornecedores(); renderPedidosAceitos(); } });
     }
