@@ -1012,7 +1012,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <script>
   // ===== CONFIG =====
-  const APP_VERSION = 'v110';
+  const APP_VERSION = 'v111';
   const API_URL = 'https://ecoville-api.vercel.app/api';
   // Permissoes por usuario: null = pagina completa; array = secoes permitidas
   const USER_SECTIONS = {
@@ -3030,6 +3030,13 @@
     try { _baixarBlob(_b64ToBlob(pe.arquivo.base64, pe.arquivo.tipo), pe.arquivo.nome || 'arquivo'); }
     catch (e) { alert('Erro ao baixar o arquivo: ' + e.message); }
   }
+  function visualizarArquivoPedido(fornId, pedidoId) {
+    const f = allFornecedores.find(x => x.id === fornId);
+    const pe = f && (f.pedidos || []).find(p => p.id === pedidoId);
+    if (!pe || !pe.arquivo) { alert('Este pedido nao tem arquivo anexado.'); return; }
+    try { const url = URL.createObjectURL(_b64ToBlob(pe.arquivo.base64, pe.arquivo.tipo)); window.open(url, '_blank'); setTimeout(() => URL.revokeObjectURL(url), 60000); }
+    catch (e) { alert('Erro ao abrir o arquivo: ' + e.message); }
+  }
   function removerArquivoPedido(fornId, pedidoId) {
     if (!confirm('Remover o arquivo anexado a este pedido?')) return;
     const f = allFornecedores.find(x => x.id === fornId);
@@ -3283,7 +3290,8 @@
     const pe = f && (f.pedidos || []).find(p => p.id === pedidoId);
     if (!pe) return;
     const criador = pe.criadoPor ? ((allUsers.find(u => u.user === pe.criadoPor) || {}).name || pe.criadoPor) : '-';
-    const temModelo = !!f.modeloXlsx && currentUser === 'admin';
+    const isAdmin = currentUser === 'admin';
+    const temModelo = !!f.modeloXlsx && isAdmin;
     document.getElementById('modalTitle').textContent = 'Pedido - ' + f.nome;
     document.getElementById('modalBody').innerHTML = `
       <div style="font-size:13px;color:var(--gray-600);margin-bottom:8px">${pe.data} • ${pe.totalItens} itens • ${pe.totalUnidades} unidades • ${pe.aprovado ? '<b style="color:var(--green)">Aceito</b>' : '<b style="color:var(--orange)">Pendente</b>'}</div>
@@ -3292,6 +3300,12 @@
       <table style="width:100%;font-size:13px"><thead><tr><th style="text-align:left">Produto</th><th>Cod.</th><th style="text-align:right">Qtd</th></tr></thead><tbody>
         ${pe.itens.map(it => `<tr><td style="padding:3px 0">${it.description}</td><td style="text-align:center;color:var(--gray-400)">${it.code || ''}</td><td style="text-align:right;font-weight:700">${it.qty}x</td></tr>`).join('')}
       </tbody></table>
+      <div style="margin-top:12px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+        <span style="font-size:13px;font-weight:700;color:var(--gray-700)">Valor do pedido:</span>
+        ${isAdmin
+          ? `<input type="number" step="0.01" min="0" value="${pe.valor != null ? pe.valor : ''}" placeholder="0,00" onchange="_setValorPedido(${fornId},${pedidoId},this.value)" style="width:130px;padding:7px;border:2px solid var(--gray-200);border-radius:6px;font-size:14px;font-family:inherit;text-align:right"><span style="font-size:11px;color:var(--gray-400)">(do orcamento anexado)</span>`
+          : `<span style="font-size:15px;font-weight:800;color:var(--primary)">${pe.valor != null ? _fmtValor(pe.valor) : '-'}</span>`}
+      </div>
       ${(pe.planilha && temModelo) ? `<div style="margin-top:12px;font-size:12px;color:var(--green);background:var(--green-light);padding:8px 10px;border-radius:8px">&#128190; Planilha salva neste pedido${pe.planilha.geradoEm ? ' em ' + pe.planilha.geradoEm : ''}.</div>` : ''}
       ${temModelo ? `<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px">
         ${pe.planilha ? `<button onclick="baixarPlanilhaSalva(${fornId},${pedidoId})" style="flex:1;min-width:150px;background:#4338ca;color:#fff;border:none;border-radius:8px;padding:12px;font-size:14px;font-weight:700;cursor:pointer">&#11015; Baixar planilha salva</button>` : ''}
@@ -3302,6 +3316,7 @@
         ${pe.arquivo ? `<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px">
           <span style="background:var(--gray-100);padding:4px 10px;border-radius:8px;font-size:12px;font-weight:600">&#128206; ${_escHtml(pe.arquivo.nome)}</span>
           <span style="font-size:11px;color:var(--gray-400)">${pe.arquivo.enviadoEm || ''}${pe.arquivo.enviadoPor ? ' • ' + _escHtml(pe.arquivo.enviadoPor) : ''}</span>
+          <button onclick="visualizarArquivoPedido(${fornId},${pedidoId})" style="background:#0ea5e9;color:#fff;border:none;border-radius:6px;padding:5px 10px;font-size:11px;font-weight:700;cursor:pointer">Visualizar</button>
           <button onclick="baixarArquivoPedido(${fornId},${pedidoId})" style="background:#4338ca;color:#fff;border:none;border-radius:6px;padding:5px 10px;font-size:11px;font-weight:700;cursor:pointer">Baixar</button>
           <button onclick="removerArquivoPedido(${fornId},${pedidoId})" style="background:var(--red-light);color:var(--red);border:none;border-radius:6px;padding:5px 10px;font-size:11px;font-weight:700;cursor:pointer">Remover</button>
         </div>` : ''}
@@ -3373,6 +3388,17 @@
     saveFornecedores();
     renderPedidosAceitos();
   }
+  function _fmtValor(v) { return (Number(v) || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }); }
+  function _setValorPedido(fornId, pedidoId, value) {
+    if (currentUser !== 'admin') { alert('Somente o administrador pode definir o valor do pedido.'); return; }
+    const f = allFornecedores.find(x => x.id === fornId);
+    const pe = f && (f.pedidos || []).find(p => p.id === pedidoId);
+    if (!pe) return;
+    const n = parseFloat(String(value).replace(',', '.'));
+    if (value === '' || isNaN(n)) delete pe.valor; else pe.valor = n;
+    saveFornecedores();
+    renderPedidosAceitos();
+  }
   function renderPedidosAceitos() {
     loadFornecedoresIfNeeded();
     const isAdmin = currentUser === 'admin';
@@ -3394,7 +3420,8 @@
     const grupos = {};
     filt.forEach(x => { const { y, mo } = _mesAnoAceite(x.pe); const key = y * 100 + mo; (grupos[key] = grupos[key] || { y, mo, itens: [] }).itens.push(x); });
     const keys = Object.keys(grupos).map(Number).sort((a, b) => b - a);
-    const cntEl = document.getElementById('aceitosCount'); if (cntEl) cntEl.textContent = filt.length + ' pedido(s) aceito(s)';
+    const totalGeral = filt.reduce((s, x) => s + (Number(x.pe.valor) || 0), 0);
+    const cntEl = document.getElementById('aceitosCount'); if (cntEl) cntEl.innerHTML = filt.length + ' pedido(s) aceito(s)' + (totalGeral ? ' • Total: <b style="color:var(--primary)">' + _fmtValor(totalGeral) + '</b>' : '');
     const cont = document.getElementById('aceitosContainer'); if (!cont) return;
     if (!keys.length) { cont.innerHTML = '<div style="text-align:center;padding:44px;color:var(--gray-400)">Nenhum pedido aceito ainda.</div>'; return; }
     // Banner: entregas atrasadas ou nos proximos 7 dias (nao entregues)
@@ -3410,12 +3437,13 @@
       const g = grupos[k];
       const titulo = (g.mo ? _MESES[g.mo] : 'Sem data de aceite') + (g.y ? ' de ' + g.y : '');
       const totItens = g.itens.reduce((s, x) => s + (x.pe.totalItens || 0), 0);
+      const valMes = g.itens.reduce((s, x) => s + (Number(x.pe.valor) || 0), 0);
       const rows = g.itens.slice().sort((a, b) => (b.pe.aprovadoEm || '').localeCompare(a.pe.aprovadoEm || '')).map(x => {
         const pe = x.pe; const forn = allFornecedores.find(f => f.id === x.fornId) || {};
         const temModelo = !!forn.modeloXlsx;
         const btnExcel = (isAdmin && temModelo) ? `<button onclick="gerarExcelDoPedido(${x.fornId},${pe.id})" style="background:#dcfce7;color:#047857;border:none;border-radius:6px;padding:6px 10px;font-size:11px;font-weight:700;cursor:pointer;margin:2px">&#128196; Excel${pe.planilha ? ' &#10003;' : ''}</button>` : '';
         const btnBaixar = (isAdmin && temModelo && pe.planilha) ? `<button onclick="baixarPlanilhaSalva(${x.fornId},${pe.id})" style="background:#eef2ff;color:#4338ca;border:none;border-radius:6px;padding:6px 10px;font-size:11px;font-weight:700;cursor:pointer;margin:2px">Baixar</button>` : '';
-        const btnArq = pe.arquivo ? `<button onclick="baixarArquivoPedido(${x.fornId},${pe.id})" title="Baixar arquivo anexado: ${_escHtml(pe.arquivo.nome)}" style="background:var(--gray-100);color:var(--gray-700);border:none;border-radius:6px;padding:6px 10px;font-size:11px;font-weight:700;cursor:pointer;margin:2px">&#128206;</button>` : '';
+        const btnArq = pe.arquivo ? `<button onclick="visualizarArquivoPedido(${x.fornId},${pe.id})" title="Visualizar orcamento anexado: ${_escHtml(pe.arquivo.nome)}" style="background:var(--gray-100);color:var(--gray-700);border:none;border-radius:6px;padding:6px 10px;font-size:11px;font-weight:700;cursor:pointer;margin:2px">&#128206; Orcamento</button>` : '';
         const st = _entregaStatus(pe);
         let entregaCell;
         if (pe.entregue) {
@@ -3427,6 +3455,9 @@
             ? `<div style="font-size:12px;font-weight:600;color:var(--gray-700)">${_fmtDataISO(pe.entregaPrevista)}</div><div style="font-size:10px;font-weight:700;color:${st.cor};margin-top:2px">${st.txt}</div>`
             : '<span style="color:var(--gray-400);font-size:12px">-</span>';
         }
+        const valorCell = isAdmin
+          ? `<input type="number" step="0.01" min="0" value="${pe.valor != null ? pe.valor : ''}" placeholder="0,00" onchange="_setValorPedido(${x.fornId},${pe.id},this.value)" style="width:92px;padding:5px;border:2px solid var(--gray-200);border-radius:6px;font-size:12px;font-family:inherit;text-align:right">`
+          : (pe.valor != null ? `<span style="font-weight:700">${_fmtValor(pe.valor)}</span>` : '<span style="color:var(--gray-400)">-</span>');
         return `<tr>
           <td>${pe.data || '-'}</td>
           <td><strong>${x.fornNome}</strong></td>
@@ -3434,6 +3465,7 @@
           <td>${pe.totalUnidades} un</td>
           <td style="font-size:12px;color:var(--gray-500)">${pe.aprovadoEm || '-'}</td>
           <td style="white-space:nowrap">${entregaCell}</td>
+          <td style="text-align:right;white-space:nowrap">${valorCell}</td>
           <td>
             <button onclick="verPedido(${x.fornId},${pe.id})" style="background:var(--gray-100);color:var(--gray-700);border:none;border-radius:6px;padding:6px 10px;font-size:11px;font-weight:700;cursor:pointer;margin:2px">Ver</button>
             ${btnExcel}${btnBaixar}${btnArq}
@@ -3443,10 +3475,10 @@
       return `<div style="margin-bottom:22px">
         <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
           <h3 style="font-size:15px;color:var(--primary);text-transform:capitalize;margin:0">${titulo}</h3>
-          <span style="font-size:12px;color:var(--gray-500)">${g.itens.length} pedido(s) • ${totItens} itens</span>
+          <span style="font-size:12px;color:var(--gray-500)">${g.itens.length} pedido(s) • ${totItens} itens${valMes ? ' • Total do mes: <b style="color:var(--primary)">' + _fmtValor(valMes) + '</b>' : ''}</span>
         </div>
         <div class="table-card"><div style="overflow-x:auto"><table><thead><tr>
-          <th>Data pedido</th><th>Fornecedor</th><th>Itens</th><th>Unidades</th><th>Aceito em</th><th>Entrega</th><th>Acoes</th>
+          <th>Data pedido</th><th>Fornecedor</th><th>Itens</th><th>Unidades</th><th>Aceito em</th><th>Entrega</th><th style="text-align:right">Valor</th><th>Acoes</th>
         </tr></thead><tbody>${rows}</tbody></table></div></div>
       </div>`;
     }).join('');
