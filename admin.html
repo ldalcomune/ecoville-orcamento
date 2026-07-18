@@ -1022,7 +1022,7 @@
 </script>
 <script>
   // ===== CONFIG =====
-  const APP_VERSION = 'v118';
+  const APP_VERSION = 'v119';
   const API_URL = 'https://ecoville-api.vercel.app/api';
   // Permissoes por usuario: null = pagina completa; array = secoes permitidas
   const USER_SECTIONS = {
@@ -1555,13 +1555,13 @@
     const atualizado = d.computedAt ? new Date(d.computedAt).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : '';
 
     const tile = (label, val, sub) =>
-      '<div style="flex:1;min-width:150px;background:var(--gray-50);border-radius:12px;padding:14px 16px">'
-      + '<div style="font-size:12px;color:var(--gray-500);font-weight:600">' + label + '</div>'
-      + '<div style="font-size:23px;font-weight:800;color:var(--primary);margin-top:2px">' + _fmtR(val) + '</div>'
-      + (sub ? '<div style="font-size:11px;color:var(--gray-400);margin-top:2px">' + sub + '</div>' : '') + '</div>';
-    const kpis = '<div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:20px">'
-      + tile(mesFull[mi] + ' (mes atual)', valMes, 'parcial')
-      + tile(anteriorNome + ' (mes anterior)', valMesAnt, '')
+      '<div style="flex:1;min-width:110px;background:var(--gray-50);border-radius:9px;padding:8px 11px">'
+      + '<div style="font-size:11px;color:var(--gray-500);font-weight:600">' + label + '</div>'
+      + '<div style="font-size:16px;font-weight:800;color:var(--primary)">' + _fmtR(val) + '</div>'
+      + (sub ? '<div style="font-size:10px;color:var(--gray-400)">' + sub + '</div>' : '') + '</div>';
+    const kpis = '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">'
+      + tile(mesFull[mi], valMes, 'mes atual (parcial)')
+      + tile(anteriorNome, valMesAnt, 'mes anterior')
       + tile('Total ' + d.anoAtual, d.totalAtual, (d.nVendasAno || 0) + ' vendas')
       + '</div>';
 
@@ -1575,61 +1575,59 @@
       const dA = new Date(monday); dA.setDate(monday.getDate() + i);
       const dB = new Date(monday); dB.setDate(monday.getDate() + i - 364);
       const vA = dias[_ymd(dA)] || 0, vB = dias[_ymd(dB)] || 0; totA += vA; totB += vB;
-      const up = vA > 0 ? ' <span style="color:#16a34a;font-size:10px">&#9650;</span>' : '';
       return '<tr style="border-top:1px solid var(--gray-100)">'
-        + '<td style="padding:7px 10px;font-weight:600;color:var(--gray-700)">' + dn + '</td>'
-        + '<td style="padding:7px 4px;font-size:11px;color:var(--gray-400)">' + dd(dA) + '</td>'
-        + '<td style="padding:7px 10px;text-align:right;font-weight:700;' + (vA > 0 ? 'color:var(--primary)' : 'color:var(--gray-400)') + '">' + _fmtR2(vA) + up + '</td>'
-        + '<td style="padding:7px 4px;font-size:11px;color:var(--gray-400)">' + dd(dB) + '</td>'
-        + '<td style="padding:7px 10px;text-align:right;' + (vB > 0 ? 'font-weight:700' : 'color:var(--gray-400)') + '">' + _fmtR2(vB) + '</td>'
+        + '<td style="padding:4px 8px;font-weight:600;color:var(--gray-700)">' + dn + ' <span style="color:var(--gray-400);font-weight:400;font-size:10px">' + dd(dA) + '</span></td>'
+        + '<td style="padding:4px 8px;text-align:right;' + (vA > 0 ? 'font-weight:700;color:var(--primary)' : 'color:var(--gray-300)') + '">' + _fmtR2(vA) + '</td>'
+        + '<td style="padding:4px 8px;text-align:right;' + (vB > 0 ? 'font-weight:600' : 'color:var(--gray-300)') + '">' + _fmtR2(vB) + '</td>'
         + '</tr>';
     }).join('');
     const semanaWidget =
-      '<div style="border:1px solid var(--gray-200);border-radius:12px;overflow:hidden;margin-bottom:20px">'
-      + '<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:var(--gray-50);border-bottom:1px solid var(--gray-200)">'
-      + '<b style="font-size:14px">Faturamento por Dia da Semana</b>'
-      + '<span style="display:flex;align-items:center;gap:8px;font-size:13px;font-weight:700;color:var(--primary)">'
-      + '<button onclick="mvxSemana(-1)" title="Semana anterior" style="background:none;border:none;cursor:pointer;font-size:15px;color:var(--primary);padding:2px 6px">&#9664;</button>'
-      + 'Semana ' + semana
-      + '<button onclick="mvxSemana(1)" title="Proxima semana" style="background:none;border:none;cursor:pointer;font-size:15px;color:var(--primary);padding:2px 6px">&#9654;</button>'
-      + (_mvxWeekOffset !== 0 ? '<button onclick="mvxSemana(' + (-_mvxWeekOffset) + ')" style="background:var(--gray-100);border:none;border-radius:6px;padding:3px 8px;font-size:11px;cursor:pointer;color:var(--gray-600)">hoje</button>' : '')
+      '<div style="flex:1;min-width:260px;border:1px solid var(--gray-200);border-radius:10px;overflow:hidden">'
+      + '<div style="display:flex;align-items:center;justify-content:space-between;padding:6px 10px;background:var(--gray-50);border-bottom:1px solid var(--gray-200)">'
+      + '<b style="font-size:12px">Por Dia da Semana</b>'
+      + '<span style="display:flex;align-items:center;gap:4px;font-size:12px;font-weight:700;color:var(--primary)">'
+      + '<button onclick="mvxSemana(-1)" style="background:none;border:none;cursor:pointer;font-size:13px;color:var(--primary);padding:0 4px">&#9664;</button>'
+      + 'Sem ' + semana
+      + '<button onclick="mvxSemana(1)" style="background:none;border:none;cursor:pointer;font-size:13px;color:var(--primary);padding:0 4px">&#9654;</button>'
+      + (_mvxWeekOffset !== 0 ? '<button onclick="mvxSemana(' + (-_mvxWeekOffset) + ')" style="background:var(--gray-100);border:none;border-radius:5px;padding:2px 6px;font-size:10px;cursor:pointer;color:var(--gray-600)">hoje</button>' : '')
       + '</span></div>'
-      + '<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:13px">'
-      + '<thead><tr style="font-size:12px;color:#fff">'
-      + '<th style="padding:6px 10px;background:var(--gray-400)"></th>'
-      + '<th colspan="2" style="padding:6px 10px;background:var(--primary)">' + d.anoAtual + '</th>'
-      + '<th colspan="2" style="padding:6px 10px;background:var(--orange)">' + d.anoAnterior + '</th>'
+      + '<table style="width:100%;border-collapse:collapse;font-size:12px">'
+      + '<thead><tr style="font-size:11px;color:#fff">'
+      + '<th style="padding:4px 8px;background:var(--gray-400);text-align:left">Dia</th>'
+      + '<th style="padding:4px 8px;background:var(--primary);text-align:right">' + d.anoAtual + '</th>'
+      + '<th style="padding:4px 8px;background:var(--orange);text-align:right">' + d.anoAnterior + '</th>'
       + '</tr></thead><tbody>' + wrows + '</tbody>'
       + '<tfoot><tr style="border-top:2px solid var(--gray-200);font-weight:800;background:var(--gray-50)">'
-      + '<td colspan="2" style="padding:8px 10px">Total da semana</td>'
-      + '<td style="padding:8px 10px;text-align:right;color:var(--primary)">' + _fmtR2(totA) + '</td>'
-      + '<td></td><td style="padding:8px 10px;text-align:right">' + _fmtR2(totB) + '</td>'
-      + '</tr></tfoot></table></div></div>';
+      + '<td style="padding:5px 8px">Total</td>'
+      + '<td style="padding:5px 8px;text-align:right;color:var(--primary)">' + _fmtR2(totA) + '</td>'
+      + '<td style="padding:5px 8px;text-align:right">' + _fmtR2(totB) + '</td>'
+      + '</tr></tfoot></table></div>';
 
     // ---- Vendas Ano a Ano (por mes) ----
     const mrows = meses.map((mn, i) => {
       if (!(atual[i] > 0) && !(anterior[i] > 0)) return null;
       return '<tr style="border-top:1px solid var(--gray-100)">'
-        + '<td style="padding:6px 10px;font-weight:600">' + mn + '</td>'
-        + '<td style="padding:6px 10px;text-align:right;font-weight:700;color:var(--primary)">' + (atual[i] > 0 ? _fmtR(atual[i]) : '-') + '</td>'
-        + '<td style="padding:6px 10px;text-align:right;color:var(--gray-500)">' + (anterior[i] > 0 ? _fmtR(anterior[i]) : '-') + '</td></tr>';
+        + '<td style="padding:4px 8px;font-weight:600">' + mn + '</td>'
+        + '<td style="padding:4px 8px;text-align:right;font-weight:700;color:var(--primary)">' + (atual[i] > 0 ? _fmtR(atual[i]) : '-') + '</td>'
+        + '<td style="padding:4px 8px;text-align:right;color:var(--gray-500)">' + (anterior[i] > 0 ? _fmtR(anterior[i]) : '-') + '</td></tr>';
     }).filter(Boolean).join('');
     const anoWidget =
-      '<div style="border:1px solid var(--gray-200);border-radius:12px;overflow:hidden"><div style="overflow-x:auto">'
-      + '<table style="width:100%;border-collapse:collapse;font-size:13px">'
-      + '<thead><tr style="font-size:12px;color:#fff">'
-      + '<th style="padding:6px 10px;background:var(--gray-400);text-align:left">Vendas Ano a Ano</th>'
-      + '<th style="padding:6px 10px;background:var(--primary);text-align:right">' + d.anoAtual + '</th>'
-      + '<th style="padding:6px 10px;background:var(--orange);text-align:right">' + d.anoAnterior + '</th>'
+      '<div style="flex:1;min-width:230px;border:1px solid var(--gray-200);border-radius:10px;overflow:hidden">'
+      + '<table style="width:100%;border-collapse:collapse;font-size:12px">'
+      + '<thead><tr style="font-size:11px;color:#fff">'
+      + '<th style="padding:4px 8px;background:var(--gray-400);text-align:left">Ano a Ano</th>'
+      + '<th style="padding:4px 8px;background:var(--primary);text-align:right">' + d.anoAtual + '</th>'
+      + '<th style="padding:4px 8px;background:var(--orange);text-align:right">' + d.anoAnterior + '</th>'
       + '</tr></thead><tbody>' + mrows + '</tbody>'
       + '<tfoot><tr style="border-top:2px solid var(--gray-200);font-weight:800;background:var(--gray-50)">'
-      + '<td style="padding:8px 10px">Total</td>'
-      + '<td style="padding:8px 10px;text-align:right;color:var(--primary)">' + _fmtR(d.totalAtual) + '</td>'
-      + '<td style="padding:8px 10px;text-align:right">' + _fmtR(d.totalAnterior) + '</td>'
-      + '</tr></tfoot></table></div></div>';
+      + '<td style="padding:5px 8px">Total</td>'
+      + '<td style="padding:5px 8px;text-align:right;color:var(--primary)">' + _fmtR(d.totalAtual) + '</td>'
+      + '<td style="padding:5px 8px;text-align:right">' + _fmtR(d.totalAnterior) + '</td>'
+      + '</tr></tfoot></table></div>';
 
-    el.innerHTML = kpis + semanaWidget + anoWidget
-      + '<div style="margin-top:12px;font-size:11px;color:var(--gray-400)">Fonte: Microvix • atualizado ' + atualizado + (d.cache ? ' (cache)' : '') + '</div>';
+    el.innerHTML = kpis
+      + '<div style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-start">' + semanaWidget + anoWidget + '</div>'
+      + '<div style="margin-top:8px;font-size:10px;color:var(--gray-400)">Fonte: Microvix • atualizado ' + atualizado + (d.cache ? ' (cache)' : '') + '</div>';
   }
 
   function getPaymentStatusBadge(o) {
